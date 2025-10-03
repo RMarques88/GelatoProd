@@ -13,14 +13,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Product, Recipe, RecipeIngredient } from '@/domain';
 import { useProducts, useRecipes } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import { logError } from '@/utils/logger';
 import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type IngredientFormValue = {
   type: RecipeIngredient['type'];
@@ -40,15 +41,9 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
   const { user } = useAuth();
   const authorization = useAuthorization(user);
 
-  const {
-    recipes,
-    isLoading,
-    create,
-    update,
-    archive,
-    restore,
-    remove,
-  } = useRecipes({ includeInactive: true });
+  const { recipes, isLoading, create, update, archive, restore, remove } = useRecipes({
+    includeInactive: true,
+  });
   const { products } = useProducts({ includeInactive: true });
 
   const editingRecipe = useMemo(
@@ -118,11 +113,16 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
   }, [canManage]);
 
   const handleAddIngredient = () => {
-    setIngredients(previous => [...previous, { type: 'product', referenceId: '', quantity: '' }]);
+    setIngredients(previous => [
+      ...previous,
+      { type: 'product', referenceId: '', quantity: '' },
+    ]);
   };
 
   const handleRemoveIngredient = (index: number) => {
-    setIngredients(previous => previous.filter((_, currentIndex) => currentIndex !== index));
+    setIngredients(previous =>
+      previous.filter((_, currentIndex) => currentIndex !== index),
+    );
   };
 
   const handleIngredientChange = (
@@ -241,6 +241,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
             await archive(recipeId);
             Alert.alert('Receita arquivada', 'A receita foi movida para inativas.');
           } catch (archiveError) {
+            logError(archiveError, 'recipes.archive');
             Alert.alert('Erro', 'Não foi possível arquivar a receita.');
           } finally {
             setIsArchiving(false);
@@ -265,6 +266,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
             await restore(recipeId);
             Alert.alert('Receita restaurada', 'A receita voltou a ficar ativa.');
           } catch (restoreError) {
+            logError(restoreError, 'recipes.restore');
             Alert.alert('Erro', 'Não foi possível restaurar a receita.');
           } finally {
             setIsRestoring(false);
@@ -298,6 +300,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                 },
               ]);
             } catch (deleteError) {
+              logError(deleteError, 'recipes.delete');
               Alert.alert('Erro', 'Não foi possível excluir a receita.');
             } finally {
               setIsDeleting(false);
@@ -332,7 +335,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
           </Text>
           <Pressable
             onPress={() => navigation.navigate('Recipes')}
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+            ]}
           >
             <Text style={styles.primaryButtonText}>Voltar para a lista</Text>
           </Pressable>
@@ -388,7 +394,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
           </View>
 
           <View style={[styles.formGroup, styles.inlineRow]}>
-            <View style={[styles.inlineHalf, { paddingRight: 8 }]}>
+            <View style={[styles.inlineHalf, styles.inlineHalfSpacing]}>
               <Text style={styles.label}>Rendimento (g) *</Text>
               <TextInput
                 value={yieldInGrams}
@@ -401,7 +407,11 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
             </View>
             <View style={[styles.inlineHalf, styles.switchContainer]}>
               <Text style={styles.label}>Receita ativa</Text>
-              <Switch value={isActive} onValueChange={setIsActive} disabled={!canManage} />
+              <Switch
+                value={isActive}
+                onValueChange={setIsActive}
+                disabled={!canManage}
+              />
             </View>
           </View>
 
@@ -421,8 +431,8 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
 
           <Text style={styles.sectionTitle}>Ingredientes *</Text>
           <Text style={styles.sectionDescription}>
-            Selecione os produtos ou receitas que compõem esta ficha técnica e informe a quantidade
-            em gramas utilizada por batelada.
+            Selecione os produtos ou receitas que compõem esta ficha técnica e informe a
+            quantidade em gramas utilizada por batelada.
           </Text>
 
           <View style={styles.ingredientsList}>
@@ -433,7 +443,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                   {ingredients.length > 1 ? (
                     <Pressable
                       onPress={() => handleRemoveIngredient(index)}
-                      style={({ pressed }) => [styles.removeChip, pressed && styles.removeChipPressed]}
+                      style={({ pressed }) => [
+                        styles.removeChip,
+                        pressed && styles.removeChipPressed,
+                      ]}
                     >
                       <Text style={styles.removeChipText}>Remover</Text>
                     </Pressable>
@@ -442,7 +455,9 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
 
                 <View style={styles.toggleGroup}>
                   <Pressable
-                    onPress={() => handleIngredientChange(index, { type: 'product', referenceId: '' })}
+                    onPress={() =>
+                      handleIngredientChange(index, { type: 'product', referenceId: '' })
+                    }
                     style={({ pressed }) => [
                       styles.toggleButton,
                       ingredient.type === 'product' && styles.toggleButtonActive,
@@ -451,13 +466,18 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                     disabled={!canManage}
                   >
                     <Text
-                      style={[styles.toggleButtonText, ingredient.type === 'product' && styles.toggleButtonTextActive]}
+                      style={[
+                        styles.toggleButtonText,
+                        ingredient.type === 'product' && styles.toggleButtonTextActive,
+                      ]}
                     >
                       Produto
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={() => handleIngredientChange(index, { type: 'recipe', referenceId: '' })}
+                    onPress={() =>
+                      handleIngredientChange(index, { type: 'recipe', referenceId: '' })
+                    }
                     style={({ pressed }) => [
                       styles.toggleButton,
                       ingredient.type === 'recipe' && styles.toggleButtonActive,
@@ -466,7 +486,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                     disabled={!canManage}
                   >
                     <Text
-                      style={[styles.toggleButtonText, ingredient.type === 'recipe' && styles.toggleButtonTextActive]}
+                      style={[
+                        styles.toggleButtonText,
+                        ingredient.type === 'recipe' && styles.toggleButtonTextActive,
+                      ]}
                     >
                       Receita
                     </Text>
@@ -477,7 +500,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                   <Text style={styles.label}>Item selecionado *</Text>
                   <Pressable
                     onPress={() => setPickerState({ index, type: ingredient.type })}
-                    style={({ pressed }) => [styles.selector, pressed && styles.selectorPressed]}
+                    style={({ pressed }) => [
+                      styles.selector,
+                      pressed && styles.selectorPressed,
+                    ]}
                     disabled={!canManage}
                   >
                     <Text
@@ -495,7 +521,9 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                   <Text style={styles.label}>Quantidade (g) *</Text>
                   <TextInput
                     value={ingredient.quantity}
-                    onChangeText={value => handleIngredientChange(index, { quantity: value })}
+                    onChangeText={value =>
+                      handleIngredientChange(index, { quantity: value })
+                    }
                     placeholder="500"
                     style={styles.input}
                     keyboardType="numeric"
@@ -508,7 +536,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
 
           <Pressable
             onPress={handleAddIngredient}
-            style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+            style={({ pressed }) => [
+              styles.secondaryButton,
+              pressed && styles.secondaryButtonPressed,
+            ]}
             disabled={!canManage}
           >
             <Text style={styles.secondaryButtonText}>Adicionar ingrediente</Text>
@@ -516,7 +547,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
 
           <Pressable
             onPress={handleSubmit}
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+            ]}
             disabled={!canManage || isSubmitting}
           >
             {isSubmitting ? (
@@ -532,8 +566,8 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
             <View style={styles.dangerZone}>
               <Text style={styles.dangerTitle}>Ações adicionais</Text>
               <Text style={styles.dangerDescription}>
-                Arquivar remove a receita das listas ativas sem perder o histórico. Excluir é
-                permanente e só deve ser feito para cadastros incorretos.
+                Arquivar remove a receita das listas ativas sem perder o histórico.
+                Excluir é permanente e só deve ser feito para cadastros incorretos.
               </Text>
 
               <View style={styles.dangerActions}>
@@ -572,7 +606,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                 {!editingRecipe?.isActive ? (
                   <Pressable
                     onPress={handleDelete}
-                    style={({ pressed }) => [styles.deleteButton, pressed && styles.deleteButtonPressed]}
+                    style={({ pressed }) => [
+                      styles.deleteButton,
+                      pressed && styles.deleteButtonPressed,
+                    ]}
                     disabled={isDeleting || !canManage}
                   >
                     {isDeleting ? (
@@ -614,7 +651,14 @@ type IngredientPickerModalProps = {
   recipes: Recipe[];
 };
 
-function IngredientPickerModal({ visible, onClose, onSelect, type, products, recipes }: IngredientPickerModalProps) {
+function IngredientPickerModal({
+  visible,
+  onClose,
+  onSelect,
+  type,
+  products,
+  recipes,
+}: IngredientPickerModalProps) {
   const options = useMemo<Product[] | Recipe[]>(() => {
     if (type === 'recipe') {
       return recipes;
@@ -632,7 +676,10 @@ function IngredientPickerModal({ visible, onClose, onSelect, type, products, rec
             <Text style={styles.modalTitle}>{title}</Text>
             <Pressable
               onPress={onClose}
-              style={({ pressed }) => [styles.modalCloseButton, pressed && styles.modalCloseButtonPressed]}
+              style={({ pressed }) => [
+                styles.modalCloseButton,
+                pressed && styles.modalCloseButtonPressed,
+              ]}
             >
               <Text style={styles.modalClose}>Fechar</Text>
             </Pressable>
@@ -643,7 +690,10 @@ function IngredientPickerModal({ visible, onClose, onSelect, type, products, rec
                 <Pressable
                   key={option.id}
                   onPress={() => onSelect(option.id)}
-                  style={({ pressed }) => [styles.modalOption, pressed && styles.modalOptionPressed]}
+                  style={({ pressed }) => [
+                    styles.modalOption,
+                    pressed && styles.modalOptionPressed,
+                  ]}
                 >
                   <Text style={styles.modalOptionTitle}>{option.name}</Text>
                   {option.description ? (
@@ -714,6 +764,9 @@ const styles = StyleSheet.create({
   },
   inlineHalf: {
     flex: 1,
+  },
+  inlineHalfSpacing: {
+    paddingRight: 8,
   },
   switchContainer: {
     flexDirection: 'row',

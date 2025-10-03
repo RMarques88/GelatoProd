@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   ActivityIndicator,
   Pressable,
@@ -7,16 +8,16 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useProductionPlans, useProductionStages } from '@/hooks/data';
-import { useAuthorization } from '@/hooks/useAuthorization';
 import { useAuth } from '@/hooks/useAuth';
-import type { AppStackParamList } from '@/navigation';
-import type { ProductionPlan, ProductionStage } from '@/domain';
+import { useAuthorization } from '@/hooks/useAuthorization';
 import { formatRelativeDate } from '@/utils/date';
+
+import type { ProductionPlan, ProductionStage } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const DAYS_TO_SHOW = 14;
 
@@ -49,8 +50,7 @@ function PlanCard({ plan, stages, onOpenExecution }: PlanCardProps) {
         <View>
           <Text style={styles.planTitle}>{plan.recipeName}</Text>
           <Text style={styles.planMeta}>
-            {plan.quantityInUnits}{' '}
-            {plan.unitOfMeasure === 'GRAMS' ? 'g' : 'un'} ·{' '}
+            {plan.quantityInUnits} {plan.unitOfMeasure === 'GRAMS' ? 'g' : 'un'} ·{' '}
             {plan.scheduledFor.toLocaleDateString('pt-BR')}
           </Text>
         </View>
@@ -66,7 +66,10 @@ function PlanCard({ plan, stages, onOpenExecution }: PlanCardProps) {
       {plan.notes ? <Text style={styles.planDescription}>{plan.notes}</Text> : null}
       <Pressable
         onPress={() => onOpenExecution(plan.id)}
-        style={({ pressed }) => [styles.planActionButton, pressed && styles.planActionButtonPressed]}
+        style={({ pressed }) => [
+          styles.planActionButton,
+          pressed && styles.planActionButtonPressed,
+        ]}
       >
         <Text style={styles.planActionButtonText}>Abrir execução</Text>
       </Pressable>
@@ -172,7 +175,8 @@ export function ProductionPlannerScreen() {
   const totalScheduledForToday = useMemo(() => {
     const today = startOfDay(new Date());
     const end = endOfDay(today);
-    return plans.filter(plan => plan.scheduledFor >= today && plan.scheduledFor <= end).length;
+    return plans.filter(plan => plan.scheduledFor >= today && plan.scheduledFor <= end)
+      .length;
   }, [plans]);
 
   const handleOpenExecution = useCallback(
@@ -189,7 +193,10 @@ export function ProductionPlannerScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <View>
             <Text style={styles.heading}>Planejamento de produção</Text>
@@ -200,7 +207,10 @@ export function ProductionPlannerScreen() {
           {plansError || stagesError ? (
             <Pressable
               onPress={handleRetry}
-              style={({ pressed }) => [styles.retryChip, pressed && styles.retryChipPressed]}
+              style={({ pressed }) => [
+                styles.retryChip,
+                pressed && styles.retryChipPressed,
+              ]}
             >
               <Text style={styles.retryChipText}>Tentar novamente</Text>
             </Pressable>
@@ -216,9 +226,16 @@ export function ProductionPlannerScreen() {
             <Text style={styles.summaryLabel}>Em andamento</Text>
             <Text style={styles.summaryValue}>{totalInProgress}</Text>
           </View>
-          <View style={[styles.summaryCard, latePlans.length > 0 && styles.summaryCardAlert]}>
+          <View
+            style={[styles.summaryCard, latePlans.length > 0 && styles.summaryCardAlert]}
+          >
             <Text style={styles.summaryLabel}>Atrasados</Text>
-            <Text style={[styles.summaryValue, latePlans.length > 0 && styles.summaryValueAlert]}>
+            <Text
+              style={[
+                styles.summaryValue,
+                latePlans.length > 0 && styles.summaryValueAlert,
+              ]}
+            >
               {latePlans.length}
             </Text>
           </View>
@@ -234,7 +251,10 @@ export function ProductionPlannerScreen() {
             ]}
           >
             <Text
-              style={[styles.toggleButtonText, viewMode === 'calendar' && styles.toggleButtonTextActive]}
+              style={[
+                styles.toggleButtonText,
+                viewMode === 'calendar' && styles.toggleButtonTextActive,
+              ]}
             >
               Calendário
             </Text>
@@ -248,7 +268,10 @@ export function ProductionPlannerScreen() {
             ]}
           >
             <Text
-              style={[styles.toggleButtonText, viewMode === 'list' && styles.toggleButtonTextActive]}
+              style={[
+                styles.toggleButtonText,
+                viewMode === 'list' && styles.toggleButtonTextActive,
+              ]}
             >
               Lista
             </Text>
@@ -256,7 +279,11 @@ export function ProductionPlannerScreen() {
         </View>
 
         {viewMode === 'calendar' ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.calendarStrip}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.calendarStrip}
+          >
             {days.map(day => {
               const plansForDay = plans.filter(plan => {
                 const schedule = plan.scheduledFor;
@@ -281,7 +308,12 @@ export function ProductionPlannerScreen() {
                   <Text style={[styles.dayNumber, isSelected && styles.dayNumberActive]}>
                     {day.getDate()}
                   </Text>
-                  <Text style={[styles.dayPlansCount, isSelected && styles.dayPlansCountActive]}>
+                  <Text
+                    style={[
+                      styles.dayPlansCount,
+                      isSelected && styles.dayPlansCountActive,
+                    ]}
+                  >
                     {plansForDay.length} planos
                   </Text>
                 </Pressable>

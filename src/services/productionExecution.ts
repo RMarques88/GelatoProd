@@ -4,17 +4,18 @@ import {
   ProductionPlan,
   StockMovement,
 } from '@/domain';
-import {
-  adjustStockLevel,
-  listStockItems,
-} from '@/services/firestore/stockService';
-import { listProductionStages, updateProductionStage } from '@/services/firestore/productionStagesService';
+import { createNotification } from '@/services/firestore/notificationsService';
+import { createProductionDivergence } from '@/services/firestore/productionDivergencesService';
 import {
   getProductionPlanById,
   updateProductionPlan,
 } from '@/services/firestore/productionService';
+import {
+  listProductionStages,
+  updateProductionStage,
+} from '@/services/firestore/productionStagesService';
 import { getRecipeById } from '@/services/firestore/recipesService';
-import { createProductionDivergence } from '@/services/firestore/productionDivergencesService';
+import { adjustStockLevel, listStockItems } from '@/services/firestore/stockService';
 import { logError } from '@/utils/logger';
 
 function calculateRequiredQuantity(
@@ -34,7 +35,10 @@ function calculateRequiredQuantity(
   return ingredientQuantityInGrams * plan.quantityInUnits;
 }
 
-function resolveSeverity(missing: number, required: number): ProductionDivergenceSeverity {
+function resolveSeverity(
+  missing: number,
+  required: number,
+): ProductionDivergenceSeverity {
   if (required <= 0) {
     return 'low';
   }
@@ -52,12 +56,26 @@ function resolveSeverity(missing: number, required: number): ProductionDivergenc
   return 'low';
 }
 
-export async function startProductionPlanExecution(planId: string): Promise<ProductionPlan> {
+export async function startProductionPlanExecution(
+  planId: string,
+): Promise<ProductionPlan> {
   const now = new Date();
   const plan = await updateProductionPlan(planId, {
     status: 'in_progress',
     startedAt: now,
   });
+
+  try {
+    await createNotification({
+      title: `Produção iniciada: ${plan.recipeName}`,
+      message: `O plano agendado para ${plan.scheduledFor.toLocaleDateString('pt-BR')} entrou em execução.`,
+      category: 'production',
+      type: 'production_started',
+      referenceId: plan.id,
+    });
+  } catch (notificationError) {
+    logError(notificationError, 'production.execution.startNotification');
+  }
 
   return plan;
 }
@@ -78,6 +96,7 @@ export async function completeProductionPlanWithConsumption(options: {
 
   const adjustments: StockMovement[] = [];
   const divergences: ProductionDivergence[] = [];
+  const notificationTasks: Array<Promise<unknown>> = [];
 
   let worstMissingRatio = 0;
   const now = new Date();
@@ -120,7 +139,10 @@ export async function completeProductionPlanWithConsumption(options: {
     }
 
     if (missing > 0 || !stockItem) {
-      const severity = resolveSeverity(missing > 0 ? missing : requiredQuantity, requiredQuantity);
+      const severity = resolveSeverity(
+        missing > 0 ? missing : requiredQuantity,
+        requiredQuantity,
+      );
       const divergence = await createProductionDivergence({
         planId: plan.id,
         stageId: undefined,
@@ -128,12 +150,24 @@ export async function completeProductionPlanWithConsumption(options: {
         severity,
         type: 'ingredient_shortage',
         description: stockItem
-          ? `Consumo parcial do ingrediente ${ingredient.referenceId}.` 
+          ? `Consumo parcial do ingrediente ${ingredient.referenceId}.`
           : `Sem estoque cadastrado para o ingrediente ${ingredient.referenceId}.`,
         expectedQuantityInUnits: requiredQuantity,
         actualQuantityInUnits: consumed,
       });
       divergences.push(divergence);
+
+      notificationTasks.push(
+        createNotification({
+          title: `Divergência de produção (${divergenceSeverityLabel(severity)})`,
+          message: stockItem
+            ? `Consumo parcial do ingrediente ${ingredient.referenceId} na produção ${plan.recipeName}.`
+            : `Sem estoque para o ingrediente ${ingredient.referenceId} na produção ${plan.recipeName}.`,
+          category: 'production',
+          type: 'production_divergence',
+          referenceId: divergence.id,
+        }).catch(error => logError(error, 'production.execution.divergenceNotification')),
+      );
 
       if (requiredQuantity > 0) {
         const ratio = missing / requiredQuantity;
@@ -164,9 +198,36 @@ export async function completeProductionPlanWithConsumption(options: {
     ...(plan.startedAt ? null : { startedAt: now }),
   });
 
+  notificationTasks.push(
+    createNotification({
+      title: `Produção concluída: ${plan.recipeName}`,
+      message:
+        divergences.length > 0
+          ? `${divergences.length} divergência(s) registrada(s). Estoque atualizado automaticamente.`
+          : 'Estoque atualizado automaticamente sem divergências.',
+      category: 'production',
+      type: 'production_completed',
+      referenceId: completedPlan.id,
+    }).catch(error => logError(error, 'production.execution.completeNotification')),
+  );
+
+  await Promise.allSettled(notificationTasks);
+
   return {
     plan: completedPlan,
     adjustments,
     divergences,
   };
+}
+
+function divergenceSeverityLabel(severity: ProductionDivergenceSeverity) {
+  switch (severity) {
+    case 'high':
+      return 'alta';
+    case 'medium':
+      return 'média';
+    case 'low':
+    default:
+      return 'baixa';
+  }
 }

@@ -1,4 +1,12 @@
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { StockMovementType } from '@/domain';
 
@@ -34,14 +42,22 @@ export function AdjustStockModal({
   disabled = false,
 }: AdjustStockModalProps) {
   return (
-    <Modal visible={state.visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={state.visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Registrar movimentação</Text>
             <Pressable
               onPress={onClose}
-              style={({ pressed }) => [styles.modalCloseButton, pressed && styles.modalCloseButtonPressed]}
+              style={({ pressed }) => [
+                styles.modalCloseButton,
+                pressed && styles.modalCloseButtonPressed,
+              ]}
             >
               <Text style={styles.modalCloseText}>Fechar</Text>
             </Pressable>
@@ -50,27 +66,29 @@ export function AdjustStockModal({
           <View style={styles.modalBody}>
             <Text style={styles.modalLabel}>Tipo de movimentação</Text>
             <View style={styles.modalToggleGroup}>
-              {(['increment', 'decrement', 'adjustment'] as StockMovementType[]).map(option => (
-                <Pressable
-                  key={option}
-                  onPress={() => onChange({ ...state, type: option })}
-                  style={({ pressed }) => [
-                    styles.modalToggleButton,
-                    state.type === option && styles.modalToggleButtonActive,
-                    pressed && styles.modalToggleButtonPressed,
-                  ]}
-                  disabled={disabled}
-                >
-                  <Text
-                    style={[
-                      styles.modalToggleButtonText,
-                      state.type === option && styles.modalToggleButtonTextActive,
+              {(['increment', 'decrement', 'adjustment'] as StockMovementType[]).map(
+                option => (
+                  <Pressable
+                    key={option}
+                    onPress={() => onChange({ ...state, type: option })}
+                    style={({ pressed }) => [
+                      styles.modalToggleButton,
+                      state.type === option && styles.modalToggleButtonActive,
+                      pressed && styles.modalToggleButtonPressed,
                     ]}
+                    disabled={disabled}
                   >
-                    {movementTypeLabels[option]}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.modalToggleButtonText,
+                        state.type === option && styles.modalToggleButtonTextActive,
+                      ]}
+                    >
+                      {movementTypeLabels[option]}
+                    </Text>
+                  </Pressable>
+                ),
+              )}
             </View>
 
             <Text style={styles.modalLabel}>Quantidade (em gramas)</Text>
@@ -97,7 +115,10 @@ export function AdjustStockModal({
 
           <Pressable
             onPress={onConfirm}
-            style={({ pressed }) => [styles.modalPrimaryButton, pressed && styles.modalPrimaryButtonPressed]}
+            style={({ pressed }) => [
+              styles.modalPrimaryButton,
+              pressed && styles.modalPrimaryButtonPressed,
+            ]}
             disabled={disabled || isSubmitting}
           >
             {isSubmitting ? (

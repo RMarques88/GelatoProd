@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import type { UserRole } from '@/domain';
-import { useAuthorization } from '@/hooks/useAuthorization';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthorization } from '@/hooks/useAuthorization';
+import type { UserRole } from '@/domain';
 
 export type RoleGateProps = {
   requiredRole: UserRole;
@@ -12,7 +12,12 @@ export type RoleGateProps = {
   description?: string;
 };
 
-export function RoleGate({ requiredRole, children, fallback, description }: RoleGateProps) {
+export function RoleGate({
+  requiredRole,
+  children,
+  fallback,
+  description,
+}: RoleGateProps) {
   const { user, isLoading } = useAuth();
   const authorization = useAuthorization(user);
 

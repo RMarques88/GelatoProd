@@ -73,7 +73,12 @@ export function useProductionDivergences(
     subscribe,
     initialValue: [],
     suspense: options.suspense,
-    dependencies: [options.planId ?? 'all', options.stageId ?? 'all', statusKey, options.limit],
+    dependencies: [
+      options.planId ?? 'all',
+      options.stageId ?? 'all',
+      statusKey,
+      options.limit,
+    ],
   });
 
   const handleCreate = useCallback(
@@ -131,11 +136,11 @@ export function useProductionDivergences(
                 ...input,
                 resolvedAt:
                   input.resolvedAt !== undefined
-                    ? input.resolvedAt ?? null
+                    ? (input.resolvedAt ?? null)
                     : divergence.resolvedAt,
                 resolvedBy:
                   input.resolvedBy !== undefined
-                    ? input.resolvedBy ?? null
+                    ? (input.resolvedBy ?? null)
                     : divergence.resolvedBy,
                 updatedAt: new Date(),
               }
@@ -146,13 +151,17 @@ export function useProductionDivergences(
       try {
         const updated = await updateProductionDivergence(divergenceId, input);
         mutate(previous =>
-          previous.map(divergence => (divergence.id === divergenceId ? updated : divergence)),
+          previous.map(divergence =>
+            divergence.id === divergenceId ? updated : divergence,
+          ),
         );
         return updated;
       } catch (updateError) {
         if (snapshot) {
           mutate(previous =>
-            previous.map(divergence => (divergence.id === divergenceId ? snapshot! : divergence)),
+            previous.map(divergence =>
+              divergence.id === divergenceId ? snapshot! : divergence,
+            ),
           );
         }
         throw updateError;

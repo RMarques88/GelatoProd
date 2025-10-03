@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   ActivityIndicator,
   FlatList,
@@ -8,16 +9,16 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useNotifications } from '@/hooks/data';
-import { useAuthorization } from '@/hooks/useAuthorization';
 import { useAuth } from '@/hooks/useAuth';
-import type { AppStackParamList } from '@/navigation';
+import { useAuthorization } from '@/hooks/useAuthorization';
 import { formatRelativeDate } from '@/utils/date';
-import type { AppNotification } from '@/domain';
+
+import type { AppNotification, NotificationCategory } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const CATEGORY_FILTERS = [
   { key: 'all', label: 'Todas' },
@@ -28,7 +29,6 @@ const CATEGORY_FILTERS = [
 type CategoryFilterKey = (typeof CATEGORY_FILTERS)[number]['key'];
 
 type NotificationItemProps = {
-  id: string;
   title: string;
   message: string;
   status: 'read' | 'unread';
@@ -37,7 +37,14 @@ type NotificationItemProps = {
   onPress: () => void;
 };
 
-function NotificationItem({ id, title, message, status, createdAt, category, onPress }: NotificationItemProps) {
+function NotificationItem({
+  title,
+  message,
+  status,
+  createdAt,
+  category,
+  onPress,
+}: NotificationItemProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -49,7 +56,12 @@ function NotificationItem({ id, title, message, status, createdAt, category, onP
     >
       <View style={styles.notificationHeader}>
         <View
-          style={[styles.notificationDot, status === 'unread' ? styles.notificationDotActive : styles.notificationDotInactive]}
+          style={[
+            styles.notificationDot,
+            status === 'unread'
+              ? styles.notificationDotActive
+              : styles.notificationDotInactive,
+          ]}
         />
         <Text style={styles.notificationCategory}>{category}</Text>
         <Text style={styles.notificationTime}>{formatRelativeDate(createdAt)}</Text>
@@ -77,7 +89,7 @@ export function NotificationCenterScreen() {
     retry,
     unreadCount,
   } = useNotifications({
-    category: filter === 'all' ? undefined : (filter as any),
+    category: filter === 'all' ? undefined : (filter as NotificationCategory),
     limit: 50,
   });
 
@@ -109,7 +121,6 @@ export function NotificationCenterScreen() {
   const renderItem = useCallback(
     ({ item }: { item: AppNotification }) => (
       <NotificationItem
-        id={item.id}
         title={item.title}
         message={item.message}
         status={item.status}
@@ -146,7 +157,13 @@ export function NotificationCenterScreen() {
           <Text style={styles.emptyText}>
             Não foi possível carregar as notificações. Tente novamente.
           </Text>
-          <Pressable onPress={retry} style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}>
+          <Pressable
+            onPress={retry}
+            style={({ pressed }) => [
+              styles.retryButton,
+              pressed && styles.retryButtonPressed,
+            ]}
+          >
             <Text style={styles.retryButtonText}>Recarregar</Text>
           </Pressable>
         </View>
@@ -160,6 +177,8 @@ export function NotificationCenterScreen() {
     );
   }, [error, isLoading, retry]);
 
+  const renderSeparator = useCallback(() => <View style={styles.separator} />, []);
+
   return (
     <ScreenContainer>
       <View style={styles.header}>
@@ -172,7 +191,10 @@ export function NotificationCenterScreen() {
         {authorization.canManageNotifications ? (
           <Pressable
             onPress={handleMarkAllAsRead}
-            style={({ pressed }) => [styles.markAllButton, pressed && styles.markAllButtonPressed]}
+            style={({ pressed }) => [
+              styles.markAllButton,
+              pressed && styles.markAllButtonPressed,
+            ]}
           >
             <Text style={styles.markAllButtonText}>Marcar todas como lidas</Text>
           </Pressable>
@@ -211,17 +233,17 @@ export function NotificationCenterScreen() {
       </View>
 
       <FlatList<AppNotification>
-  data={notifications}
+        data={notifications}
         keyExtractor={item => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ItemSeparatorComponent={renderSeparator}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
             tintColor="#4E9F3D"
-            colors={["#4E9F3D"]}
+            colors={['#4E9F3D']}
           />
         }
         ListEmptyComponent={listEmptyComponent}

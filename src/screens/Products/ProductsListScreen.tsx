@@ -10,14 +10,14 @@ import {
   View,
   Pressable,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useProducts } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
-import type { AppStackParamList } from '@/navigation';
 import { logError } from '@/utils/logger';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const priceFormatter = (value: number) => {
   return `R$ ${value.toFixed(2).replace('.', ',')}`;
@@ -133,7 +133,7 @@ export default function ProductsListScreen({ navigation }: Props) {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: typeof products[number] }) => {
+    ({ item }: { item: (typeof products)[number] }) => {
       const disabled = Boolean(processingId && processingId !== item.id);
       const isProcessing = processingId === item.id;
 
@@ -142,19 +142,30 @@ export default function ProductsListScreen({ navigation }: Props) {
           <View style={styles.cardHeader}>
             <View>
               <Text style={styles.productName}>{item.name}</Text>
-              {item.category ? <Text style={styles.productCategory}>{item.category}</Text> : null}
+              {item.category ? (
+                <Text style={styles.productCategory}>{item.category}</Text>
+              ) : null}
             </View>
-            <View style={[styles.statusBadge, !item.isActive && styles.statusBadgeInactive]}>
+            <View
+              style={[styles.statusBadge, !item.isActive && styles.statusBadgeInactive]}
+            >
               <Text
-                style={[styles.statusBadgeText, !item.isActive && styles.statusBadgeTextInactive]}
+                style={[
+                  styles.statusBadgeText,
+                  !item.isActive && styles.statusBadgeTextInactive,
+                ]}
               >
                 {item.isActive ? 'Ativo' : 'Inativo'}
               </Text>
             </View>
           </View>
-          {item.description ? <Text style={styles.productDescription}>{item.description}</Text> : null}
+          {item.description ? (
+            <Text style={styles.productDescription}>{item.description}</Text>
+          ) : null}
           <View style={styles.metaRow}>
-            <Text style={styles.metaValue}>{weightFormatter(item.unitWeightInGrams)}</Text>
+            <Text style={styles.metaValue}>
+              {weightFormatter(item.unitWeightInGrams)}
+            </Text>
             <Text style={styles.metaValue}>{priceFormatter(item.pricePerGram)}/g</Text>
             {item.tags.length ? (
               <Text style={styles.metaTags}>Tags: {item.tags.join(', ')}</Text>
@@ -165,7 +176,10 @@ export default function ProductsListScreen({ navigation }: Props) {
             <View style={styles.actionsRow}>
               <Pressable
                 onPress={() => handleEditPress(item.id)}
-                style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  pressed && styles.actionButtonPressed,
+                ]}
                 disabled={disabled}
               >
                 <Text style={styles.actionButtonText}>Editar</Text>
@@ -174,7 +188,10 @@ export default function ProductsListScreen({ navigation }: Props) {
               {item.isActive ? (
                 <Pressable
                   onPress={() => handleArchive(item.id)}
-                  style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    pressed && styles.actionButtonPressed,
+                  ]}
                   disabled={disabled}
                 >
                   {isProcessing ? (
@@ -186,7 +203,10 @@ export default function ProductsListScreen({ navigation }: Props) {
               ) : (
                 <Pressable
                   onPress={() => handleRestore(item.id)}
-                  style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    pressed && styles.actionButtonPressed,
+                  ]}
                   disabled={disabled}
                 >
                   {isProcessing ? (
@@ -200,7 +220,10 @@ export default function ProductsListScreen({ navigation }: Props) {
               {!item.isActive ? (
                 <Pressable
                   onPress={() => handleDelete(item.id)}
-                  style={({ pressed }) => [styles.deleteButton, pressed && styles.deleteButtonPressed]}
+                  style={({ pressed }) => [
+                    styles.deleteButton,
+                    pressed && styles.deleteButtonPressed,
+                  ]}
                   disabled={disabled}
                 >
                   {isProcessing ? (
@@ -215,7 +238,30 @@ export default function ProductsListScreen({ navigation }: Props) {
         </View>
       );
     },
-    [authorization.canManageProducts, handleArchive, handleDelete, handleEditPress, handleRestore, processingId],
+    [
+      authorization.canManageProducts,
+      handleArchive,
+      handleDelete,
+      handleEditPress,
+      handleRestore,
+      processingId,
+    ],
+  );
+
+  const renderEmptyList = useCallback(
+    () => (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>
+          {isLoading ? 'Buscando produtos...' : 'Nenhum produto encontrado.'}
+        </Text>
+        {!isLoading && authorization.canManageProducts ? (
+          <Text style={styles.emptyMessage}>
+            Cadastre seu primeiro produto tocando no botão "Novo produto".
+          </Text>
+        ) : null}
+      </View>
+    ),
+    [authorization.canManageProducts, isLoading],
   );
 
   return (
@@ -223,12 +269,17 @@ export default function ProductsListScreen({ navigation }: Props) {
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Produtos</Text>
-          <Text style={styles.subtitle}>Gerencie o catálogo e mantenha os dados atualizados.</Text>
+          <Text style={styles.subtitle}>
+            Gerencie o catálogo e mantenha os dados atualizados.
+          </Text>
         </View>
         {authorization.canManageProducts ? (
           <Pressable
             onPress={handleCreatePress}
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+            ]}
           >
             <Text style={styles.primaryButtonText}>Novo produto</Text>
           </Pressable>
@@ -247,17 +298,10 @@ export default function ProductsListScreen({ navigation }: Props) {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{isLoading ? 'Buscando produtos...' : 'Nenhum produto encontrado.'}</Text>
-            {!isLoading && authorization.canManageProducts ? (
-              <Text style={styles.emptyMessage}>
-                Cadastre seu primeiro produto tocando no botão "Novo produto".
-              </Text>
-            ) : null}
-          </View>
-        )}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}
+        ListEmptyComponent={renderEmptyList}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
+        }
       />
     </ScreenContainer>
   );

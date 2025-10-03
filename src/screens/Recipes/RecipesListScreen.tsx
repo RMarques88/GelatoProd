@@ -10,14 +10,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useRecipes } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
-import type { AppStackParamList } from '@/navigation';
 import { logError } from '@/utils/logger';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const yieldFormatter = (value: number) => `${value.toFixed(0)} g`;
 
@@ -129,7 +129,7 @@ export default function RecipesListScreen({ navigation }: Props) {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: typeof recipes[number] }) => {
+    ({ item }: { item: (typeof recipes)[number] }) => {
       const disabled = Boolean(processingId && processingId !== item.id);
       const isProcessing = processingId === item.id;
       const ingredientCount = item.ingredients.length;
@@ -143,9 +143,14 @@ export default function RecipesListScreen({ navigation }: Props) {
                 <Text style={styles.recipeDescription}>{item.description}</Text>
               ) : null}
             </View>
-            <View style={[styles.statusBadge, !item.isActive && styles.statusBadgeInactive]}>
+            <View
+              style={[styles.statusBadge, !item.isActive && styles.statusBadgeInactive]}
+            >
               <Text
-                style={[styles.statusBadgeText, !item.isActive && styles.statusBadgeTextInactive]}
+                style={[
+                  styles.statusBadgeText,
+                  !item.isActive && styles.statusBadgeTextInactive,
+                ]}
               >
                 {item.isActive ? 'Ativa' : 'Inativa'}
               </Text>
@@ -153,7 +158,9 @@ export default function RecipesListScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.metaRow}>
-            <Text style={styles.metaValue}>Rendimento: {yieldFormatter(item.yieldInGrams)}</Text>
+            <Text style={styles.metaValue}>
+              Rendimento: {yieldFormatter(item.yieldInGrams)}
+            </Text>
             <Text style={styles.metaValue}>
               Ingredientes: {ingredientCount} {ingredientCount === 1 ? 'item' : 'itens'}
             </Text>
@@ -167,7 +174,10 @@ export default function RecipesListScreen({ navigation }: Props) {
             <View style={styles.actionsRow}>
               <Pressable
                 onPress={() => handleEditPress(item.id)}
-                style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  pressed && styles.actionButtonPressed,
+                ]}
                 disabled={disabled}
               >
                 <Text style={styles.actionButtonText}>Editar</Text>
@@ -176,7 +186,10 @@ export default function RecipesListScreen({ navigation }: Props) {
               {item.isActive ? (
                 <Pressable
                   onPress={() => confirmArchive(item.id)}
-                  style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    pressed && styles.actionButtonPressed,
+                  ]}
                   disabled={disabled}
                 >
                   {isProcessing ? (
@@ -188,7 +201,10 @@ export default function RecipesListScreen({ navigation }: Props) {
               ) : (
                 <Pressable
                   onPress={() => confirmRestore(item.id)}
-                  style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    pressed && styles.actionButtonPressed,
+                  ]}
                   disabled={disabled}
                 >
                   {isProcessing ? (
@@ -202,7 +218,10 @@ export default function RecipesListScreen({ navigation }: Props) {
               {!item.isActive ? (
                 <Pressable
                   onPress={() => confirmDelete(item.id)}
-                  style={({ pressed }) => [styles.deleteButton, pressed && styles.deleteButtonPressed]}
+                  style={({ pressed }) => [
+                    styles.deleteButton,
+                    pressed && styles.deleteButtonPressed,
+                  ]}
                   disabled={disabled}
                 >
                   {isProcessing ? (
@@ -217,7 +236,30 @@ export default function RecipesListScreen({ navigation }: Props) {
         </View>
       );
     },
-    [authorization.canManageProducts, confirmArchive, confirmDelete, confirmRestore, handleEditPress, processingId],
+    [
+      authorization.canManageProducts,
+      confirmArchive,
+      confirmDelete,
+      confirmRestore,
+      handleEditPress,
+      processingId,
+    ],
+  );
+
+  const renderEmptyList = useCallback(
+    () => (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>
+          {isLoading ? 'Buscando receitas...' : 'Nenhuma receita cadastrada.'}
+        </Text>
+        {!isLoading && authorization.canManageProducts ? (
+          <Text style={styles.emptyMessage}>
+            Cadastre sua primeira receita tocando no botão "Nova receita".
+          </Text>
+        ) : null}
+      </View>
+    ),
+    [authorization.canManageProducts, isLoading],
   );
 
   return (
@@ -232,7 +274,10 @@ export default function RecipesListScreen({ navigation }: Props) {
         {authorization.canManageProducts ? (
           <Pressable
             onPress={handleCreatePress}
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+            ]}
           >
             <Text style={styles.primaryButtonText}>Nova receita</Text>
           </Pressable>
@@ -251,17 +296,10 @@ export default function RecipesListScreen({ navigation }: Props) {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{isLoading ? 'Buscando receitas...' : 'Nenhuma receita cadastrada.'}</Text>
-            {!isLoading && authorization.canManageProducts ? (
-              <Text style={styles.emptyMessage}>
-                Cadastre sua primeira receita tocando no botão "Nova receita".
-              </Text>
-            ) : null}
-          </View>
-        )}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}
+        ListEmptyComponent={renderEmptyList}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
+        }
       />
     </ScreenContainer>
   );

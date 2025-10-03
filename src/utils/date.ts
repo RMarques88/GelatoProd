@@ -3,7 +3,11 @@ export function formatRelativeDate(value: Date): string {
   const diffMs = Date.now() - date.getTime();
   const diffSeconds = Math.round(diffMs / 1000);
 
-  const units: Array<{ limit: number; divisor: number; label: Intl.RelativeTimeFormatUnit }> = [
+  const units: Array<{
+    limit: number;
+    divisor: number;
+    label: Intl.RelativeTimeFormatUnit;
+  }> = [
     { limit: 60, divisor: 1, label: 'second' },
     { limit: 3600, divisor: 60, label: 'minute' },
     { limit: 86400, divisor: 3600, label: 'hour' },

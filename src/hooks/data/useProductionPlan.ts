@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import type { ProductionPlan, ProductionPlanUpdateInput, ProductionStatus } from '@/domain';
 import {
   subscribeToProductionPlan,
   updateProductionPlan,
@@ -8,6 +7,12 @@ import {
 } from '@/services/firestore';
 
 import { useFirestoreSubscription } from './useFirestoreSubscription';
+
+import type {
+  ProductionPlan,
+  ProductionPlanUpdateInput,
+  ProductionStatus,
+} from '@/domain';
 
 type UseProductionPlanOptions = {
   suspense?: boolean;
@@ -26,18 +31,17 @@ export function useProductionPlan(
   planId: string,
   options: UseProductionPlanOptions = {},
 ): UseProductionPlanResult {
-  const { data, error, isLoading, mutate, retry } = useFirestoreSubscription<
-    ProductionPlan | null
-  >({
-    subscribe: ({ next, error: onError }) =>
-      subscribeToProductionPlan(planId, {
-        next,
-        error: onError,
-      }),
-    initialValue: null,
-    suspense: options.suspense,
-    dependencies: [planId],
-  });
+  const { data, error, isLoading, mutate, retry } =
+    useFirestoreSubscription<ProductionPlan | null>({
+      subscribe: ({ next, error: onError }) =>
+        subscribeToProductionPlan(planId, {
+          next,
+          error: onError,
+        }),
+      initialValue: null,
+      suspense: options.suspense,
+      dependencies: [planId],
+    });
 
   const handleUpdate = useCallback(
     async (input: ProductionPlanUpdateInput) => {

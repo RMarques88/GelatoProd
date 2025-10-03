@@ -1,11 +1,21 @@
-import type { Firestore } from 'firebase/firestore';
-
-jest.mock('firebase/firestore', () => require('../mocks/firebaseFirestore'));
+jest.mock('firebase/firestore', () => jest.requireActual('../mocks/firebaseFirestore'));
 
 jest.mock('@/services/firebase', () => ({
   getFirestoreDb: jest.fn(),
 }));
 
+import { getFirestoreDb } from '@/services/firebase';
+import {
+  archiveRecipe,
+  createRecipe,
+  deleteRecipe,
+  getRecipeById,
+  listRecipes,
+  restoreRecipe,
+  subscribeToRecipe,
+  subscribeToRecipes,
+  updateRecipe,
+} from '@/services/firestore/recipesService';
 import {
   addDoc,
   createSnapshot,
@@ -20,18 +30,7 @@ import {
   Timestamp,
   updateDoc,
 } from '../mocks/firebaseFirestore';
-import { getFirestoreDb } from '@/services/firebase';
-import {
-  archiveRecipe,
-  createRecipe,
-  deleteRecipe,
-  getRecipeById,
-  listRecipes,
-  restoreRecipe,
-  subscribeToRecipe,
-  subscribeToRecipes,
-  updateRecipe,
-} from '@/services/firestore/recipesService';
+import type { Firestore } from 'firebase/firestore';
 
 describe('recipesService', () => {
   const mockDb = { __type: 'db' } as unknown as Firestore;
@@ -93,7 +92,9 @@ describe('recipesService', () => {
   it('throws when recipe snapshot is missing', async () => {
     (getDoc as jest.Mock).mockResolvedValueOnce(createSnapshot('missing', undefined));
 
-    await expect(getRecipeById('missing')).rejects.toThrow('Receita missing não encontrada.');
+    await expect(getRecipeById('missing')).rejects.toThrow(
+      'Receita missing não encontrada.',
+    );
   });
 
   it('creates a recipe with default values', async () => {
@@ -165,9 +166,9 @@ describe('recipesService', () => {
     await archiveRecipe('recipe-8');
 
     const payload = (updateDoc as jest.Mock).mock.calls[0][1];
-    const [archivedAtStamp, updatedAtStamp] = (serverTimestamp as jest.Mock).mock.results.map(
-      result => result.value,
-    );
+    const [archivedAtStamp, updatedAtStamp] = (
+      serverTimestamp as jest.Mock
+    ).mock.results.map(result => result.value);
     expect(payload.isActive).toBe(false);
     expect(payload.archivedAt).toBe(archivedAtStamp);
     expect(payload.updatedAt).toBe(updatedAtStamp);

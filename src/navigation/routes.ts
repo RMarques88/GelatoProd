@@ -1,18 +1,19 @@
 import type { ComponentType } from 'react';
-import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
+
+import HomeScreen from '@/screens/Home/HomeScreen';
+import NotificationCenterScreen from '@/screens/Notifications/NotificationCenterScreen';
+import ProductionExecutionScreen from '@/screens/Production/ProductionExecutionScreen';
+import ProductionPlannerScreen from '@/screens/Production/ProductionPlannerScreen';
+import ProductFormScreen from '@/screens/Products/ProductFormScreen';
+import ProductsListScreen from '@/screens/Products/ProductsListScreen';
+import RecipeFormScreen from '@/screens/Recipes/RecipeFormScreen';
+import RecipesListScreen from '@/screens/Recipes/RecipesListScreen';
+import StockAlertsScreen from '@/screens/Stock/StockAlertsScreen';
+import StockItemScreen from '@/screens/Stock/StockItemScreen';
+import StockListScreen from '@/screens/Stock/StockListScreen';
 
 import type { UserRole } from '@/domain';
-import HomeScreen from '@/screens/Home/HomeScreen';
-import ProductsListScreen from '@/screens/Products/ProductsListScreen';
-import ProductFormScreen from '@/screens/Products/ProductFormScreen';
-import RecipesListScreen from '@/screens/Recipes/RecipesListScreen';
-import RecipeFormScreen from '@/screens/Recipes/RecipeFormScreen';
-import StockListScreen from '@/screens/Stock/StockListScreen';
-import StockItemScreen from '@/screens/Stock/StockItemScreen';
-import StockAlertsScreen from '@/screens/Stock/StockAlertsScreen';
-import ProductionPlannerScreen from '@/screens/Production/ProductionPlannerScreen';
-import ProductionExecutionScreen from '@/screens/Production/ProductionExecutionScreen';
-import NotificationCenterScreen from '@/screens/Notifications/NotificationCenterScreen';
+import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 
 export type AppStackParamList = {
   Home: undefined;
@@ -35,6 +36,7 @@ export type AuthStackParamList = {
 
 export type AppRouteConfig<Name extends keyof AppStackParamList> = {
   name: Name;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component: ComponentType<any>;
   requiredRole: UserRole;
   options?: NativeStackNavigationOptions;

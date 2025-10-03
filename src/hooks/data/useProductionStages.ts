@@ -27,7 +27,10 @@ type UseProductionStagesResult = {
   isLoading: boolean;
   error: Error | null;
   create: (input: ProductionStageCreateInput) => Promise<ProductionStage>;
-  update: (stageId: string, input: ProductionStageUpdateInput) => Promise<ProductionStage>;
+  update: (
+    stageId: string,
+    input: ProductionStageUpdateInput,
+  ) => Promise<ProductionStage>;
   remove: (stageId: string) => Promise<void>;
   retry: () => void;
 };
@@ -91,12 +94,16 @@ export function useProductionStages(
         updatedAt: new Date(),
       };
 
-      mutate(previous => [...previous, optimisticStage].sort((a, b) => a.sequence - b.sequence));
+      mutate(previous =>
+        [...previous, optimisticStage].sort((a, b) => a.sequence - b.sequence),
+      );
 
       try {
         const created = await createProductionStage(input);
         mutate(previous =>
-          previous.map(stage => (stage.id === tempId ? created : stage)).sort((a, b) => a.sequence - b.sequence),
+          previous
+            .map(stage => (stage.id === tempId ? created : stage))
+            .sort((a, b) => a.sequence - b.sequence),
         );
         return created;
       } catch (creationError) {
@@ -126,17 +133,19 @@ export function useProductionStages(
                   ...input,
                   scheduledStart:
                     input.scheduledStart !== undefined
-                      ? input.scheduledStart ?? null
+                      ? (input.scheduledStart ?? null)
                       : stage.scheduledStart,
                   scheduledEnd:
                     input.scheduledEnd !== undefined
-                      ? input.scheduledEnd ?? null
+                      ? (input.scheduledEnd ?? null)
                       : stage.scheduledEnd,
                   startedAt:
-                    input.startedAt !== undefined ? input.startedAt ?? null : stage.startedAt,
+                    input.startedAt !== undefined
+                      ? (input.startedAt ?? null)
+                      : stage.startedAt,
                   completedAt:
                     input.completedAt !== undefined
-                      ? input.completedAt ?? null
+                      ? (input.completedAt ?? null)
                       : stage.completedAt,
                   updatedAt: new Date(),
                 }
@@ -180,7 +189,9 @@ export function useProductionStages(
         await deleteProductionStage(stageId);
       } catch (deleteError) {
         if (snapshot) {
-          mutate(previous => [...previous, snapshot!].sort((a, b) => a.sequence - b.sequence));
+          mutate(previous =>
+            [...previous, snapshot!].sort((a, b) => a.sequence - b.sequence),
+          );
         }
         throw deleteError;
       }

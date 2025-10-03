@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -9,12 +10,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useAuth } from '@/hooks/useAuth';
 import type { AuthStackParamList } from '@/navigation';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export default function LoginScreen() {
   const navigation =
@@ -94,7 +94,10 @@ export default function LoginScreen() {
 
           <Pressable
             onPress={() => navigation.navigate('ForgotPassword', { email })}
-            style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonPressed]}
+            style={({ pressed }) => [
+              styles.linkButton,
+              pressed && styles.linkButtonPressed,
+            ]}
             disabled={isLoading}
           >
             <Text style={styles.linkText}>Esqueci minha senha</Text>

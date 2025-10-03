@@ -12,6 +12,7 @@ Aplicativo mobile (Expo + React Native) para gestão completa de uma gelateria, 
 - [Variáveis de Ambiente](#-variáveis-de-ambiente)
 - [Scripts NPM](#-scripts-npm)
 - [Fluxo de Desenvolvimento](#-fluxo-de-desenvolvimento)
+- [Guia de Testes Manuais](#-guia-de-testes-manuais)
 - [Roadmap](#-roadmap)
 - [Contribuição](#-contribuição)
 - [Licença](#-licença)
@@ -34,8 +35,17 @@ O projeto segue padrões rígidos de qualidade para servir como base de estudo.
 - **Cadastro de receitas:** receitas podem combinar produtos simples e sub-receitas, com regras para evitar loops e múltiplas bases.
 - **Controle de estoque:** movimentações com histórico, controle por gramas, ponto mínimo e alertas automáticos com reconhecimento e resolução.
 - **Central de notificações:** feed em tempo real para alertas críticos de estoque e eventos de produção, com marcação como lida.
-- **Módulo de produção:** planejamento por data/quantidade, checagem automática de estoque, avanço de status e registro de divergências.
+- **Módulo de produção:** planejamento por data/quantidade, criação/edição de etapas, checagem automática de estoque, avanço de status e registro de divergências.
 - **Recursos adicionais:** logs de auditoria, exportação de relatórios, dashboard inicial e documentação para integrações futuras.
+
+## ✅ Atualizações Recentes (Out/2025)
+
+- Padronizamos a ordem dos imports e zeramos os avisos do ESLint nas rotas, telas de estoque, produtos e receitas.
+- As listas de produtos, receitas e estoque receberam badges consistentes, estados vazios memoizados e logging centralizado via `logError` para todas as ações críticas.
+- A tela Home ganhou ações rápidas para criar produtos e planos de produção, além de botões para avançar/cancelar planos e marcar notificações; tudo respeitando permissões por papel.
+- A Central de Notificações, os alertas e o detalhamento de estoque foram refatorados para remover componentes inline, garantir memoização de renderizadores e uniformizar estilos.
+- O mock do Firestore foi reescrito com tipagem forte, helpers de transação e `jest.requireActual`; as suítes de serviços migraram para imports ESM, mantendo isolamento entre testes.
+- Os scripts `npm run lint` e `npm test` estão passando limpos e fazem parte do checklist obrigatório descrito abaixo.
 
 ## 🛠️ Stack Tecnológica
 
@@ -151,6 +161,7 @@ app/
 3. **Configurar variáveis de ambiente**
    - Renomeie `.env.example` para `.env`.
    - Preencha com os dados do seu projeto Firebase (seção abaixo).
+   - Caso deseje usar um projeto diferente para testes, copie o `firebase-service-account.json` (não versionado) correspondente ou gere um novo serviço com permissão somente de leitura/escrita nas coleções utilizadas.
 
 4. **Executar o app em modo desenvolvimento**
 
@@ -167,6 +178,14 @@ app/
    ```
 
    _(Para iOS, é necessário usar macOS: `npm run ios`.)_
+
+6. **Rodar verificação completa antes de validar manualmente**
+
+   ```powershell
+   npm run lint
+   npm run typecheck
+   npm run test
+   ```
 
 ## 🔐 Variáveis de Ambiente
 
@@ -213,16 +232,49 @@ app/
    - Suítes unitárias cobrem autenticação (persistência do Firebase Auth) e os serviços do Firestore de produtos, receitas e estoque — execute `npm run test` para validá-las.
    - À medida que novas telas forem adicionadas, priorize cobrir regras de acesso com UI tests (React Native Testing Library ou Detox) simulando papéis diferentes.
 
+   ## 🧪 Guia de Testes Manuais
+
+   Para validar o aplicativo de ponta a ponta após a instalação:
+   1. **Autenticação**
+      - Crie usuários diretamente no Firebase Auth e verifique login/logout.
+      - Utilize “Esqueci minha senha” e confirme se o e-mail de reset é disparado.
+
+   2. **Produtos & Receitas**
+      - Cadastre um produto e confirme se ele aparece no catálogo e no formulário de receitas.
+      - Monte uma receita utilizando produtos recém-criados e observe se o rendimento/ingredientes são persistidos corretamente.
+
+   3. **Estoque**
+      - Ajuste o estoque de um produto e confirme se o histórico registra a movimentação.
+      - Forçe um nível abaixo do mínimo para disparar alerta e notificação; reconheça e resolva na Central de Alertas.
+
+   4. **Planejamento de Produção**
+      - Agende um plano na Home, valide sua exibição no Planejador (calendário/lista) e navegue para a tela de Execução.
+      - Crie novas etapas (ex.: “Preparar base”, “Pasteurizar”), altere o status de cada uma e teste reabertura.
+
+   5. **Execução e Estoque Automático**
+      - Conclua um plano pelo botão “Concluir e baixar estoque”.
+      - Verifique o resumo de movimentações gerado e confirme divergências criadas automaticamente em caso de falta de estoque.
+
+   6. **Central de Notificações**
+      - Certifique-se de que alertas e eventos de produção chegam na central e podem ser marcados como lidos.
+
+   7. **Perfis e permissões**
+      - Logue com usuários de papéis diferentes (gelatiê, gerente) e valide bloquêios de ações (cadastro, ajustes, produção).
+
+   > Dica: manter um emulador Android e o Firestore console abertos acelera a verificação dos efeitos em tempo real.
+
 ## 🗺️ Roadmap
 
 - [x] Integrar Firebase Authentication (login real + recuperação de senha).
 - [x] Implementar CRUDs de produtos e receitas com Firestore (hooks + services com otimizações).
-- [ ] Construir módulo de estoque com alertas e histórico.
-   - [x] Hooks e services de estoque com movimentos e ajustes otimistas.
-   - [x] Alertas automáticos e notificações proativas.
+- [x] Construir módulo de estoque com alertas e histórico.
+  - [x] Hooks e services de estoque com movimentos e ajustes otimistas.
+  - [x] Alertas automáticos e notificações proativas.
 - [x] Acrescentar cobertura de testes unitários aos serviços do Firestore (produtos, receitas e estoque).
-- [ ] Criar fluxo de produção (planejamento, baixa automática, divergências).
-   - [x] Agendamento e acompanhamento básico de planos de produção.
+- [x] Criar fluxo de produção (planejamento, baixa automática, divergências).
+  - [x] Agendamento e acompanhamento de planos de produção.
+  - [x] Execução com criação/edição de etapas.
+  - [x] Baixa de estoque com registro de divergências automáticas.
 - [x] Dashboard inicial com indicadores em tempo real (HomeScreen consumindo Firestore).
 - [x] Rascunho inicial das regras de segurança do Firestore (`firestore.rules`).
 - [ ] Exportação de relatórios (CSV/PDF) e backups automatizados.

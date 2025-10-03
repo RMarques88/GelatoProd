@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -9,14 +8,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useProducts, useStockAlerts } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
-import type { AppStackParamList } from '@/navigation';
 import { formatRelativeDate } from '@/utils/date';
+import { logError } from '@/utils/logger';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const severityColors: Record<'critical' | 'warning', string> = {
   critical: '#DC2626',
@@ -30,14 +30,10 @@ export default function StockAlertsScreen({ navigation }: Props) {
   const authorization = useAuthorization(user);
   const [onlyCritical, setOnlyCritical] = useState(true);
 
-  const {
-    alerts,
-    isLoading,
-    error,
-    acknowledge,
-    resolve,
-    retry,
-  } = useStockAlerts({ status: ['open', 'acknowledged'], onlyCritical });
+  const { alerts, isLoading, error, acknowledge, resolve, retry } = useStockAlerts({
+    status: ['open', 'acknowledged'],
+    onlyCritical,
+  });
   const { products } = useProducts({ includeInactive: true });
 
   const productsById = useMemo(
@@ -54,10 +50,11 @@ export default function StockAlertsScreen({ navigation }: Props) {
       if (!authorization.canAcknowledgeStockAlerts) {
         return;
       }
+
       try {
         await acknowledge(alertId);
       } catch (ackError) {
-        // ignore por enquanto; o usuário pode tentar novamente
+        logError(ackError, 'stockAlerts.acknowledge');
       }
     },
     [acknowledge, authorization.canAcknowledgeStockAlerts],
@@ -71,21 +68,35 @@ export default function StockAlertsScreen({ navigation }: Props) {
       try {
         await resolve(alertId);
       } catch (resolveError) {
-        // ignore silently para evitar alertas em excesso
+        logError(resolveError, 'stockAlerts.resolve');
       }
     },
     [authorization.canAcknowledgeStockAlerts, resolve],
   );
 
+  const renderEmptyAlerts = useCallback(
+    () => (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>
+          {isLoading ? 'Carregando alertas...' : 'Nenhum alerta no momento.'}
+        </Text>
+        <Text style={styles.emptySubtitle}>
+          Configure mínimos adequados para ser notificado ao atingir níveis críticos.
+        </Text>
+      </View>
+    ),
+    [isLoading],
+  );
+
   const renderItem = useCallback(
-    ({ item }: { item: typeof alerts[number] }) => {
+    ({ item }: { item: (typeof alerts)[number] }) => {
       const product = productsById.get(item.productId);
       const color = severityColors[item.severity];
 
       return (
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <View style={[styles.severityBadge, { backgroundColor: color }]}> 
+            <View style={[styles.severityBadge, { backgroundColor: color }]}>
               <Text style={styles.severityText}>
                 {item.severity === 'critical' ? 'Crítico' : 'Atenção'}
               </Text>
@@ -93,15 +104,23 @@ export default function StockAlertsScreen({ navigation }: Props) {
             <Text style={styles.timestamp}>{formatRelativeDate(item.updatedAt)}</Text>
           </View>
 
-          <Text style={styles.productName}>{product?.name ?? `Produto ${item.productId}`}</Text>
+          <Text style={styles.productName}>
+            {product?.name ?? `Produto ${item.productId}`}
+          </Text>
           <Text style={styles.alertDescription}>
-            Estoque atual {item.currentQuantityInGrams} g — mínimo {item.minimumQuantityInGrams} g.
+            Estoque atual {item.currentQuantityInGrams} g — mínimo{' '}
+            {item.minimumQuantityInGrams} g.
           </Text>
 
           <View style={styles.actionsRow}>
             <Pressable
-              onPress={() => navigation.navigate('StockItem', { stockItemId: item.stockItemId })}
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+              onPress={() =>
+                navigation.navigate('StockItem', { stockItemId: item.stockItemId })
+              }
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                pressed && styles.secondaryButtonPressed,
+              ]}
             >
               <Text style={styles.secondaryButtonText}>Ver item</Text>
             </Pressable>
@@ -109,13 +128,19 @@ export default function StockAlertsScreen({ navigation }: Props) {
               <>
                 <Pressable
                   onPress={() => handleAcknowledge(item.id)}
-                  style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.secondaryButtonPressed,
+                  ]}
                 >
                   <Text style={styles.secondaryButtonText}>Reconhecer</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => handleResolve(item.id)}
-                  style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    pressed && styles.primaryButtonPressed,
+                  ]}
                 >
                   <Text style={styles.primaryButtonText}>Resolver</Text>
                 </Pressable>
@@ -125,7 +150,13 @@ export default function StockAlertsScreen({ navigation }: Props) {
         </View>
       );
     },
-    [authorization.canAcknowledgeStockAlerts, handleAcknowledge, handleResolve, navigation, productsById],
+    [
+      authorization.canAcknowledgeStockAlerts,
+      handleAcknowledge,
+      handleResolve,
+      navigation,
+      productsById,
+    ],
   );
 
   return (
@@ -133,11 +164,16 @@ export default function StockAlertsScreen({ navigation }: Props) {
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Alertas de estoque</Text>
-          <Text style={styles.subtitle}>Monitore itens críticos e tome ações imediatas.</Text>
+          <Text style={styles.subtitle}>
+            Monitore itens críticos e tome ações imediatas.
+          </Text>
         </View>
         <Pressable
           onPress={() => navigation.navigate('Stock')}
-          style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+          style={({ pressed }) => [
+            styles.secondaryButton,
+            pressed && styles.secondaryButtonPressed,
+          ]}
         >
           <Text style={styles.secondaryButtonText}>Ver estoque</Text>
         </Pressable>
@@ -154,17 +190,10 @@ export default function StockAlertsScreen({ navigation }: Props) {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>
-              {isLoading ? 'Carregando alertas...' : 'Nenhum alerta no momento.'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              Configure mínimos adequados para ser notificado ao atingir níveis críticos.
-            </Text>
-          </View>
-        )}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
+        }
+        ListEmptyComponent={renderEmptyAlerts}
       />
     </ScreenContainer>
   );

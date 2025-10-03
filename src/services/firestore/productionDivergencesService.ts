@@ -233,9 +233,6 @@ export async function updateProductionDivergence(
 
 export async function deleteProductionDivergence(divergenceId: string): Promise<void> {
   const db = getDb();
-  const docRef = getDocument(
-    db,
-    `${PRODUCTION_DIVERGENCES_COLLECTION}/${divergenceId}`,
-  );
+  const docRef = getDocument(db, `${PRODUCTION_DIVERGENCES_COLLECTION}/${divergenceId}`);
   await deleteDoc(docRef);
 }

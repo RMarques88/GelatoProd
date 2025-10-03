@@ -9,13 +9,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useAuth } from '@/hooks/useAuth';
 import type { AuthStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-export default function ForgotPasswordScreen({ navigation, route }: NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>) {
+export default function ForgotPasswordScreen({
+  navigation,
+  route,
+}: NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>) {
   const initialEmail = route.params?.email ?? '';
   const { resetPassword, isLoading } = useAuth();
   const [email, setEmail] = useState(initialEmail);
@@ -32,7 +34,9 @@ export default function ForgotPasswordScreen({ navigation, route }: NativeStackS
       setError(null);
       setSuccessMessage(null);
       await resetPassword(email.trim());
-      setSuccessMessage('Enviamos um link para redefinir sua senha. Confira sua caixa de entrada.');
+      setSuccessMessage(
+        'Enviamos um link para redefinir sua senha. Confira sua caixa de entrada.',
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível enviar o e-mail.');
     }
@@ -83,7 +87,10 @@ export default function ForgotPasswordScreen({ navigation, route }: NativeStackS
 
           <Pressable
             onPress={() => navigation.navigate('Login')}
-            style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonPressed]}
+            style={({ pressed }) => [
+              styles.linkButton,
+              pressed && styles.linkButtonPressed,
+            ]}
             disabled={isLoading}
           >
             <Text style={styles.linkText}>Voltar para o login</Text>

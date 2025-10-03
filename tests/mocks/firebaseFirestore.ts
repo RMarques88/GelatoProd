@@ -5,6 +5,10 @@ type SnapshotData<T> = {
   data: () => T | undefined;
 };
 
+type CollectionLike = {
+  path?: string;
+};
+
 export const collection = jest.fn((db: Firestore, path: string) => ({
   __type: 'collection',
   db,
@@ -13,7 +17,7 @@ export const collection = jest.fn((db: Firestore, path: string) => ({
 
 let autoDocId = 0;
 
-export const doc = jest.fn((ref: any, path?: string) => {
+export const doc = jest.fn((ref: CollectionLike | Firestore, path?: string) => {
   if (path) {
     return {
       __type: 'doc',
@@ -24,26 +28,40 @@ export const doc = jest.fn((ref: any, path?: string) => {
   }
 
   autoDocId += 1;
+  const parentRef = ref as CollectionLike;
+  const basePath = parentRef.path ?? 'collection';
+
   return {
     __type: 'doc',
     parent: ref,
-    path: `${ref?.path ?? 'collection'}/mock-doc-${autoDocId}`,
+    path: `${basePath}/mock-doc-${autoDocId}`,
     id: `mock-doc-${autoDocId}`,
   };
 });
 
 export const addDoc = jest.fn(async () => ({ __type: 'docRef' }));
 export const getDoc = jest.fn(async () => createSnapshot('doc-id', undefined));
-export const getDocs = jest.fn(async () => ({ docs: [] as Array<SnapshotData<any>> }));
+export const getDocs = jest.fn(async () => ({
+  docs: [] as Array<SnapshotData<unknown>>,
+}));
 export const updateDoc = jest.fn(async () => {});
 export const deleteDoc = jest.fn(async () => {});
-export const runTransaction = jest.fn(async (_db: Firestore, updateFunction: any) => {
-  return updateFunction({
-    get: transactionGet,
-    update: transactionUpdate,
-    set: transactionSet,
-  });
-});
+export const runTransaction = jest.fn(
+  async (
+    _db: Firestore,
+    updateFunction: (transaction: {
+      get: typeof transactionGet;
+      update: typeof transactionUpdate;
+      set: typeof transactionSet;
+    }) => Promise<unknown> | unknown,
+  ) => {
+    return updateFunction({
+      get: transactionGet,
+      update: transactionUpdate,
+      set: transactionSet,
+    });
+  },
+);
 
 export const transactionGet = jest.fn();
 export const transactionUpdate = jest.fn();
@@ -51,22 +69,24 @@ export const transactionSet = jest.fn();
 
 export const onSnapshotListeners: Array<{
   ref: unknown;
-  next: (value: any) => void;
+  next: (value: unknown) => void;
   error?: (error: Error) => void;
 }> = [];
 
-export const onSnapshot = jest.fn((ref, next, error?) => {
-  const listener = { ref, next, error };
-  onSnapshotListeners.push(listener);
-  return () => {
-    const index = onSnapshotListeners.indexOf(listener);
-    if (index >= 0) {
-      onSnapshotListeners.splice(index, 1);
-    }
-  };
-});
+export const onSnapshot = jest.fn(
+  (ref: unknown, next: (value: unknown) => void, error?: (error: Error) => void) => {
+    const listener = { ref, next, error };
+    onSnapshotListeners.push(listener);
+    return () => {
+      const index = onSnapshotListeners.indexOf(listener);
+      if (index >= 0) {
+        onSnapshotListeners.splice(index, 1);
+      }
+    };
+  },
+);
 
-export const query = jest.fn((ref, ...constraints) => ({
+export const query = jest.fn((ref: unknown, ...constraints: unknown[]) => ({
   __type: 'query',
   ref,
   constraints,
@@ -106,7 +126,7 @@ export const Timestamp = {
   fromDate: jest.fn((date: Date) => new MockTimestamp(date)),
 };
 
-export const FieldValue = {};
+export const FieldValue: Record<string, never> = {};
 
 export function createSnapshot<T>(id: string, data: T | undefined): SnapshotData<T> {
   return {

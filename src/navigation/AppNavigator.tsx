@@ -5,8 +5,8 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { RoleGate } from '@/components/security/RoleGate';
 import { useAuth } from '@/hooks/useAuth';
 import { LoginScreen, ForgotPasswordScreen } from '@/screens/Auth';
-import type { AppStackParamList, AuthStackParamList } from './routes';
 import { appRoutes } from './routes';
+import type { AppStackParamList, AuthStackParamList } from './routes';
 
 const ProtectedStack = createNativeStackNavigator<AppStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();

@@ -9,7 +9,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
@@ -17,11 +16,17 @@ import {
   AdjustStockModalState,
   movementTypeLabels,
 } from '@/components/stock/AdjustStockModal';
-import { StockMovementType } from '@/domain';
-import { useStockItems, useStockMovements, useStockAlerts, useProducts } from '@/hooks/data';
+import {
+  useStockItems,
+  useStockMovements,
+  useStockAlerts,
+  useProducts,
+} from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import type { StockMovementType } from '@/domain';
 import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Stock'>;
 
@@ -55,7 +60,7 @@ export default function StockListScreen({ navigation }: Props) {
   );
 
   const lastMovementByItem = useMemo(() => {
-    const map = new Map<string, typeof movements[number]>();
+    const map = new Map<string, (typeof movements)[number]>();
     movements.forEach(movement => {
       if (!map.has(movement.stockItemId)) {
         map.set(movement.stockItemId, movement);
@@ -101,12 +106,9 @@ export default function StockListScreen({ navigation }: Props) {
     return { visible, type, quantity, note };
   }, [adjustState]);
 
-  const handleModalChange = useCallback(
-    (nextState: AdjustStockModalState) => {
-      setAdjustState(previous => ({ ...previous, ...nextState }));
-    },
-    [],
-  );
+  const handleModalChange = useCallback((nextState: AdjustStockModalState) => {
+    setAdjustState(previous => ({ ...previous, ...nextState }));
+  }, []);
 
   const handleConfirmAdjust = useCallback(() => {
     if (!adjustState.itemId) {
@@ -115,7 +117,10 @@ export default function StockListScreen({ navigation }: Props) {
 
     const item = stockItems.find(candidate => candidate.id === adjustState.itemId);
     if (!item) {
-      Alert.alert('Item não encontrado', 'Não foi possível localizar o item selecionado.');
+      Alert.alert(
+        'Item não encontrado',
+        'Não foi possível localizar o item selecionado.',
+      );
       closeAdjustModal();
       return;
     }
@@ -123,7 +128,10 @@ export default function StockListScreen({ navigation }: Props) {
     const quantityValue = Number(adjustState.quantity.replace(',', '.'));
 
     if (Number.isNaN(quantityValue) || quantityValue <= 0) {
-      Alert.alert('Quantidade inválida', 'Informe um valor maior que zero para o ajuste.');
+      Alert.alert(
+        'Quantidade inválida',
+        'Informe um valor maior que zero para o ajuste.',
+      );
       return;
     }
 
@@ -166,11 +174,14 @@ export default function StockListScreen({ navigation }: Props) {
   }, [adjust, adjustState, closeAdjustModal, stockItems, user]);
 
   const renderItem = useCallback(
-    ({ item }: { item: typeof stockItems[number] }) => {
+    ({ item }: { item: (typeof stockItems)[number] }) => {
       const product = productsById.get(item.productId);
       const alert = alertsByItem.get(item.id);
       const movement = lastMovementByItem.get(item.id);
-      const badgeColor = alert?.severity === 'critical' ? '#DC2626' : '#F59E0B';
+      const alertBadgeStyle =
+        alert?.severity === 'critical'
+          ? styles.alertBadgeCritical
+          : styles.alertBadgeWarning;
       const hasAlert = Boolean(alert);
 
       return (
@@ -196,7 +207,7 @@ export default function StockListScreen({ navigation }: Props) {
           </View>
 
           {hasAlert ? (
-            <View style={[styles.alertBadge, { backgroundColor: badgeColor }]}>
+            <View style={[styles.alertBadge, alertBadgeStyle]}>
               <Text style={styles.alertBadgeText}>
                 {alert?.severity === 'critical' ? 'Crítico' : 'Atenção'}
               </Text>
@@ -206,14 +217,20 @@ export default function StockListScreen({ navigation }: Props) {
           <View style={styles.actionsRow}>
             <Pressable
               onPress={() => navigation.navigate('StockItem', { stockItemId: item.id })}
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                pressed && styles.secondaryButtonPressed,
+              ]}
             >
               <Text style={styles.secondaryButtonText}>Ver histórico</Text>
             </Pressable>
             {authorization.canAdjustStock ? (
               <Pressable
                 onPress={() => openAdjustModal(item.id, 'decrement')}
-                style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.secondaryButtonPressed,
+                ]}
               >
                 <Text style={styles.secondaryButtonText}>Registrar saída</Text>
               </Pressable>
@@ -221,7 +238,10 @@ export default function StockListScreen({ navigation }: Props) {
             {authorization.canAdjustStock ? (
               <Pressable
                 onPress={() => openAdjustModal(item.id, 'increment')}
-                style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed && styles.primaryButtonPressed,
+                ]}
               >
                 <Text style={styles.primaryButtonText}>Adicionar estoque</Text>
               </Pressable>
@@ -230,7 +250,30 @@ export default function StockListScreen({ navigation }: Props) {
         </View>
       );
     },
-    [alertsByItem, authorization.canAdjustStock, lastMovementByItem, navigation, openAdjustModal, productsById],
+    [
+      alertsByItem,
+      authorization.canAdjustStock,
+      lastMovementByItem,
+      navigation,
+      openAdjustModal,
+      productsById,
+    ],
+  );
+
+  const renderEmptyList = useCallback(
+    () => (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>
+          {isLoading ? 'Carregando estoque...' : 'Nenhum item cadastrado.'}
+        </Text>
+        {authorization.canManageStock ? (
+          <Text style={styles.emptySubtitle}>
+            Cadastre um item na área administrativa do Firestore para começar.
+          </Text>
+        ) : null}
+      </View>
+    ),
+    [authorization.canManageStock, isLoading],
   );
 
   return (
@@ -238,11 +281,16 @@ export default function StockListScreen({ navigation }: Props) {
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Estoque</Text>
-          <Text style={styles.subtitle}>Acompanhe níveis, alertas e movimentações em tempo real.</Text>
+          <Text style={styles.subtitle}>
+            Acompanhe níveis, alertas e movimentações em tempo real.
+          </Text>
         </View>
         <Pressable
           onPress={() => navigation.navigate('StockAlerts')}
-          style={({ pressed }) => [styles.alertButton, pressed && styles.alertButtonPressed]}
+          style={({ pressed }) => [
+            styles.alertButton,
+            pressed && styles.alertButtonPressed,
+          ]}
         >
           <Text style={styles.alertButtonText}>Alertas ({alerts.length})</Text>
         </Pressable>
@@ -260,19 +308,10 @@ export default function StockListScreen({ navigation }: Props) {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>
-              {isLoading ? 'Carregando estoque...' : 'Nenhum item cadastrado.'}
-            </Text>
-            {authorization.canManageStock ? (
-              <Text style={styles.emptySubtitle}>
-                Cadastre um item na área administrativa do Firestore para começar.
-              </Text>
-            ) : null}
-          </View>
-        )}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
+        }
+        ListEmptyComponent={renderEmptyList}
       />
 
       <AdjustStockModal
@@ -396,6 +435,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     marginBottom: 12,
+  },
+  alertBadgeCritical: {
+    backgroundColor: '#DC2626',
+  },
+  alertBadgeWarning: {
+    backgroundColor: '#F59E0B',
   },
   alertBadgeText: {
     color: '#FFFFFF',

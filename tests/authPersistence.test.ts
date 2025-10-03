@@ -45,14 +45,11 @@ describe('getFirebaseAuth', () => {
     mockGetReactNativePersistence.mockReturnValue(mockPersistence);
   });
 
-  it('configures React Native persistence when initializing auth', () => {
-    jest.isolateModules(() => {
-      const { getFirebaseAuth } = require('@/services/firebase');
-      const auth = getFirebaseAuth();
+  it('configures React Native persistence when initializing auth', async () => {
+    const { getFirebaseAuth } = await import('@/services/firebase');
+    const auth = getFirebaseAuth();
 
-      expect(auth).toBe(mockAuthInstance);
-    });
-
+    expect(auth).toBe(mockAuthInstance);
     expect(mockInitializeApp).toHaveBeenCalledTimes(1);
     expect(mockInitializeAuth).toHaveBeenCalledWith(mockApp, {
       persistence: mockPersistence,
@@ -60,30 +57,26 @@ describe('getFirebaseAuth', () => {
     expect(mockGetReactNativePersistence).toHaveBeenCalledTimes(1);
   });
 
-  it('reuses the cached auth instance within the same launch', () => {
-    jest.isolateModules(() => {
-      const { getFirebaseAuth } = require('@/services/firebase');
-      const first = getFirebaseAuth();
-      const second = getFirebaseAuth();
+  it('reuses the cached auth instance within the same launch', async () => {
+    const { getFirebaseAuth } = await import('@/services/firebase');
+    const first = getFirebaseAuth();
+    const second = getFirebaseAuth();
 
-      expect(first).toBe(mockAuthInstance);
-      expect(second).toBe(first);
-      expect(mockInitializeAuth).toHaveBeenCalledTimes(1);
-    });
+    expect(first).toBe(mockAuthInstance);
+    expect(second).toBe(first);
+    expect(mockInitializeAuth).toHaveBeenCalledTimes(1);
   });
 
-  it('configures persistence again on a new launch (module reload)', () => {
-    jest.isolateModules(() => {
-      const { getFirebaseAuth } = require('@/services/firebase');
-      getFirebaseAuth();
-    });
+  it('configures persistence again on a new launch (module reload)', async () => {
+    const { getFirebaseAuth } = await import('@/services/firebase');
+    getFirebaseAuth();
 
     expect(mockInitializeAuth).toHaveBeenCalledTimes(1);
 
-    jest.isolateModules(() => {
-      const { getFirebaseAuth } = require('@/services/firebase');
-      getFirebaseAuth();
-    });
+    jest.resetModules();
+
+    const reloadedModule = await import('@/services/firebase');
+    reloadedModule.getFirebaseAuth();
 
     expect(mockInitializeAuth).toHaveBeenCalledTimes(2);
     expect(mockInitializeAuth).toHaveBeenNthCalledWith(1, mockApp, {

@@ -1,6 +1,4 @@
-import type { Firestore } from 'firebase/firestore';
-
-jest.mock('firebase/firestore', () => require('../mocks/firebaseFirestore'));
+jest.mock('firebase/firestore', () => jest.requireActual('../mocks/firebaseFirestore'));
 
 jest.mock('@/services/firebase', () => ({
   getFirestoreDb: jest.fn(),
@@ -18,6 +16,25 @@ jest.mock('@/utils/logger', () => ({
   logError: jest.fn(),
 }));
 
+import { getFirestoreDb } from '@/services/firebase';
+import { createNotification } from '@/services/firestore/notificationsService';
+import { getStockAlertDocumentForItem } from '@/services/firestore/stockAlertsService';
+import {
+  adjustStockLevel,
+  archiveStockItem,
+  createStockItem,
+  deleteStockItem,
+  getStockItemById,
+  listStockItems,
+  listStockMovements,
+  recordStockMovement,
+  restoreStockItem,
+  subscribeToStockItem,
+  subscribeToStockItems,
+  subscribeToStockMovements,
+  updateStockItem,
+} from '@/services/firestore/stockService';
+import { logError } from '@/utils/logger';
 import {
   addDoc,
   createSnapshot,
@@ -34,25 +51,7 @@ import {
   transactionUpdate,
   updateDoc,
 } from '../mocks/firebaseFirestore';
-import { getFirestoreDb } from '@/services/firebase';
-import { createNotification } from '@/services/firestore/notificationsService';
-import { getStockAlertDocumentForItem } from '@/services/firestore/stockAlertsService';
-import { logError } from '@/utils/logger';
-import {
-  adjustStockLevel,
-  archiveStockItem,
-  createStockItem,
-  deleteStockItem,
-  getStockItemById,
-  listStockItems,
-  listStockMovements,
-  recordStockMovement,
-  restoreStockItem,
-  subscribeToStockItem,
-  subscribeToStockItems,
-  subscribeToStockMovements,
-  updateStockItem,
-} from '@/services/firestore/stockService';
+import type { Firestore } from 'firebase/firestore';
 
 describe('stockService', () => {
   const mockDb = { __type: 'db' } as unknown as Firestore;
@@ -94,7 +93,11 @@ describe('stockService', () => {
 
     const [, ...constraints] = (query as jest.Mock).mock.calls[0];
     expect(constraints).toHaveLength(2);
-    expect(constraints[0]).toMatchObject({ field: 'productId', op: '==', value: 'prod-2' });
+    expect(constraints[0]).toMatchObject({
+      field: 'productId',
+      op: '==',
+      value: 'prod-2',
+    });
     expect(constraints[1]).toMatchObject({ field: 'productId', direction: 'asc' });
   });
 
@@ -182,9 +185,9 @@ describe('stockService', () => {
 
     await archiveStockItem('stock-5');
 
-    const [archivedAtStamp, updatedAtStamp] = (serverTimestamp as jest.Mock).mock.results.map(
-      result => result.value,
-    );
+    const [archivedAtStamp, updatedAtStamp] = (
+      serverTimestamp as jest.Mock
+    ).mock.results.map(result => result.value);
     const payload = (updateDoc as jest.Mock).mock.calls[0][1];
     expect(payload.archivedAt).toBe(archivedAtStamp);
     expect(payload.updatedAt).toBe(updatedAtStamp);
@@ -234,7 +237,11 @@ describe('stockService', () => {
 
     const [, ...constraints] = (query as jest.Mock).mock.calls[0];
     expect(constraints).toHaveLength(3);
-    expect(constraints[0]).toMatchObject({ field: 'productId', op: '==', value: 'prod-1' });
+    expect(constraints[0]).toMatchObject({
+      field: 'productId',
+      op: '==',
+      value: 'prod-1',
+    });
     expect(constraints[1]).toMatchObject({ field: 'performedAt', direction: 'desc' });
     expect(constraints[2]).toMatchObject({ value: 5 });
   });
@@ -314,12 +321,14 @@ describe('stockService', () => {
       lastMovementId: expect.any(String),
     });
     expect(transactionSet).toHaveBeenCalled();
-    expect(transactionSet.mock.calls[0][1]).toMatchObject({ resultingQuantityInGrams: 110 });
+    expect(transactionSet.mock.calls[0][1]).toMatchObject({
+      resultingQuantityInGrams: 110,
+    });
     expect(
-      transactionUpdate.mock.calls.some(([
-        ref,
-        payload,
-      ]: [any, Record<string, unknown>]) => ref?.id === 'alert-ref' && payload.status === 'resolved'),
+      transactionUpdate.mock.calls.some(
+        ([ref, payload]: [unknown, Record<string, unknown>]) =>
+          (ref as { id?: unknown })?.id === 'alert-ref' && payload.status === 'resolved',
+      ),
     ).toBe(true);
     expect(createNotification).not.toHaveBeenCalled();
   });
@@ -398,7 +407,10 @@ describe('stockService', () => {
       performedBy: 'tester',
     });
 
-    expect(logError).toHaveBeenCalledWith(expect.any(Error), 'stock.adjustStockLevel.notification');
+    expect(logError).toHaveBeenCalledWith(
+      expect.any(Error),
+      'stock.adjustStockLevel.notification',
+    );
   });
 
   it('subscribes to stock items, item, and movements', () => {
@@ -420,18 +432,20 @@ describe('stockService', () => {
         return () => {};
       })
       .mockImplementationOnce((_ref, onNext) => {
-        onNext({ docs: [
-          createSnapshot('movement-1', {
-            productId: 'prod-1',
-            stockItemId: 'stock-1',
-            type: 'increment',
-            quantityInGrams: 20,
-            previousQuantityInGrams: 80,
-            resultingQuantityInGrams: 100,
-            performedBy: 'tester',
-            performedAt: createTimestamp(new Date()),
-          }),
-        ] });
+        onNext({
+          docs: [
+            createSnapshot('movement-1', {
+              productId: 'prod-1',
+              stockItemId: 'stock-1',
+              type: 'increment',
+              quantityInGrams: 20,
+              previousQuantityInGrams: 80,
+              resultingQuantityInGrams: 100,
+              performedBy: 'tester',
+              performedAt: createTimestamp(new Date()),
+            }),
+          ],
+        });
         return () => {};
       });
 

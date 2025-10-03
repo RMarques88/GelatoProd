@@ -11,13 +11,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useProducts } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import { logError } from '@/utils/logger';
 import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const formatCurrencyInput = (value: number | null | undefined) => {
   if (value === null || value === undefined) {
@@ -32,15 +33,9 @@ export default function ProductFormScreen({ navigation, route }: Props) {
   const productId = route.params?.productId ?? null;
   const { user } = useAuth();
   const authorization = useAuthorization(user);
-  const {
-    products,
-    isLoading,
-    create,
-    update,
-    archive,
-    restore,
-    remove,
-  } = useProducts({ includeInactive: true });
+  const { products, isLoading, create, update, archive, restore, remove } = useProducts({
+    includeInactive: true,
+  });
 
   const editingProduct = useMemo(
     () => products.find(product => product.id === productId) ?? null,
@@ -180,6 +175,7 @@ export default function ProductFormScreen({ navigation, route }: Props) {
             await archive(productId);
             Alert.alert('Produto arquivado', 'O produto foi movido para inativos.');
           } catch (archiveError) {
+            logError(archiveError, 'products.archive');
             Alert.alert('Erro', 'Não foi possível arquivar o produto.');
           } finally {
             setIsArchiving(false);
@@ -204,6 +200,7 @@ export default function ProductFormScreen({ navigation, route }: Props) {
             await restore(productId);
             Alert.alert('Produto restaurado', 'O produto voltou a ficar ativo.');
           } catch (restoreError) {
+            logError(restoreError, 'products.restore');
             Alert.alert('Erro', 'Não foi possível restaurar o produto.');
           } finally {
             setIsRestoring(false);
@@ -237,6 +234,7 @@ export default function ProductFormScreen({ navigation, route }: Props) {
                 },
               ]);
             } catch (deleteError) {
+              logError(deleteError, 'products.delete');
               Alert.alert('Erro', 'Não foi possível excluir o produto.');
             } finally {
               setIsDeleting(false);
@@ -257,7 +255,10 @@ export default function ProductFormScreen({ navigation, route }: Props) {
           </Text>
           <Pressable
             onPress={() => navigation.navigate('Products')}
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+            ]}
           >
             <Text style={styles.primaryButtonText}>Voltar para a lista</Text>
           </Pressable>
@@ -273,7 +274,10 @@ export default function ProductFormScreen({ navigation, route }: Props) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
       <ScreenContainer>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>
             {productId
@@ -359,13 +363,18 @@ export default function ProductFormScreen({ navigation, route }: Props) {
 
           <Pressable
             onPress={handleSubmit}
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+            ]}
             disabled={!canManage || isSubmitting}
           >
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.primaryButtonText}>{productId ? 'Salvar alterações' : 'Criar produto'}</Text>
+              <Text style={styles.primaryButtonText}>
+                {productId ? 'Salvar alterações' : 'Criar produto'}
+              </Text>
             )}
           </Pressable>
 
@@ -373,8 +382,8 @@ export default function ProductFormScreen({ navigation, route }: Props) {
             <View style={styles.dangerZone}>
               <Text style={styles.dangerTitle}>Ações adicionais</Text>
               <Text style={styles.dangerDescription}>
-                Arquivar remove o produto das listas ativas sem perder o histórico. Excluir é
-                permanente e só deve ser feito para cadastros incorretos.
+                Arquivar remove o produto das listas ativas sem perder o histórico.
+                Excluir é permanente e só deve ser feito para cadastros incorretos.
               </Text>
 
               <View style={styles.dangerActions}>
@@ -413,7 +422,10 @@ export default function ProductFormScreen({ navigation, route }: Props) {
                 {!editingProduct?.isActive ? (
                   <Pressable
                     onPress={handleDelete}
-                    style={({ pressed }) => [styles.deleteButton, pressed && styles.deleteButtonPressed]}
+                    style={({ pressed }) => [
+                      styles.deleteButton,
+                      pressed && styles.deleteButtonPressed,
+                    ]}
                     disabled={isDeleting || !canManage}
                   >
                     {isDeleting ? (

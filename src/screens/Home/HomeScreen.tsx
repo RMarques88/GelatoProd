@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,8 +10,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
@@ -21,17 +20,19 @@ import {
   useStockAlerts,
   useStockItems,
 } from '@/hooks/data';
-import { useAuthorization } from '@/hooks/useAuthorization';
 import { useAuth } from '@/hooks/useAuth';
-import type { AppStackParamList } from '@/navigation';
+import { useAuthorization } from '@/hooks/useAuthorization';
+import { formatRelativeDate } from '@/utils/date';
 import { logError } from '@/utils/logger';
+
 import type {
   NotificationStatus,
   ProductionStatus,
   UnitOfMeasure,
   UserRole,
 } from '@/domain';
-import { formatRelativeDate } from '@/utils/date';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type ProductionStatusActionMap = Partial<
   Record<ProductionStatus, { label: string; next: ProductionStatus }>
@@ -114,13 +115,10 @@ export function HomeScreen() {
     limit: 10,
   });
 
-  const roleLabel = useMemo(
-    () => (user ? roleLabels[user.role] : 'Sem acesso'),
-    [user?.role],
-  );
+  const roleLabel = useMemo(() => (user ? roleLabels[user.role] : 'Sem acesso'), [user]);
   const userDisplayName = useMemo(() => user?.name ?? 'Gelatiê', [user?.name]);
   const productsById = useMemo(() => {
-    const map = new Map<string, typeof products[number]>();
+    const map = new Map<string, (typeof products)[number]>();
 
     for (const product of products) {
       map.set(product.id, product);
@@ -452,7 +450,10 @@ export function HomeScreen() {
             authorization.canViewStockAlerts && alerts.length > 0 ? (
               <Pressable
                 onPress={handleNavigateToStockAlerts}
-                style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonDisabled]}
+                style={({ pressed }) => [
+                  styles.linkButton,
+                  pressed && styles.linkButtonDisabled,
+                ]}
               >
                 <Text style={styles.linkButtonText}>Ver todos</Text>
               </Pressable>
@@ -477,57 +478,60 @@ export function HomeScreen() {
                 <View style={styles.listItemContent}>
                   <View>
                     <Text style={styles.listItemTitle}>
-                      {productsById.get(alert.productId)?.name ?? `Produto #${alert.productId}`}
+                      {productsById.get(alert.productId)?.name ??
+                        `Produto #${alert.productId}`}
                     </Text>
                     <Text style={styles.listItemSubtitle}>
-                      {alert.currentQuantityInGrams}g disponíveis · mínimo {alert.minimumQuantityInGrams}g
+                      {alert.currentQuantityInGrams}g disponíveis · mínimo{' '}
+                      {alert.minimumQuantityInGrams}g
                     </Text>
                     <Text style={styles.listItemMeta}>
                       Atualizado {formatRelativeDate(alert.updatedAt)}
                     </Text>
                   </View>
                   <View style={styles.alertActionsWrapper}>
-                  <View
-                    style={[
-                      styles.alertBadge,
-                      alert.severity === 'critical' && styles.alertBadgeCritical,
-                      alert.status === 'acknowledged' && styles.alertBadgeAcknowledged,
-                    ]}
-                  >
-                    <Text style={styles.alertBadgeText}>
-                      {alert.severity === 'critical' ? 'Crítico' : 'Alerta'}
-                    </Text>
-                  </View>
-                  <View style={styles.alertActions}>
-                    {alert.status !== 'acknowledged' && authorization.canAcknowledgeAlerts ? (
-                      <Pressable
-                        onPress={event => {
-                          event.stopPropagation();
-                          handleAcknowledgeAlertPress(alert.id);
-                        }}
-                        style={({ pressed }) => [
-                          styles.secondaryButton,
-                          pressed && styles.buttonPressed,
-                        ]}
-                      >
-                        <Text style={styles.secondaryButtonText}>Reconhecer</Text>
-                      </Pressable>
-                    ) : null}
-                    {authorization.canResolveAlerts ? (
-                      <Pressable
-                        onPress={event => {
-                          event.stopPropagation();
-                          handleResolveAlertPress(alert.id);
-                        }}
-                        style={({ pressed }) => [
-                          styles.secondaryButton,
-                          pressed && styles.buttonPressed,
-                        ]}
-                      >
-                        <Text style={styles.secondaryButtonText}>Resolver</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
+                    <View
+                      style={[
+                        styles.alertBadge,
+                        alert.severity === 'critical' && styles.alertBadgeCritical,
+                        alert.status === 'acknowledged' && styles.alertBadgeAcknowledged,
+                      ]}
+                    >
+                      <Text style={styles.alertBadgeText}>
+                        {alert.severity === 'critical' ? 'Crítico' : 'Alerta'}
+                      </Text>
+                    </View>
+                    <View style={styles.alertActions}>
+                      {alert.status !== 'acknowledged' &&
+                      authorization.canAcknowledgeAlerts ? (
+                        <Pressable
+                          onPress={event => {
+                            event.stopPropagation();
+                            handleAcknowledgeAlertPress(alert.id);
+                          }}
+                          style={({ pressed }) => [
+                            styles.secondaryButton,
+                            pressed && styles.buttonPressed,
+                          ]}
+                        >
+                          <Text style={styles.secondaryButtonText}>Reconhecer</Text>
+                        </Pressable>
+                      ) : null}
+                      {authorization.canResolveAlerts ? (
+                        <Pressable
+                          onPress={event => {
+                            event.stopPropagation();
+                            handleResolveAlertPress(alert.id);
+                          }}
+                          style={({ pressed }) => [
+                            styles.secondaryButton,
+                            pressed && styles.buttonPressed,
+                          ]}
+                        >
+                          <Text style={styles.secondaryButtonText}>Resolver</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
                   </View>
                 </View>
               </Pressable>
@@ -860,7 +864,10 @@ export function HomeScreen() {
             authorization.canViewStock ? (
               <Pressable
                 onPress={handleNavigateToStock}
-                style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonDisabled]}
+                style={({ pressed }) => [
+                  styles.linkButton,
+                  pressed && styles.linkButtonDisabled,
+                ]}
               >
                 <Text style={styles.linkButtonText}>Abrir estoque</Text>
               </Pressable>
@@ -887,10 +894,12 @@ export function HomeScreen() {
                 <View style={styles.listItemContent}>
                   <View>
                     <Text style={styles.listItemTitle}>
-                      {productsById.get(item.productId)?.name ?? `Produto #${item.productId}`}
+                      {productsById.get(item.productId)?.name ??
+                        `Produto #${item.productId}`}
                     </Text>
                     <Text style={styles.listItemSubtitle}>
-                      {item.currentQuantityInGrams}g disponíveis · mínimo {item.minimumQuantityInGrams}g
+                      {item.currentQuantityInGrams}g disponíveis · mínimo{' '}
+                      {item.minimumQuantityInGrams}g
                     </Text>
                     <Text style={styles.listItemMeta}>
                       Atualizado {formatRelativeDate(item.updatedAt)}

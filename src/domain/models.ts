@@ -26,7 +26,9 @@ export type UserProfileCreateInput = {
   archivedAt?: Date | null;
 };
 
-export type UserProfileUpdateInput = Partial<Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>>;
+export type UserProfileUpdateInput = Partial<
+  Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>
+>;
 
 export interface Product extends EntityTimestamps {
   id: DocumentId;

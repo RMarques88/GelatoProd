@@ -1,11 +1,21 @@
-import type { Firestore } from 'firebase/firestore';
-
-jest.mock('firebase/firestore', () => require('../mocks/firebaseFirestore'));
+jest.mock('firebase/firestore', () => jest.requireActual('../mocks/firebaseFirestore'));
 
 jest.mock('@/services/firebase', () => ({
   getFirestoreDb: jest.fn(),
 }));
 
+import { getFirestoreDb } from '@/services/firebase';
+import {
+  archiveProduct,
+  createProduct,
+  deleteProduct,
+  getProductById,
+  listProducts,
+  restoreProduct,
+  subscribeToProduct,
+  subscribeToProducts,
+  updateProduct,
+} from '@/services/firestore/productsService';
 import {
   addDoc,
   createSnapshot,
@@ -20,18 +30,7 @@ import {
   Timestamp,
   updateDoc,
 } from '../mocks/firebaseFirestore';
-import { getFirestoreDb } from '@/services/firebase';
-import {
-  archiveProduct,
-  createProduct,
-  deleteProduct,
-  getProductById,
-  listProducts,
-  restoreProduct,
-  subscribeToProduct,
-  subscribeToProducts,
-  updateProduct,
-} from '@/services/firestore/productsService';
+import type { Firestore } from 'firebase/firestore';
 
 describe('productsService', () => {
   const mockDb = { __type: 'db' } as unknown as Firestore;
@@ -110,7 +109,9 @@ describe('productsService', () => {
   it('throws when a product document is missing', async () => {
     (getDoc as jest.Mock).mockResolvedValueOnce(createSnapshot('missing', undefined));
 
-    await expect(getProductById('missing')).rejects.toThrow('Produto missing não encontrado.');
+    await expect(getProductById('missing')).rejects.toThrow(
+      'Produto missing não encontrado.',
+    );
   });
 
   it('creates a product with sensible defaults', async () => {
@@ -193,9 +194,9 @@ describe('productsService', () => {
     await archiveProduct('prod-archive');
 
     const updatePayload = (updateDoc as jest.Mock).mock.calls[0][1];
-    const [archivedAtStamp, updatedAtStamp] = (serverTimestamp as jest.Mock).mock.results.map(
-      result => result.value,
-    );
+    const [archivedAtStamp, updatedAtStamp] = (
+      serverTimestamp as jest.Mock
+    ).mock.results.map(result => result.value);
     expect(updatePayload.isActive).toBe(false);
     expect(updatePayload.archivedAt).toBe(archivedAtStamp);
     expect(updatePayload.updatedAt).toBe(updatedAtStamp);

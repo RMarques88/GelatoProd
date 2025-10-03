@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
@@ -16,14 +15,19 @@ import {
   AdjustStockModalState,
   movementTypeLabels,
 } from '@/components/stock/AdjustStockModal';
-import { StockMovementType } from '@/domain';
-import { useProducts, useStockAlerts, useStockItems, useStockMovements } from '@/hooks/data';
+import {
+  useProducts,
+  useStockAlerts,
+  useStockItems,
+  useStockMovements,
+} from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
-import type { AppStackParamList } from '@/navigation';
 import { formatRelativeDate } from '@/utils/date';
-
-import type { StockMovement } from '@/domain';
+import { logError } from '@/utils/logger';
+import type { StockMovement, StockMovementType } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'StockItem'>;
 
@@ -55,7 +59,10 @@ export default function StockItemScreen({ navigation, route }: Props) {
   );
 
   const product = useMemo(
-    () => (stockItem ? products.find(entry => entry.id === stockItem.productId) ?? null : null),
+    () =>
+      stockItem
+        ? (products.find(entry => entry.id === stockItem.productId) ?? null)
+        : null,
     [products, stockItem],
   );
 
@@ -84,16 +91,19 @@ export default function StockItemScreen({ navigation, route }: Props) {
     setAdjustState(previous => ({ ...previous, ...state }));
   }, []);
 
-  const openAdjustModal = useCallback((type: StockMovementType) => {
-    setAdjustState(previous => ({
-      ...previous,
-      stockItemId: stockItemId,
-      visible: true,
-      type,
-      quantity: '',
-      note: '',
-    }));
-  }, [stockItemId]);
+  const openAdjustModal = useCallback(
+    (type: StockMovementType) => {
+      setAdjustState(previous => ({
+        ...previous,
+        stockItemId: stockItemId,
+        visible: true,
+        type,
+        quantity: '',
+        note: '',
+      }));
+    },
+    [stockItemId],
+  );
 
   const closeAdjustModal = useCallback(() => {
     setAdjustState(previous => ({ ...previous, visible: false }));
@@ -163,6 +173,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
       setIsAcknowledgingAlert(true);
       await acknowledge(alert.id);
     } catch (ackError) {
+      logError(ackError, 'stockItem.acknowledgeAlert');
       Alert.alert('Erro', 'Não foi possível sinalizar o alerta como lido.');
     } finally {
       setIsAcknowledgingAlert(false);
@@ -183,6 +194,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
             setIsResolvingAlert(true);
             await resolve(alert.id);
           } catch (resolveError) {
+            logError(resolveError, 'stockItem.resolveAlert');
             Alert.alert('Erro', 'Não foi possível resolver o alerta.');
           } finally {
             setIsResolvingAlert(false);
@@ -199,10 +211,26 @@ export default function StockItemScreen({ navigation, route }: Props) {
           <Text style={styles.movementType}>{movementTypeLabels[item.type]}</Text>
           <Text style={styles.movementQuantity}>{item.quantityInGrams} g</Text>
         </View>
-        <Text style={styles.movementMeta}>Anterior: {item.previousQuantityInGrams} g</Text>
-        <Text style={styles.movementMeta}>Resultante: {item.resultingQuantityInGrams} g</Text>
+        <Text style={styles.movementMeta}>
+          Anterior: {item.previousQuantityInGrams} g
+        </Text>
+        <Text style={styles.movementMeta}>
+          Resultante: {item.resultingQuantityInGrams} g
+        </Text>
         <Text style={styles.movementDate}>{formatRelativeDate(item.performedAt)}</Text>
         {item.note ? <Text style={styles.movementNote}>{item.note}</Text> : null}
+      </View>
+    ),
+    [],
+  );
+
+  const renderEmptyMovements = useCallback(
+    () => (
+      <View style={styles.emptyMovements}>
+        <Text style={styles.emptyTitle}>Nenhuma movimentação registrada.</Text>
+        <Text style={styles.emptySubtitle}>
+          Utilize as ações acima para registrar entradas, saídas ou ajustes.
+        </Text>
       </View>
     ),
     [],
@@ -218,7 +246,10 @@ export default function StockItemScreen({ navigation, route }: Props) {
           </Text>
           <Pressable
             onPress={() => navigation.navigate('Stock')}
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+            ]}
           >
             <Text style={styles.primaryButtonText}>Voltar para estoque</Text>
           </Pressable>
@@ -237,13 +268,17 @@ export default function StockItemScreen({ navigation, route }: Props) {
               <Text style={styles.subtitle}>Item de estoque #{stockItem.id}</Text>
             </View>
             <View style={styles.quantityBadge}>
-              <Text style={styles.quantityText}>{stockItem.currentQuantityInGrams} g</Text>
+              <Text style={styles.quantityText}>
+                {stockItem.currentQuantityInGrams} g
+              </Text>
               <Text style={styles.quantitySubtext}>Atual</Text>
             </View>
           </View>
 
           <View style={styles.progressContainer}>
-            <Text style={styles.progressLabel}>Cobertura vs mínimo ({stockItem.minimumQuantityInGrams} g)</Text>
+            <Text style={styles.progressLabel}>
+              Cobertura vs mínimo ({stockItem.minimumQuantityInGrams} g)
+            </Text>
             <View style={styles.progressBar}>
               <View
                 style={[
@@ -263,20 +298,26 @@ export default function StockItemScreen({ navigation, route }: Props) {
             <View
               style={[
                 styles.alertBanner,
-                { backgroundColor: alert.severity === 'critical' ? '#FEE2E2' : '#FEF3C7' },
+                alert.severity === 'critical'
+                  ? styles.alertBannerCritical
+                  : styles.alertBannerWarning,
               ]}
             >
               <Text style={styles.alertTitle}>
                 {alert.severity === 'critical' ? 'Estoque crítico' : 'Abaixo do mínimo'}
               </Text>
               <Text style={styles.alertDescription}>
-                Atualmente com {alert.currentQuantityInGrams} g. Mínimo: {alert.minimumQuantityInGrams} g.
+                Atualmente com {alert.currentQuantityInGrams} g. Mínimo:{' '}
+                {alert.minimumQuantityInGrams} g.
               </Text>
               {authorization.canAcknowledgeStockAlerts ? (
                 <View style={styles.alertActions}>
                   <Pressable
                     onPress={handleAcknowledgeAlert}
-                    style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && styles.secondaryButtonPressed,
+                    ]}
                     disabled={isAcknowledgingAlert}
                   >
                     {isAcknowledgingAlert ? (
@@ -287,7 +328,10 @@ export default function StockItemScreen({ navigation, route }: Props) {
                   </Pressable>
                   <Pressable
                     onPress={handleResolveAlert}
-                    style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && styles.secondaryButtonPressed,
+                    ]}
                     disabled={isResolvingAlert}
                   >
                     {isResolvingAlert ? (
@@ -305,19 +349,28 @@ export default function StockItemScreen({ navigation, route }: Props) {
             <View style={styles.actionRow}>
               <Pressable
                 onPress={() => openAdjustModal('increment')}
-                style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed && styles.primaryButtonPressed,
+                ]}
               >
                 <Text style={styles.primaryButtonText}>Adicionar estoque</Text>
               </Pressable>
               <Pressable
                 onPress={() => openAdjustModal('decrement')}
-                style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.secondaryButtonPressed,
+                ]}
               >
                 <Text style={styles.secondaryButtonText}>Registrar saída</Text>
               </Pressable>
               <Pressable
                 onPress={() => openAdjustModal('adjustment')}
-                style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.secondaryButtonPressed,
+                ]}
               >
                 <Text style={styles.secondaryButtonText}>Ajustar manualmente</Text>
               </Pressable>
@@ -330,13 +383,18 @@ export default function StockItemScreen({ navigation, route }: Props) {
         <Text style={styles.sectionTitle}>Histórico de movimentações</Text>
         <Pressable
           onPress={handleRetryMovements}
-          style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+          style={({ pressed }) => [
+            styles.secondaryButton,
+            pressed && styles.secondaryButtonPressed,
+          ]}
         >
           <Text style={styles.secondaryButtonText}>Atualizar</Text>
         </Pressable>
       </View>
 
-      {movementsError ? <Text style={styles.errorText}>{movementsError.message}</Text> : null}
+      {movementsError ? (
+        <Text style={styles.errorText}>{movementsError.message}</Text>
+      ) : null}
 
       {isLoadingMovements ? (
         <ActivityIndicator color="#4E9F3D" style={styles.loader} />
@@ -346,14 +404,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
           keyExtractor={item => item.id}
           renderItem={renderMovement}
           contentContainerStyle={styles.movementList}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyMovements}>
-              <Text style={styles.emptyTitle}>Nenhuma movimentação registrada.</Text>
-              <Text style={styles.emptySubtitle}>
-                Utilize as ações acima para registrar entradas, saídas ou ajustes.
-              </Text>
-            </View>
-          )}
+          ListEmptyComponent={renderEmptyMovements}
         />
       )}
 
@@ -448,6 +499,12 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     gap: 8,
+  },
+  alertBannerCritical: {
+    backgroundColor: '#FEE2E2',
+  },
+  alertBannerWarning: {
+    backgroundColor: '#FEF3C7',
   },
   alertTitle: {
     fontSize: 16,
