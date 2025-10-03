@@ -40,8 +40,8 @@ O projeto segue padrões rígidos de qualidade para servir como base de estudo.
 
 - **Frontend:** React Native 0.81 (Expo 54) com TypeScript.
 - **Design System:** tema próprio inicial; previsto uso de biblioteca (React Native Paper/NativeBase).
-- **State & Context:** React Context API + hooks customizados.
-- **Backend (planejado):** Firebase Authentication, Firestore, Cloud Functions (validações e jobs).
+- **State & Context:** React Context API + hooks customizados (produtos, receitas e estoque usando Firestore em tempo real).
+- **Backend:** Firebase Authentication (integração inicial), Firestore (coleções de produtos, receitas, estoque e movimentos), Cloud Functions (planejado para validações e jobs).
 - **Qualidade:** ESLint, Prettier, TypeScript strict, variáveis em `.env`.
 
 ## 🧱 Arquitetura do Projeto
@@ -64,6 +64,12 @@ app/
 │   │   ├── index.ts
 │   │   └── models.ts
 │   ├── hooks/
+│   │   ├── data/
+│   │   │   ├── useFirestoreSubscription.ts
+│   │   │   ├── useProducts.ts
+│   │   │   ├── useRecipes.ts
+│   │   │   └── useStock.ts
+│   │   ├── index.ts
 │   │   └── useAuth.ts
 │   ├── navigation/
 │   │   ├── AppNavigator.tsx
@@ -73,6 +79,9 @@ app/
 │   │   ├── AppThemeProvider.tsx
 │   │   └── index.ts
 │   ├── screens/
+│   │   ├── Auth/
+│   │   │   ├── index.ts
+│   │   │   └── LoginScreen.tsx
 │   │   └── Home/
 │   │       └── HomeScreen.tsx
 │   ├── services/
@@ -82,12 +91,14 @@ app/
 │   │       ├── index.ts
 │   │       ├── productsService.ts
 │   │       ├── recipesService.ts
-│   │       └── stockService.ts
+│   │       ├── stockService.ts
+│   │       └── utils.ts
 │   ├── theme/
 │   │   └── index.ts
 │   └── utils/
 │       ├── env.ts
 │       └── logger.ts
+├── firestore.rules          # Regras de segurança do Firestore (rascunho inicial)
 └── ...
 ```
 
@@ -180,10 +191,13 @@ app/
 ## 🗺️ Roadmap
 
 - [ ] Integrar Firebase Authentication (login real + refresh token).
-- [ ] Implementar CRUDs de produtos e receitas com Firestore.
+- [x] Implementar CRUDs de produtos e receitas com Firestore (hooks + services com otimizações).
 - [ ] Construir módulo de estoque com alertas e histórico.
+  - [x] Hooks e services de estoque com movimentos e ajustes otimistas.
+  - [ ] Alertas automáticos e notificações proativas.
 - [ ] Criar fluxo de produção (planejamento, baixa automática, divergências).
-- [ ] Dashboard com indicadores e gráficos principais.
+- [x] Dashboard inicial com indicadores em tempo real (HomeScreen consumindo Firestore).
+- [x] Rascunho inicial das regras de segurança do Firestore (`firestore.rules`).
 - [ ] Exportação de relatórios (CSV/PDF) e backups automatizados.
 - [ ] Notificações e lembretes (estoque baixo, ajustes periódicos, produção planejada).
 - [ ] Pipeline CI/CD com GitHub Actions.

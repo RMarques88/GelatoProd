@@ -1,14 +1,14 @@
 import {
   addDoc,
-  collection,
   deleteDoc,
-  doc,
   DocumentData,
   DocumentSnapshot,
   getDoc,
   getDocs,
+  onSnapshot,
   orderBy,
   QueryConstraint,
+  QueryDocumentSnapshot,
   query,
   serverTimestamp,
   Timestamp,
@@ -17,7 +17,15 @@ import {
 } from 'firebase/firestore';
 
 import { Product, ProductCreateInput, ProductUpdateInput } from '@/domain';
-import { getDb, timestampToDate } from './utils';
+import {
+  FirestoreObserver,
+  getCollection,
+  getDocument,
+  getDb,
+  normalizeFirestoreError,
+  serializeDateOrNull,
+  timestampToDate,
+} from './utils';
 
 const COLLECTION_NAME = 'products';
 
@@ -34,15 +42,19 @@ type ProductDocument = DocumentData & {
   archivedAt?: Timestamp | null;
 };
 
-function mapProduct(docSnapshot: DocumentSnapshot<ProductDocument>): Product {
-  const data = docSnapshot.data();
+type ProductDocSnapshot =
+  | DocumentSnapshot<ProductDocument>
+  | QueryDocumentSnapshot<ProductDocument>;
+
+function mapProduct(snapshot: ProductDocSnapshot): Product {
+  const data = snapshot.data();
 
   if (!data) {
-    throw new Error(`Produto ${docSnapshot.id} não encontrado.`);
+    throw new Error(`Produto ${snapshot.id} não encontrado.`);
   }
 
   return {
-    id: docSnapshot.id,
+    id: snapshot.id,
     name: data.name,
     description: data.description,
     category: data.category,
@@ -60,7 +72,7 @@ export async function listProducts(options?: {
   includeInactive?: boolean;
 }): Promise<Product[]> {
   const db = getDb();
-  const colRef = collection(db, COLLECTION_NAME);
+  const colRef = getCollection<ProductDocument>(db, COLLECTION_NAME);
 
   const constraints: QueryConstraint[] = [];
 
@@ -70,24 +82,23 @@ export async function listProducts(options?: {
 
   constraints.push(orderBy('name', 'asc'));
 
-  const snapshot = await getDocs(query(colRef, ...constraints));
+  const productsQuery = query(colRef, ...constraints);
+  const snapshot = await getDocs(productsQuery);
 
-  return snapshot.docs.map(docSnapshot =>
-    mapProduct(docSnapshot as DocumentSnapshot<ProductDocument>),
-  );
+  return snapshot.docs.map(mapProduct);
 }
 
 export async function getProductById(productId: string): Promise<Product> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, productId);
+  const docRef = getDocument<ProductDocument>(db, `${COLLECTION_NAME}/${productId}`);
   const docSnapshot = await getDoc(docRef);
 
-  return mapProduct(docSnapshot as DocumentSnapshot<ProductDocument>);
+  return mapProduct(docSnapshot);
 }
 
 export async function createProduct(input: ProductCreateInput): Promise<Product> {
   const db = getDb();
-  const colRef = collection(db, COLLECTION_NAME);
+  const colRef = getCollection<ProductDocument>(db, COLLECTION_NAME);
 
   const now = serverTimestamp();
 
@@ -95,14 +106,14 @@ export async function createProduct(input: ProductCreateInput): Promise<Product>
     ...input,
     tags: input.tags ?? [],
     isActive: input.isActive ?? true,
-    archivedAt: input.archivedAt ?? null,
+    archivedAt: serializeDateOrNull(input.archivedAt),
     createdAt: now,
     updatedAt: now,
   });
 
   const createdDoc = await getDoc(docRef);
 
-  return mapProduct(createdDoc as DocumentSnapshot<ProductDocument>);
+  return mapProduct(createdDoc);
 }
 
 export async function updateProduct(
@@ -110,21 +121,26 @@ export async function updateProduct(
   input: ProductUpdateInput,
 ): Promise<Product> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, productId);
+  const docRef = getDocument<ProductDocument>(db, `${COLLECTION_NAME}/${productId}`);
+
+  const { archivedAt, ...rest } = input;
 
   await updateDoc(docRef, {
-    ...input,
+    ...rest,
+    ...(archivedAt !== undefined
+      ? { archivedAt: serializeDateOrNull(archivedAt) }
+      : null),
     updatedAt: serverTimestamp(),
   });
 
   const updatedDoc = await getDoc(docRef);
 
-  return mapProduct(updatedDoc as DocumentSnapshot<ProductDocument>);
+  return mapProduct(updatedDoc);
 }
 
 export async function archiveProduct(productId: string): Promise<Product> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, productId);
+  const docRef = getDocument<ProductDocument>(db, `${COLLECTION_NAME}/${productId}`);
 
   await updateDoc(docRef, {
     isActive: false,
@@ -134,12 +150,12 @@ export async function archiveProduct(productId: string): Promise<Product> {
 
   const updatedDoc = await getDoc(docRef);
 
-  return mapProduct(updatedDoc as DocumentSnapshot<ProductDocument>);
+  return mapProduct(updatedDoc);
 }
 
 export async function restoreProduct(productId: string): Promise<Product> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, productId);
+  const docRef = getDocument<ProductDocument>(db, `${COLLECTION_NAME}/${productId}`);
 
   await updateDoc(docRef, {
     isActive: true,
@@ -149,11 +165,54 @@ export async function restoreProduct(productId: string): Promise<Product> {
 
   const updatedDoc = await getDoc(docRef);
 
-  return mapProduct(updatedDoc as DocumentSnapshot<ProductDocument>);
+  return mapProduct(updatedDoc);
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, productId);
+  const docRef = getDocument(db, `${COLLECTION_NAME}/${productId}`);
   await deleteDoc(docRef);
+}
+
+export function subscribeToProducts(
+  handlers: FirestoreObserver<Product[]>,
+  options?: { includeInactive?: boolean },
+) {
+  const db = getDb();
+  const colRef = getCollection<ProductDocument>(db, COLLECTION_NAME);
+
+  const constraints: QueryConstraint[] = [];
+
+  if (!options?.includeInactive) {
+    constraints.push(where('isActive', '==', true));
+  }
+
+  constraints.push(orderBy('name', 'asc'));
+
+  const productsQuery = query(colRef, ...constraints);
+
+  return onSnapshot(
+    productsQuery,
+    snapshot => {
+      const items = snapshot.docs.map(mapProduct);
+      handlers.next(items);
+    },
+    error => handlers.error?.(normalizeFirestoreError(error)),
+  );
+}
+
+export function subscribeToProduct(
+  productId: string,
+  handlers: FirestoreObserver<Product>,
+) {
+  const db = getDb();
+  const docRef = getDocument<ProductDocument>(db, `${COLLECTION_NAME}/${productId}`);
+
+  return onSnapshot(
+    docRef,
+    document => {
+      handlers.next(mapProduct(document));
+    },
+    error => handlers.error?.(normalizeFirestoreError(error)),
+  );
 }

@@ -1,21 +1,22 @@
 import {
   addDoc,
-  collection,
   deleteDoc,
-  doc,
   DocumentData,
   DocumentSnapshot,
   getDoc,
   getDocs,
+  limit,
+  onSnapshot,
   orderBy,
-  query,
   QueryConstraint,
+  QueryDocumentSnapshot,
+  query,
   runTransaction,
   serverTimestamp,
   Timestamp,
   updateDoc,
   where,
-  limit,
+  doc,
 } from 'firebase/firestore';
 
 import {
@@ -26,7 +27,15 @@ import {
   StockMovementCreateInput,
   StockMovementType,
 } from '@/domain';
-import { getDb, timestampToDate } from './utils';
+import {
+  FirestoreObserver,
+  getCollection,
+  getDocument,
+  getDb,
+  normalizeFirestoreError,
+  serializeDateOrNull,
+  timestampToDate,
+} from './utils';
 
 const STOCK_ITEMS_COLLECTION = 'stockItems';
 const STOCK_MOVEMENTS_COLLECTION = 'stockMovements';
@@ -48,20 +57,28 @@ type StockMovementDocument = DocumentData & {
   quantityInGrams: number;
   previousQuantityInGrams: number;
   resultingQuantityInGrams: number;
-  note?: string;
+  note?: string | null;
   performedBy: string;
   performedAt: Timestamp;
 };
 
-function mapStockItem(docSnapshot: DocumentSnapshot<StockItemDocument>): StockItem {
-  const data = docSnapshot.data();
+type StockItemSnapshot =
+  | DocumentSnapshot<StockItemDocument>
+  | QueryDocumentSnapshot<StockItemDocument>;
+
+type StockMovementSnapshot =
+  | DocumentSnapshot<StockMovementDocument>
+  | QueryDocumentSnapshot<StockMovementDocument>;
+
+function mapStockItem(snapshot: StockItemSnapshot): StockItem {
+  const data = snapshot.data();
 
   if (!data) {
-    throw new Error(`Estoque ${docSnapshot.id} não encontrado.`);
+    throw new Error(`Item de estoque ${snapshot.id} não encontrado.`);
   }
 
   return {
-    id: docSnapshot.id,
+    id: snapshot.id,
     productId: data.productId,
     currentQuantityInGrams: data.currentQuantityInGrams,
     minimumQuantityInGrams: data.minimumQuantityInGrams,
@@ -72,24 +89,22 @@ function mapStockItem(docSnapshot: DocumentSnapshot<StockItemDocument>): StockIt
   };
 }
 
-function mapStockMovement(
-  docSnapshot: DocumentSnapshot<StockMovementDocument>,
-): StockMovement {
-  const data = docSnapshot.data();
+function mapStockMovement(snapshot: StockMovementSnapshot): StockMovement {
+  const data = snapshot.data();
 
   if (!data) {
-    throw new Error(`Movimentação ${docSnapshot.id} não encontrada.`);
+    throw new Error(`Movimentação ${snapshot.id} não encontrada.`);
   }
 
   return {
-    id: docSnapshot.id,
+    id: snapshot.id,
     productId: data.productId,
     stockItemId: data.stockItemId,
     type: data.type,
     quantityInGrams: data.quantityInGrams,
     previousQuantityInGrams: data.previousQuantityInGrams,
     resultingQuantityInGrams: data.resultingQuantityInGrams,
-    note: data.note,
+    note: data.note ?? undefined,
     performedBy: data.performedBy,
     performedAt: timestampToDate(data.performedAt) ?? new Date(),
   };
@@ -100,7 +115,7 @@ export async function listStockItems(options?: {
   productId?: string;
 }): Promise<StockItem[]> {
   const db = getDb();
-  const colRef = collection(db, STOCK_ITEMS_COLLECTION);
+  const colRef = getCollection<StockItemDocument>(db, STOCK_ITEMS_COLLECTION);
 
   const constraints: QueryConstraint[] = [];
 
@@ -114,30 +129,32 @@ export async function listStockItems(options?: {
 
   constraints.push(orderBy('productId', 'asc'));
 
-  const snapshot = await getDocs(query(colRef, ...constraints));
+  const stockQuery = query(colRef, ...constraints);
+  const snapshot = await getDocs(stockQuery);
 
-  return snapshot.docs.map(docSnapshot =>
-    mapStockItem(docSnapshot as DocumentSnapshot<StockItemDocument>),
-  );
+  return snapshot.docs.map(mapStockItem);
 }
 
 export async function getStockItemById(stockItemId: string): Promise<StockItem> {
   const db = getDb();
-  const docRef = doc(db, STOCK_ITEMS_COLLECTION, stockItemId);
+  const docRef = getDocument<StockItemDocument>(
+    db,
+    `${STOCK_ITEMS_COLLECTION}/${stockItemId}`,
+  );
   const docSnapshot = await getDoc(docRef);
 
-  return mapStockItem(docSnapshot as DocumentSnapshot<StockItemDocument>);
+  return mapStockItem(docSnapshot);
 }
 
 export async function createStockItem(input: StockItemCreateInput): Promise<StockItem> {
   const db = getDb();
-  const colRef = collection(db, STOCK_ITEMS_COLLECTION);
+  const colRef = getCollection<StockItemDocument>(db, STOCK_ITEMS_COLLECTION);
 
   const now = serverTimestamp();
 
   const docRef = await addDoc(colRef, {
     ...input,
-    archivedAt: input.archivedAt ?? null,
+    archivedAt: serializeDateOrNull(input.archivedAt),
     currentQuantityInGrams: input.currentQuantityInGrams ?? 0,
     createdAt: now,
     updatedAt: now,
@@ -145,7 +162,7 @@ export async function createStockItem(input: StockItemCreateInput): Promise<Stoc
 
   const createdDoc = await getDoc(docRef);
 
-  return mapStockItem(createdDoc as DocumentSnapshot<StockItemDocument>);
+  return mapStockItem(createdDoc);
 }
 
 export async function updateStockItem(
@@ -153,21 +170,32 @@ export async function updateStockItem(
   input: StockItemUpdateInput,
 ): Promise<StockItem> {
   const db = getDb();
-  const docRef = doc(db, STOCK_ITEMS_COLLECTION, stockItemId);
+  const docRef = getDocument<StockItemDocument>(
+    db,
+    `${STOCK_ITEMS_COLLECTION}/${stockItemId}`,
+  );
+
+  const { archivedAt, ...rest } = input;
 
   await updateDoc(docRef, {
-    ...input,
+    ...rest,
+    ...(archivedAt !== undefined
+      ? { archivedAt: serializeDateOrNull(archivedAt) }
+      : null),
     updatedAt: serverTimestamp(),
   });
 
   const updatedDoc = await getDoc(docRef);
 
-  return mapStockItem(updatedDoc as DocumentSnapshot<StockItemDocument>);
+  return mapStockItem(updatedDoc);
 }
 
 export async function archiveStockItem(stockItemId: string): Promise<StockItem> {
   const db = getDb();
-  const docRef = doc(db, STOCK_ITEMS_COLLECTION, stockItemId);
+  const docRef = getDocument<StockItemDocument>(
+    db,
+    `${STOCK_ITEMS_COLLECTION}/${stockItemId}`,
+  );
 
   await updateDoc(docRef, {
     archivedAt: serverTimestamp(),
@@ -176,12 +204,15 @@ export async function archiveStockItem(stockItemId: string): Promise<StockItem> 
 
   const updatedDoc = await getDoc(docRef);
 
-  return mapStockItem(updatedDoc as DocumentSnapshot<StockItemDocument>);
+  return mapStockItem(updatedDoc);
 }
 
 export async function restoreStockItem(stockItemId: string): Promise<StockItem> {
   const db = getDb();
-  const docRef = doc(db, STOCK_ITEMS_COLLECTION, stockItemId);
+  const docRef = getDocument<StockItemDocument>(
+    db,
+    `${STOCK_ITEMS_COLLECTION}/${stockItemId}`,
+  );
 
   await updateDoc(docRef, {
     archivedAt: null,
@@ -190,12 +221,12 @@ export async function restoreStockItem(stockItemId: string): Promise<StockItem> 
 
   const updatedDoc = await getDoc(docRef);
 
-  return mapStockItem(updatedDoc as DocumentSnapshot<StockItemDocument>);
+  return mapStockItem(updatedDoc);
 }
 
 export async function deleteStockItem(stockItemId: string): Promise<void> {
   const db = getDb();
-  const docRef = doc(db, STOCK_ITEMS_COLLECTION, stockItemId);
+  const docRef = getDocument(db, `${STOCK_ITEMS_COLLECTION}/${stockItemId}`);
   await deleteDoc(docRef);
 }
 
@@ -205,7 +236,7 @@ export async function listStockMovements(options?: {
   limit?: number;
 }): Promise<StockMovement[]> {
   const db = getDb();
-  const colRef = collection(db, STOCK_MOVEMENTS_COLLECTION);
+  const colRef = getCollection<StockMovementDocument>(db, STOCK_MOVEMENTS_COLLECTION);
 
   const constraints: QueryConstraint[] = [];
 
@@ -219,33 +250,34 @@ export async function listStockMovements(options?: {
 
   constraints.push(orderBy('performedAt', 'desc'));
 
-  const queryConstraints = [...constraints];
+  const movementConstraints = [...constraints];
 
   if (options?.limit) {
-    queryConstraints.push(limit(options.limit));
+    movementConstraints.push(limit(options.limit));
   }
 
-  const snapshot = await getDocs(query(colRef, ...queryConstraints));
+  const movementsQuery = query(colRef, ...movementConstraints);
+  const snapshot = await getDocs(movementsQuery);
 
-  return snapshot.docs.map(docSnapshot =>
-    mapStockMovement(docSnapshot as DocumentSnapshot<StockMovementDocument>),
-  );
+  return snapshot.docs.map(mapStockMovement);
 }
 
 export async function recordStockMovement(
   input: StockMovementCreateInput,
 ): Promise<StockMovement> {
   const db = getDb();
-  const colRef = collection(db, STOCK_MOVEMENTS_COLLECTION);
+  const colRef = getCollection<StockMovementDocument>(db, STOCK_MOVEMENTS_COLLECTION);
 
   const docRef = await addDoc(colRef, {
     ...input,
-    performedAt: input.performedAt ? input.performedAt : serverTimestamp(),
+    performedAt: input.performedAt
+      ? Timestamp.fromDate(input.performedAt)
+      : serverTimestamp(),
   });
 
   const createdDoc = await getDoc(docRef);
 
-  return mapStockMovement(createdDoc as DocumentSnapshot<StockMovementDocument>);
+  return mapStockMovement(createdDoc);
 }
 
 export async function adjustStockLevel(options: {
@@ -256,13 +288,19 @@ export async function adjustStockLevel(options: {
   note?: string;
 }): Promise<StockMovement> {
   const db = getDb();
-  const itemRef = doc(db, STOCK_ITEMS_COLLECTION, options.stockItemId);
-  const movementRef = doc(collection(db, STOCK_MOVEMENTS_COLLECTION));
+  const itemRef = getDocument<StockItemDocument>(
+    db,
+    `${STOCK_ITEMS_COLLECTION}/${options.stockItemId}`,
+  );
+  const movementsCollection = getCollection<StockMovementDocument>(
+    db,
+    STOCK_MOVEMENTS_COLLECTION,
+  );
+  const movementRef = doc(movementsCollection);
 
   await runTransaction(db, async transaction => {
     const itemSnapshot = await transaction.get(itemRef);
-
-    const itemData = itemSnapshot.data() as StockItemDocument | undefined;
+    const itemData = itemSnapshot.data();
 
     if (!itemData) {
       throw new Error('Item de estoque não encontrado para ajuste.');
@@ -305,5 +343,90 @@ export async function adjustStockLevel(options: {
 
   const createdMovement = await getDoc(movementRef);
 
-  return mapStockMovement(createdMovement as DocumentSnapshot<StockMovementDocument>);
+  return mapStockMovement(createdMovement);
+}
+
+export function subscribeToStockItems(
+  handlers: FirestoreObserver<StockItem[]>,
+  options?: { includeArchived?: boolean; productId?: string },
+) {
+  const db = getDb();
+  const colRef = getCollection<StockItemDocument>(db, STOCK_ITEMS_COLLECTION);
+
+  const constraints: QueryConstraint[] = [];
+
+  if (!options?.includeArchived) {
+    constraints.push(where('archivedAt', '==', null));
+  }
+
+  if (options?.productId) {
+    constraints.push(where('productId', '==', options.productId));
+  }
+
+  constraints.push(orderBy('productId', 'asc'));
+
+  const stockQuery = query(colRef, ...constraints);
+
+  return onSnapshot(
+    stockQuery,
+    snapshot => {
+      handlers.next(snapshot.docs.map(mapStockItem));
+    },
+    error => handlers.error?.(normalizeFirestoreError(error)),
+  );
+}
+
+export function subscribeToStockItem(
+  stockItemId: string,
+  handlers: FirestoreObserver<StockItem>,
+) {
+  const db = getDb();
+  const docRef = getDocument<StockItemDocument>(
+    db,
+    `${STOCK_ITEMS_COLLECTION}/${stockItemId}`,
+  );
+
+  return onSnapshot(
+    docRef,
+    document => {
+      handlers.next(mapStockItem(document));
+    },
+    error => handlers.error?.(normalizeFirestoreError(error)),
+  );
+}
+
+export function subscribeToStockMovements(
+  handlers: FirestoreObserver<StockMovement[]>,
+  options?: { stockItemId?: string; productId?: string; limit?: number },
+) {
+  const db = getDb();
+  const colRef = getCollection<StockMovementDocument>(db, STOCK_MOVEMENTS_COLLECTION);
+
+  const constraints: QueryConstraint[] = [];
+
+  if (options?.stockItemId) {
+    constraints.push(where('stockItemId', '==', options.stockItemId));
+  }
+
+  if (options?.productId) {
+    constraints.push(where('productId', '==', options.productId));
+  }
+
+  constraints.push(orderBy('performedAt', 'desc'));
+
+  const queryConstraints = [...constraints];
+
+  if (options?.limit) {
+    queryConstraints.push(limit(options.limit));
+  }
+
+  const movementsQuery = query(colRef, ...queryConstraints);
+
+  return onSnapshot(
+    movementsQuery,
+    snapshot => {
+      handlers.next(snapshot.docs.map(mapStockMovement));
+    },
+    error => handlers.error?.(normalizeFirestoreError(error)),
+  );
 }

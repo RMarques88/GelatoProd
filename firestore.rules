@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && role in request.auth.token.roles;
+    }
+
+    function isManager() {
+      return hasRole('manager') || hasRole('admin');
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManager();
+      allow delete: if false; // produtos são arquivados, não removidos definitivamente
+    }
+
+    match /recipes/{recipeId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManager();
+      allow delete: if false;
+    }
+
+    match /stockItems/{stockItemId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManager();
+      allow delete: if isAdmin();
+    }
+
+    match /stockMovements/{movementId} {
+      allow read: if isAuthenticated();
+      allow create: if isManager();
+      allow update, delete: if false; // movimentações são imutáveis
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

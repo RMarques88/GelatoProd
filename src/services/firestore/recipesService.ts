@@ -1,15 +1,15 @@
 import {
   addDoc,
-  collection,
   deleteDoc,
-  doc,
   DocumentData,
   DocumentSnapshot,
   getDoc,
   getDocs,
+  onSnapshot,
   orderBy,
-  query,
   QueryConstraint,
+  QueryDocumentSnapshot,
+  query,
   serverTimestamp,
   Timestamp,
   updateDoc,
@@ -17,7 +17,15 @@ import {
 } from 'firebase/firestore';
 
 import { Recipe, RecipeCreateInput, RecipeUpdateInput } from '@/domain';
-import { getDb, timestampToDate } from './utils';
+import {
+  FirestoreObserver,
+  getCollection,
+  getDocument,
+  getDb,
+  normalizeFirestoreError,
+  serializeDateOrNull,
+  timestampToDate,
+} from './utils';
 
 const COLLECTION_NAME = 'recipes';
 
@@ -33,15 +41,19 @@ type RecipeDocument = DocumentData & {
   archivedAt?: Timestamp | null;
 };
 
-function mapRecipe(docSnapshot: DocumentSnapshot<RecipeDocument>): Recipe {
-  const data = docSnapshot.data();
+type RecipeDocSnapshot =
+  | DocumentSnapshot<RecipeDocument>
+  | QueryDocumentSnapshot<RecipeDocument>;
+
+function mapRecipe(snapshot: RecipeDocSnapshot): Recipe {
+  const data = snapshot.data();
 
   if (!data) {
-    throw new Error(`Receita ${docSnapshot.id} não encontrada.`);
+    throw new Error(`Receita ${snapshot.id} não encontrada.`);
   }
 
   return {
-    id: docSnapshot.id,
+    id: snapshot.id,
     name: data.name,
     description: data.description,
     yieldInGrams: data.yieldInGrams,
@@ -58,7 +70,7 @@ export async function listRecipes(options?: {
   includeInactive?: boolean;
 }): Promise<Recipe[]> {
   const db = getDb();
-  const colRef = collection(db, COLLECTION_NAME);
+  const colRef = getCollection<RecipeDocument>(db, COLLECTION_NAME);
 
   const constraints: QueryConstraint[] = [];
 
@@ -68,24 +80,23 @@ export async function listRecipes(options?: {
 
   constraints.push(orderBy('name', 'asc'));
 
-  const snapshot = await getDocs(query(colRef, ...constraints));
+  const recipesQuery = query(colRef, ...constraints);
+  const snapshot = await getDocs(recipesQuery);
 
-  return snapshot.docs.map(docSnapshot =>
-    mapRecipe(docSnapshot as DocumentSnapshot<RecipeDocument>),
-  );
+  return snapshot.docs.map(mapRecipe);
 }
 
 export async function getRecipeById(recipeId: string): Promise<Recipe> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, recipeId);
+  const docRef = getDocument<RecipeDocument>(db, `${COLLECTION_NAME}/${recipeId}`);
   const docSnapshot = await getDoc(docRef);
 
-  return mapRecipe(docSnapshot as DocumentSnapshot<RecipeDocument>);
+  return mapRecipe(docSnapshot);
 }
 
 export async function createRecipe(input: RecipeCreateInput): Promise<Recipe> {
   const db = getDb();
-  const colRef = collection(db, COLLECTION_NAME);
+  const colRef = getCollection<RecipeDocument>(db, COLLECTION_NAME);
 
   const now = serverTimestamp();
 
@@ -93,14 +104,14 @@ export async function createRecipe(input: RecipeCreateInput): Promise<Recipe> {
     ...input,
     ingredients: input.ingredients ?? [],
     isActive: input.isActive ?? true,
-    archivedAt: input.archivedAt ?? null,
+    archivedAt: serializeDateOrNull(input.archivedAt),
     createdAt: now,
     updatedAt: now,
   });
 
   const createdDoc = await getDoc(docRef);
 
-  return mapRecipe(createdDoc as DocumentSnapshot<RecipeDocument>);
+  return mapRecipe(createdDoc);
 }
 
 export async function updateRecipe(
@@ -108,21 +119,26 @@ export async function updateRecipe(
   input: RecipeUpdateInput,
 ): Promise<Recipe> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, recipeId);
+  const docRef = getDocument<RecipeDocument>(db, `${COLLECTION_NAME}/${recipeId}`);
+
+  const { archivedAt, ...rest } = input;
 
   await updateDoc(docRef, {
-    ...input,
+    ...rest,
+    ...(archivedAt !== undefined
+      ? { archivedAt: serializeDateOrNull(archivedAt) }
+      : null),
     updatedAt: serverTimestamp(),
   });
 
   const updatedDoc = await getDoc(docRef);
 
-  return mapRecipe(updatedDoc as DocumentSnapshot<RecipeDocument>);
+  return mapRecipe(updatedDoc);
 }
 
 export async function archiveRecipe(recipeId: string): Promise<Recipe> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, recipeId);
+  const docRef = getDocument<RecipeDocument>(db, `${COLLECTION_NAME}/${recipeId}`);
 
   await updateDoc(docRef, {
     isActive: false,
@@ -132,12 +148,12 @@ export async function archiveRecipe(recipeId: string): Promise<Recipe> {
 
   const updatedDoc = await getDoc(docRef);
 
-  return mapRecipe(updatedDoc as DocumentSnapshot<RecipeDocument>);
+  return mapRecipe(updatedDoc);
 }
 
 export async function restoreRecipe(recipeId: string): Promise<Recipe> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, recipeId);
+  const docRef = getDocument<RecipeDocument>(db, `${COLLECTION_NAME}/${recipeId}`);
 
   await updateDoc(docRef, {
     isActive: true,
@@ -147,11 +163,51 @@ export async function restoreRecipe(recipeId: string): Promise<Recipe> {
 
   const updatedDoc = await getDoc(docRef);
 
-  return mapRecipe(updatedDoc as DocumentSnapshot<RecipeDocument>);
+  return mapRecipe(updatedDoc);
 }
 
 export async function deleteRecipe(recipeId: string): Promise<void> {
   const db = getDb();
-  const docRef = doc(db, COLLECTION_NAME, recipeId);
+  const docRef = getDocument(db, `${COLLECTION_NAME}/${recipeId}`);
   await deleteDoc(docRef);
+}
+
+export function subscribeToRecipes(
+  handlers: FirestoreObserver<Recipe[]>,
+  options?: { includeInactive?: boolean },
+) {
+  const db = getDb();
+  const colRef = getCollection<RecipeDocument>(db, COLLECTION_NAME);
+
+  const constraints: QueryConstraint[] = [];
+
+  if (!options?.includeInactive) {
+    constraints.push(where('isActive', '==', true));
+  }
+
+  constraints.push(orderBy('name', 'asc'));
+
+  const recipesQuery = query(colRef, ...constraints);
+
+  return onSnapshot(
+    recipesQuery,
+    snapshot => {
+      const items = snapshot.docs.map(mapRecipe);
+      handlers.next(items);
+    },
+    error => handlers.error?.(normalizeFirestoreError(error)),
+  );
+}
+
+export function subscribeToRecipe(recipeId: string, handlers: FirestoreObserver<Recipe>) {
+  const db = getDb();
+  const docRef = getDocument<RecipeDocument>(db, `${COLLECTION_NAME}/${recipeId}`);
+
+  return onSnapshot(
+    docRef,
+    document => {
+      handlers.next(mapRecipe(document));
+    },
+    error => handlers.error?.(normalizeFirestoreError(error)),
+  );
 }
