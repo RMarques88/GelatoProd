@@ -60,6 +60,9 @@ app/
 │   │       └── ScreenContainer.tsx
 │   ├── contexts/
 │   │   └── AuthContext.tsx
+│   ├── domain/
+│   │   ├── index.ts
+│   │   └── models.ts
 │   ├── hooks/
 │   │   └── useAuth.ts
 │   ├── navigation/
@@ -73,8 +76,13 @@ app/
 │   │   └── Home/
 │   │       └── HomeScreen.tsx
 │   ├── services/
-│   │   └── firebase/
-│   │       └── index.ts
+│   │   ├── firebase/
+│   │   │   └── index.ts
+│   │   └── firestore/
+│   │       ├── index.ts
+│   │       ├── productsService.ts
+│   │       ├── recipesService.ts
+│   │       └── stockService.ts
 │   ├── theme/
 │   │   └── index.ts
 │   └── utils/
@@ -88,6 +96,7 @@ app/
 - Alias `@/` configurado em `tsconfig.json` e `babel.config.js` para importar arquivos dentro de `src/`.
 - `providers` agregam contextos globais (tema, autenticação, etc.).
 - `services/firebase` centraliza inicialização e integrações com o SDK do Firebase.
+- `services/firestore` concentra os repositórios de dados (produtos, receitas e estoque) com CRUD tipado.
 - `utils/env` lê valores com prefixo `EXPO_PUBLIC_` (necessário para Expo).
 
 ## 💻 Configuração do Ambiente
@@ -192,5 +201,3 @@ Recomenda-se usar commits pequenos e objetivos, facilitando revisão e reversão
 ## 📄 Licença
 
 Este projeto está licenciado sob os termos da [Licença MIT](./licence.md).
-
-
