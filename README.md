@@ -29,7 +29,7 @@ O projeto segue padrões rígidos de qualidade para servir como base de estudo.
 
 ## 🍨 Principais Funcionalidades
 
-- **Autenticação segura:** login individual, papéis (gelatiê, gerente, administrador) e controle básico de sessão.
+- **Autenticação segura:** login individual, recuperação de senha, papéis (gelatiê, gerente, administrador) e controle básico de sessão.
 - **Cadastro de produtos:** CRUD completo com informações como peso unitário, preço por grama e tags.
 - **Cadastro de receitas:** receitas podem combinar produtos simples e sub-receitas, com regras para evitar loops e múltiplas bases.
 - **Controle de estoque:** movimentações com histórico, controle por gramas, ponto mínimo e alertas automáticos com reconhecimento e resolução.
@@ -215,7 +215,7 @@ app/
 
 ## 🗺️ Roadmap
 
-- [ ] Integrar Firebase Authentication (login real + refresh token).
+- [x] Integrar Firebase Authentication (login real + recuperação de senha).
 - [x] Implementar CRUDs de produtos e receitas com Firestore (hooks + services com otimizações).
 - [ ] Construir módulo de estoque com alertas e histórico.
    - [x] Hooks e services de estoque com movimentos e ajustes otimistas.

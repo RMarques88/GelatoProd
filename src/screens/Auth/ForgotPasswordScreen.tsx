@@ -9,32 +9,32 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useAuth } from '@/hooks/useAuth';
 import type { AuthStackParamList } from '@/navigation';
 
-export default function LoginScreen() {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<AuthStackParamList, 'Login'>>();
-  const { signIn, isLoading } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export default function ForgotPasswordScreen({ navigation, route }: NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>) {
+  const initialEmail = route.params?.email ?? '';
+  const { resetPassword, isLoading } = useAuth();
+  const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError('Informe e-mail e senha.');
+    if (!email.trim()) {
+      setError('Informe o e-mail cadastrado.');
       return;
     }
 
     try {
       setError(null);
-      await signIn(email.trim(), password);
+      setSuccessMessage(null);
+      await resetPassword(email.trim());
+      setSuccessMessage('Enviamos um link para redefinir sua senha. Confira sua caixa de entrada.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao entrar. Tente novamente.');
+      setError(err instanceof Error ? err.message : 'Não foi possível enviar o e-mail.');
     }
   };
 
@@ -46,9 +46,9 @@ export default function LoginScreen() {
     >
       <ScreenContainer>
         <View style={styles.content}>
-          <Text style={styles.title}>Entrar</Text>
+          <Text style={styles.title}>Recuperar senha</Text>
           <Text style={styles.subtitle}>
-            Use suas credenciais para acessar o painel da gelateria.
+            Informe o e-mail cadastrado para receber o link de redefinição.
           </Text>
 
           <View style={styles.formGroup}>
@@ -61,24 +61,13 @@ export default function LoginScreen() {
               autoComplete="email"
               style={styles.input}
               placeholder="seu@email.com"
-              returnKeyType="next"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Senha</Text>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="password"
-              style={styles.input}
-              placeholder="••••••••"
-              returnKeyType="done"
+              returnKeyType="send"
+              onSubmitEditing={handleSubmit}
             />
           </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
+          {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
 
           <Pressable
             onPress={handleSubmit}
@@ -88,16 +77,16 @@ export default function LoginScreen() {
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>Entrar</Text>
+              <Text style={styles.buttonText}>Enviar link</Text>
             )}
           </Pressable>
 
           <Pressable
-            onPress={() => navigation.navigate('ForgotPassword', { email })}
+            onPress={() => navigation.navigate('Login')}
             style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonPressed]}
             disabled={isLoading}
           >
-            <Text style={styles.linkText}>Esqueci minha senha</Text>
+            <Text style={styles.linkText}>Voltar para o login</Text>
           </Pressable>
         </View>
       </ScreenContainer>
@@ -144,6 +133,10 @@ const styles = StyleSheet.create({
   },
   error: {
     color: '#E53E3E',
+    marginBottom: 16,
+  },
+  success: {
+    color: '#2F855A',
     marginBottom: 16,
   },
   button: {

@@ -9,6 +9,7 @@ import {
 import { FirebaseError } from 'firebase/app';
 import {
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   type User,
@@ -30,8 +31,10 @@ export type AuthUser = {
 export type AuthContextValue = {
   user: AuthUser | null;
   isLoading: boolean;
+  isHydrating: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -39,6 +42,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHydrating, setIsHydrating] = useState(true);
 
   useEffect(() => {
     const auth = getFirebaseAuth();
@@ -51,6 +55,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           if (isActive) {
             setUser(null);
             setIsLoading(false);
+            setIsHydrating(false);
           }
           return;
         }
@@ -77,6 +82,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           .finally(() => {
             if (isActive) {
               setIsLoading(false);
+              setIsHydrating(false);
             }
           });
       },
@@ -84,6 +90,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         logError(error, 'Auth.onAuthStateChanged');
         setUser(null);
         setIsLoading(false);
+        setIsHydrating(false);
       },
     );
 
@@ -97,6 +104,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       user,
       isLoading,
+      isHydrating,
       signIn: async (email, password) => {
         setIsLoading(true);
         try {
@@ -123,8 +131,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setIsLoading(false);
         }
       },
+      resetPassword: async email => {
+        setIsLoading(true);
+        try {
+          logDebug('Auth.resetPassword', { email });
+          const auth = getFirebaseAuth();
+          await sendPasswordResetEmail(auth, email.trim());
+        } catch (error) {
+          logError(error, 'Auth.resetPassword');
+          throw normalizeAuthError(error);
+        } finally {
+          setIsLoading(false);
+        }
+      },
     }),
-    [user, isLoading],
+    [user, isLoading, isHydrating],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
