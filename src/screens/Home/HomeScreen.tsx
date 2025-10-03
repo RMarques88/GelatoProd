@@ -19,9 +19,15 @@ import {
   useStockAlerts,
   useStockItems,
 } from '@/hooks/data';
+import { useAuthorization } from '@/hooks/useAuthorization';
 import { useAuth } from '@/hooks/useAuth';
 import { logError } from '@/utils/logger';
-import type { NotificationStatus, ProductionStatus, UnitOfMeasure } from '@/domain';
+import type {
+  NotificationStatus,
+  ProductionStatus,
+  UnitOfMeasure,
+  UserRole,
+} from '@/domain';
 
 type ProductionStatusActionMap = Partial<
   Record<ProductionStatus, { label: string; next: ProductionStatus }>
@@ -50,8 +56,15 @@ const productionStatusActions: ProductionStatusActionMap = {
   },
 };
 
+const roleLabels: Record<UserRole, string> = {
+  gelatie: 'Equipe de balcão',
+  manager: 'Gerência',
+  admin: 'Administração',
+};
+
 export function HomeScreen() {
   const { user, signOut, isLoading } = useAuth();
+  const authorization = useAuthorization(user);
   const {
     products,
     isLoading: isLoadingProducts,
@@ -96,6 +109,12 @@ export function HomeScreen() {
     limit: 10,
   });
 
+  const roleLabel = useMemo(
+    () => (user ? roleLabels[user.role] : 'Sem acesso'),
+    [user?.role],
+  );
+  const userDisplayName = useMemo(() => user?.name ?? 'Gelatiê', [user?.name]);
+
   const [newProductName, setNewProductName] = useState('');
   const [newProductWeight, setNewProductWeight] = useState('');
   const [newProductPrice, setNewProductPrice] = useState('');
@@ -138,6 +157,11 @@ export function HomeScreen() {
   const displayedPlans = useMemo(() => sortedPlans.slice(0, 5), [sortedPlans]);
 
   const handleCreateProduct = async () => {
+    if (!authorization.canManageProducts) {
+      setFormError('Você não tem permissão para cadastrar produtos.');
+      return;
+    }
+
     const weight = Number(newProductWeight.replace(',', '.'));
     const price = Number(newProductPrice.replace(',', '.'));
 
@@ -180,6 +204,10 @@ export function HomeScreen() {
   };
 
   const handleMarkAllNotifications = async () => {
+    if (!authorization.canManageNotifications) {
+      return;
+    }
+
     try {
       setIsMarkingNotifications(true);
       await markAllAsRead();
@@ -191,6 +219,11 @@ export function HomeScreen() {
   };
 
   const handleCreatePlan = async () => {
+    if (!authorization.canScheduleProduction) {
+      setPlanFormError('Você não tem permissão para agendar produções.');
+      return;
+    }
+
     const quantity = Number(newPlanQuantity.replace(',', '.'));
     const scheduledDate = new Date(`${newPlanDate}T00:00:00`);
 
@@ -245,6 +278,10 @@ export function HomeScreen() {
   };
 
   const handleAdvancePlan = async (planId: string, currentStatus: ProductionStatus) => {
+    if (!authorization.canAdvanceProduction) {
+      return;
+    }
+
     const action = productionStatusActions[currentStatus];
 
     if (!action) {
@@ -259,6 +296,10 @@ export function HomeScreen() {
   };
 
   const handleCancelPlan = async (planId: string) => {
+    if (!authorization.canCancelProduction) {
+      return;
+    }
+
     try {
       await archivePlan(planId);
     } catch (archiveError) {
@@ -267,6 +308,10 @@ export function HomeScreen() {
   };
 
   const handleAcknowledgeAlertPress = async (alertId: string) => {
+    if (!authorization.canAcknowledgeAlerts) {
+      return;
+    }
+
     try {
       await acknowledgeAlert(alertId);
     } catch (ackError) {
@@ -275,6 +320,10 @@ export function HomeScreen() {
   };
 
   const handleResolveAlertPress = async (alertId: string) => {
+    if (!authorization.canResolveAlerts) {
+      return;
+    }
+
     try {
       await resolveAlert(alertId);
     } catch (resolveError) {
@@ -286,6 +335,10 @@ export function HomeScreen() {
     notificationId: string,
     status: NotificationStatus,
   ) => {
+    if (!authorization.canMarkNotificationRead) {
+      return;
+    }
+
     if (status === 'read') {
       return;
     }
@@ -307,6 +360,14 @@ export function HomeScreen() {
           <View>
             <Text style={styles.heading}>Painel da Gelateria</Text>
             <Text style={styles.subtitle}>Acompanhe os cadastros em tempo real.</Text>
+            <View style={styles.userMetaRow}>
+              <Text style={styles.userGreeting}>Olá, {userDisplayName}</Text>
+              {user ? (
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
           <Pressable
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
@@ -371,7 +432,7 @@ export function HomeScreen() {
                     </Text>
                   </View>
                   <View style={styles.alertActions}>
-                    {alert.status !== 'acknowledged' ? (
+                    {alert.status !== 'acknowledged' && authorization.canAcknowledgeAlerts ? (
                       <Pressable
                         onPress={() => handleAcknowledgeAlertPress(alert.id)}
                         style={({ pressed }) => [
@@ -382,15 +443,17 @@ export function HomeScreen() {
                         <Text style={styles.secondaryButtonText}>Reconhecer</Text>
                       </Pressable>
                     ) : null}
-                    <Pressable
-                      onPress={() => handleResolveAlertPress(alert.id)}
-                      style={({ pressed }) => [
-                        styles.secondaryButton,
-                        pressed && styles.buttonPressed,
-                      ]}
-                    >
-                      <Text style={styles.secondaryButtonText}>Resolver</Text>
-                    </Pressable>
+                    {authorization.canResolveAlerts ? (
+                      <Pressable
+                        onPress={() => handleResolveAlertPress(alert.id)}
+                        style={({ pressed }) => [
+                          styles.secondaryButton,
+                          pressed && styles.buttonPressed,
+                        ]}
+                      >
+                        <Text style={styles.secondaryButtonText}>Resolver</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 </View>
               </View>
@@ -402,7 +465,7 @@ export function HomeScreen() {
           title="Notificações"
           error={notificationsError?.message}
           action={
-            notifications.length > 0 ? (
+            notifications.length > 0 && authorization.canManageNotifications ? (
               <Pressable
                 onPress={handleMarkAllNotifications}
                 disabled={isMarkingNotifications}
@@ -490,7 +553,7 @@ export function HomeScreen() {
                       </Text>
                     </View>
                     <View style={styles.planActions}>
-                      {action ? (
+                      {action && authorization.canAdvanceProduction ? (
                         <Pressable
                           onPress={() => handleAdvancePlan(plan.id, plan.status)}
                           style={({ pressed }) => [
@@ -501,7 +564,9 @@ export function HomeScreen() {
                           <Text style={styles.secondaryButtonText}>{action.label}</Text>
                         </Pressable>
                       ) : null}
-                      {plan.status !== 'completed' && plan.status !== 'cancelled' ? (
+                      {plan.status !== 'completed' &&
+                      plan.status !== 'cancelled' &&
+                      authorization.canCancelProduction ? (
                         <Pressable
                           onPress={() => handleCancelPlan(plan.id)}
                           style={({ pressed }) => [
@@ -519,94 +584,100 @@ export function HomeScreen() {
             })
           )}
 
-          <View style={styles.formCard}>
-            <Text style={styles.formTitle}>Agendar produção</Text>
-            <TextInput
-              placeholder="ID da receita"
-              value={newPlanRecipeId}
-              onChangeText={setNewPlanRecipeId}
-              style={styles.input}
-            />
-            <TextInput
-              placeholder="Nome da receita (opcional)"
-              value={newPlanRecipeName}
-              onChangeText={setNewPlanRecipeName}
-              style={styles.input}
-            />
-            <View style={styles.formRow}>
+          {authorization.canScheduleProduction ? (
+            <View style={styles.formCard}>
+              <Text style={styles.formTitle}>Agendar produção</Text>
               <TextInput
-                placeholder="Data (AAAA-MM-DD)"
-                value={newPlanDate}
-                onChangeText={setNewPlanDate}
-                style={[styles.input, styles.inputHalf]}
+                placeholder="ID da receita"
+                value={newPlanRecipeId}
+                onChangeText={setNewPlanRecipeId}
+                style={styles.input}
               />
               <TextInput
-                placeholder="Quantidade"
-                keyboardType="numeric"
-                value={newPlanQuantity}
-                onChangeText={setNewPlanQuantity}
-                style={[styles.input, styles.inputHalf]}
+                placeholder="Nome da receita (opcional)"
+                value={newPlanRecipeName}
+                onChangeText={setNewPlanRecipeName}
+                style={styles.input}
               />
-            </View>
-            <View style={styles.unitToggleRow}>
-              <Pressable
-                onPress={() => handleToggleUnit('GRAMS')}
-                style={({ pressed }) => [
-                  styles.unitOption,
-                  newPlanUnit === 'GRAMS' && styles.unitOptionActive,
-                  pressed && styles.unitOptionPressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.unitOptionText,
-                    newPlanUnit === 'GRAMS' && styles.unitOptionTextActive,
+              <View style={styles.formRow}>
+                <TextInput
+                  placeholder="Data (AAAA-MM-DD)"
+                  value={newPlanDate}
+                  onChangeText={setNewPlanDate}
+                  style={[styles.input, styles.inputHalf]}
+                />
+                <TextInput
+                  placeholder="Quantidade"
+                  keyboardType="numeric"
+                  value={newPlanQuantity}
+                  onChangeText={setNewPlanQuantity}
+                  style={[styles.input, styles.inputHalf]}
+                />
+              </View>
+              <View style={styles.unitToggleRow}>
+                <Pressable
+                  onPress={() => handleToggleUnit('GRAMS')}
+                  style={({ pressed }) => [
+                    styles.unitOption,
+                    newPlanUnit === 'GRAMS' && styles.unitOptionActive,
+                    pressed && styles.unitOptionPressed,
                   ]}
                 >
-                  Gramas
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => handleToggleUnit('UNITS')}
-                style={({ pressed }) => [
-                  styles.unitOption,
-                  newPlanUnit === 'UNITS' && styles.unitOptionActive,
-                  pressed && styles.unitOptionPressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.unitOptionText,
-                    newPlanUnit === 'UNITS' && styles.unitOptionTextActive,
+                  <Text
+                    style={[
+                      styles.unitOptionText,
+                      newPlanUnit === 'GRAMS' && styles.unitOptionTextActive,
+                    ]}
+                  >
+                    Gramas
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleToggleUnit('UNITS')}
+                  style={({ pressed }) => [
+                    styles.unitOption,
+                    newPlanUnit === 'UNITS' && styles.unitOptionActive,
+                    pressed && styles.unitOptionPressed,
                   ]}
                 >
-                  Unidades
-                </Text>
+                  <Text
+                    style={[
+                      styles.unitOptionText,
+                      newPlanUnit === 'UNITS' && styles.unitOptionTextActive,
+                    ]}
+                  >
+                    Unidades
+                  </Text>
+                </Pressable>
+              </View>
+              <TextInput
+                placeholder="Observações (opcional)"
+                value={newPlanNotes}
+                onChangeText={setNewPlanNotes}
+                style={[styles.input, styles.textArea]}
+                multiline
+              />
+              {planFormError ? (
+                <Text style={styles.errorText}>{planFormError}</Text>
+              ) : null}
+              <Pressable
+                onPress={handleCreatePlan}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                disabled={isSubmittingPlan}
+              >
+                {isSubmittingPlan ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Agendar produção</Text>
+                )}
               </Pressable>
             </View>
-            <TextInput
-              placeholder="Observações (opcional)"
-              value={newPlanNotes}
-              onChangeText={setNewPlanNotes}
-              style={[styles.input, styles.textArea]}
-              multiline
-            />
-            {planFormError ? <Text style={styles.errorText}>{planFormError}</Text> : null}
-            <Pressable
-              onPress={handleCreatePlan}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.buttonPressed,
-              ]}
-              disabled={isSubmittingPlan}
-            >
-              {isSubmittingPlan ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Agendar produção</Text>
-              )}
-            </Pressable>
-          </View>
+          ) : (
+            <PermissionNotice message="Você precisa ser gerente para agendar produções." />
+          )}
         </Section>
 
         <Section title="Produtos" error={productsError?.message}>
@@ -642,46 +713,50 @@ export function HomeScreen() {
             ))
           )}
 
-          <View style={styles.formCard}>
-            <Text style={styles.formTitle}>Cadastrar produto rápido</Text>
-            <TextInput
-              placeholder="Nome do produto"
-              value={newProductName}
-              onChangeText={setNewProductName}
-              style={styles.input}
-            />
-            <View style={styles.formRow}>
+          {authorization.canManageProducts ? (
+            <View style={styles.formCard}>
+              <Text style={styles.formTitle}>Cadastrar produto rápido</Text>
               <TextInput
-                placeholder="Peso (g)"
-                keyboardType="numeric"
-                value={newProductWeight}
-                onChangeText={setNewProductWeight}
-                style={[styles.input, styles.inputHalf]}
+                placeholder="Nome do produto"
+                value={newProductName}
+                onChangeText={setNewProductName}
+                style={styles.input}
               />
-              <TextInput
-                placeholder="Preço/g"
-                keyboardType="numeric"
-                value={newProductPrice}
-                onChangeText={setNewProductPrice}
-                style={[styles.input, styles.inputHalf]}
-              />
+              <View style={styles.formRow}>
+                <TextInput
+                  placeholder="Peso (g)"
+                  keyboardType="numeric"
+                  value={newProductWeight}
+                  onChangeText={setNewProductWeight}
+                  style={[styles.input, styles.inputHalf]}
+                />
+                <TextInput
+                  placeholder="Preço/g"
+                  keyboardType="numeric"
+                  value={newProductPrice}
+                  onChangeText={setNewProductPrice}
+                  style={[styles.input, styles.inputHalf]}
+                />
+              </View>
+              {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
+              <Pressable
+                onPress={handleCreateProduct}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                disabled={isSubmittingProduct}
+              >
+                {isSubmittingProduct ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Salvar produto</Text>
+                )}
+              </Pressable>
             </View>
-            {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
-            <Pressable
-              onPress={handleCreateProduct}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.buttonPressed,
-              ]}
-              disabled={isSubmittingProduct}
-            >
-              {isSubmittingProduct ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Salvar produto</Text>
-              )}
-            </Pressable>
-          </View>
+          ) : (
+            <PermissionNotice message="Somente a gerência pode cadastrar novos produtos." />
+          )}
         </Section>
 
         <Section title="Receitas" error={recipesError?.message}>
@@ -755,6 +830,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#5E5F61',
     marginTop: 4,
+  },
+  userMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  userGreeting: {
+    fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  roleBadge: {
+    backgroundColor: '#E0E7FF',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  roleBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1D4ED8',
   },
   button: {
     alignSelf: 'flex-start',
@@ -1066,6 +1163,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  permissionNotice: {
+    marginTop: 24,
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+  },
+  permissionNoticeText: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
 });
 
 export default HomeScreen;
@@ -1110,6 +1218,18 @@ function Section({ title, children, error, action }: SectionProps) {
         </View>
       </View>
       {children}
+    </View>
+  );
+}
+
+type PermissionNoticeProps = {
+  message: string;
+};
+
+function PermissionNotice({ message }: PermissionNoticeProps) {
+  return (
+    <View style={styles.permissionNotice}>
+      <Text style={styles.permissionNoticeText}>{message}</Text>
     </View>
   );
 }

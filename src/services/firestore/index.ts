@@ -4,3 +4,4 @@ export * from './stockService';
 export * from './stockAlertsService';
 export * from './notificationsService';
 export * from './productionService';
+export * from './usersService';

@@ -2,11 +2,31 @@ export type DocumentId = string;
 
 export type UnitOfMeasure = 'GRAMS' | 'MILLILITERS' | 'UNITS';
 
+export type UserRole = 'gelatie' | 'manager' | 'admin';
+
 export interface EntityTimestamps {
   createdAt: Date;
   updatedAt: Date;
   archivedAt?: Date | null;
 }
+
+export interface UserProfile extends EntityTimestamps {
+  id: DocumentId;
+  email: string;
+  displayName?: string | null;
+  role: UserRole;
+  phoneNumber?: string | null;
+}
+
+export type UserProfileCreateInput = {
+  email: string;
+  displayName?: string | null;
+  role?: UserRole;
+  phoneNumber?: string | null;
+  archivedAt?: Date | null;
+};
+
+export type UserProfileUpdateInput = Partial<Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>>;
 
 export interface Product extends EntityTimestamps {
   id: DocumentId;

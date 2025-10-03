@@ -14,14 +14,17 @@ import {
   type User,
 } from 'firebase/auth';
 
+import { UserProfile, UserRole } from '@/domain';
 import { getFirebaseAuth } from '@/services/firebase';
+import { ensureUserProfile } from '@/services/firestore';
 import { logDebug, logError } from '@/utils/logger';
 
 export type AuthUser = {
   id: string;
   name: string;
   email: string;
-  role: 'gelatie' | 'manager' | 'admin';
+  role: UserRole;
+  phoneNumber?: string | null;
 };
 
 export type AuthContextValue = {
@@ -39,12 +42,43 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const auth = getFirebaseAuth();
+    let isActive = true;
 
     const unsubscribe = onAuthStateChanged(
       auth,
       firebaseUser => {
-        setUser(firebaseUser ? mapFirebaseUser(firebaseUser) : null);
-        setIsLoading(false);
+        if (!firebaseUser) {
+          if (isActive) {
+            setUser(null);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        setIsLoading(true);
+
+        ensureAuthenticatedUser(firebaseUser)
+          .then(profile => {
+            if (!isActive) {
+              return;
+            }
+
+            setUser(mapFirebaseUser(firebaseUser, profile));
+          })
+          .catch(error => {
+            logError(error, 'Auth.ensureAuthenticatedUser');
+
+            if (!isActive) {
+              return;
+            }
+
+            setUser(mapFirebaseUser(firebaseUser));
+          })
+          .finally(() => {
+            if (isActive) {
+              setIsLoading(false);
+            }
+          });
       },
       error => {
         logError(error, 'Auth.onAuthStateChanged');
@@ -53,7 +87,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       },
     );
 
-    return unsubscribe;
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -93,13 +130,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-function mapFirebaseUser(firebaseUser: User): AuthUser {
+const DEFAULT_ROLE: UserRole = 'gelatie';
+const DEFAULT_DISPLAY_NAME = 'Gelatiê';
+
+async function ensureAuthenticatedUser(firebaseUser: User): Promise<UserProfile> {
+  const profile = await ensureUserProfile(firebaseUser.uid, {
+    email: firebaseUser.email ?? '',
+    displayName: firebaseUser.displayName ?? firebaseUser.email ?? DEFAULT_DISPLAY_NAME,
+    phoneNumber: firebaseUser.phoneNumber ?? null,
+    role: DEFAULT_ROLE,
+  });
+
+  return profile;
+}
+
+function mapFirebaseUser(firebaseUser: User, profile?: Partial<UserProfile>) {
   return {
     id: firebaseUser.uid,
-    name: firebaseUser.displayName ?? firebaseUser.email ?? 'Gelatiê',
-    email: firebaseUser.email ?? '',
-    role: 'manager', // TODO: map roles from custom claims / Firestore profile
-  };
+    name:
+      profile?.displayName ??
+      firebaseUser.displayName ??
+      firebaseUser.email ??
+      DEFAULT_DISPLAY_NAME,
+    email: profile?.email ?? firebaseUser.email ?? '',
+    role: profile?.role ?? DEFAULT_ROLE,
+    phoneNumber: profile?.phoneNumber ?? firebaseUser.phoneNumber ?? null,
+  } satisfies AuthUser;
 }
 
 function normalizeAuthError(error: unknown): Error {
