@@ -116,3 +116,83 @@ export type StockMovementCreateInput = {
   performedBy: DocumentId;
   performedAt?: Date;
 };
+
+export type StockAlertSeverity = 'warning' | 'critical';
+
+export type StockAlertStatus = 'open' | 'acknowledged' | 'resolved';
+
+export interface StockAlert extends EntityTimestamps {
+  id: DocumentId;
+  stockItemId: DocumentId;
+  productId: DocumentId;
+  status: StockAlertStatus;
+  severity: StockAlertSeverity;
+  currentQuantityInGrams: number;
+  minimumQuantityInGrams: number;
+  triggeredAt: Date;
+  acknowledgedAt?: Date | null;
+  resolvedAt?: Date | null;
+  lastNotificationAt?: Date | null;
+}
+
+export type NotificationCategory = 'stock' | 'production';
+
+export type NotificationStatus = 'unread' | 'read';
+
+export interface AppNotification {
+  id: DocumentId;
+  title: string;
+  message: string;
+  category: NotificationCategory;
+  type: string;
+  referenceId?: DocumentId | null;
+  status: NotificationStatus;
+  createdAt: Date;
+  readAt?: Date | null;
+}
+
+export type AppNotificationCreateInput = {
+  title: string;
+  message: string;
+  category: NotificationCategory;
+  type: string;
+  referenceId?: DocumentId | null;
+};
+
+export type ProductionStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
+
+export interface ProductionPlan extends EntityTimestamps {
+  id: DocumentId;
+  recipeId: DocumentId;
+  recipeName: string;
+  scheduledFor: Date;
+  quantityInUnits: number;
+  unitOfMeasure: UnitOfMeasure;
+  notes?: string;
+  status: ProductionStatus;
+  requestedBy: DocumentId;
+  archivedAt?: Date | null;
+}
+
+export type ProductionPlanCreateInput = {
+  recipeId: DocumentId;
+  recipeName: string;
+  scheduledFor: Date;
+  quantityInUnits: number;
+  unitOfMeasure: UnitOfMeasure;
+  notes?: string;
+  status?: ProductionStatus;
+  requestedBy: DocumentId;
+  archivedAt?: Date | null;
+};
+
+export type ProductionPlanUpdateInput = Partial<
+  Omit<ProductionPlan, 'id' | 'createdAt' | 'updatedAt' | 'requestedBy'>
+> & {
+  archivedAt?: Date | null;
+};

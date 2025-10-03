@@ -1,3 +1,6 @@
 export * from './productsService';
 export * from './recipesService';
 export * from './stockService';
+export * from './stockAlertsService';
+export * from './notificationsService';
+export * from './productionService';

@@ -32,9 +32,10 @@ O projeto segue padrões rígidos de qualidade para servir como base de estudo.
 - **Autenticação segura:** login individual, papéis (gelatiê, gerente, administrador) e controle básico de sessão.
 - **Cadastro de produtos:** CRUD completo com informações como peso unitário, preço por grama e tags.
 - **Cadastro de receitas:** receitas podem combinar produtos simples e sub-receitas, com regras para evitar loops e múltiplas bases.
-- **Controle de estoque:** movimentações com histórico, controle por gramas, ponto mínimo e alertas.
-- **Módulo de produção:** planejamento por data/quantidade, checagem automática de estoque, baixa automática e registro de divergências.
-- **Recursos adicionais:** logs de auditoria, notificações, exportação de relatórios, dashboard inicial e documentação para integrações futuras.
+- **Controle de estoque:** movimentações com histórico, controle por gramas, ponto mínimo e alertas automáticos com reconhecimento e resolução.
+- **Central de notificações:** feed em tempo real para alertas críticos de estoque e eventos de produção, com marcação como lida.
+- **Módulo de produção:** planejamento por data/quantidade, checagem automática de estoque, avanço de status e registro de divergências.
+- **Recursos adicionais:** logs de auditoria, exportação de relatórios, dashboard inicial e documentação para integrações futuras.
 
 ## 🛠️ Stack Tecnológica
 
@@ -66,9 +67,12 @@ app/
 │   ├── hooks/
 │   │   ├── data/
 │   │   │   ├── useFirestoreSubscription.ts
+│   │   │   ├── useNotifications.ts
+│   │   │   ├── useProductionPlans.ts
 │   │   │   ├── useProducts.ts
 │   │   │   ├── useRecipes.ts
-│   │   │   └── useStock.ts
+│   │   │   ├── useStock.ts
+│   │   │   └── useStockAlerts.ts
 │   │   ├── index.ts
 │   │   └── useAuth.ts
 │   ├── navigation/
@@ -89,8 +93,11 @@ app/
 │   │   │   └── index.ts
 │   │   └── firestore/
 │   │       ├── index.ts
+│   │       ├── notificationsService.ts
+│   │       ├── productionService.ts
 │   │       ├── productsService.ts
 │   │       ├── recipesService.ts
+│   │       ├── stockAlertsService.ts
 │   │       ├── stockService.ts
 │   │       └── utils.ts
 │   ├── theme/
@@ -193,9 +200,10 @@ app/
 - [ ] Integrar Firebase Authentication (login real + refresh token).
 - [x] Implementar CRUDs de produtos e receitas com Firestore (hooks + services com otimizações).
 - [ ] Construir módulo de estoque com alertas e histórico.
-  - [x] Hooks e services de estoque com movimentos e ajustes otimistas.
-  - [ ] Alertas automáticos e notificações proativas.
+   - [x] Hooks e services de estoque com movimentos e ajustes otimistas.
+   - [x] Alertas automáticos e notificações proativas.
 - [ ] Criar fluxo de produção (planejamento, baixa automática, divergências).
+   - [x] Agendamento e acompanhamento básico de planos de produção.
 - [x] Dashboard inicial com indicadores em tempo real (HomeScreen consumindo Firestore).
 - [x] Rascunho inicial das regras de segurança do Firestore (`firestore.rules`).
 - [ ] Exportação de relatórios (CSV/PDF) e backups automatizados.

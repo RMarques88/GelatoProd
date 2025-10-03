@@ -20,6 +20,8 @@ import {
 } from 'firebase/firestore';
 
 import {
+  AppNotificationCreateInput,
+  StockAlertSeverity,
   StockItem,
   StockItemCreateInput,
   StockItemUpdateInput,
@@ -27,6 +29,12 @@ import {
   StockMovementCreateInput,
   StockMovementType,
 } from '@/domain';
+import { logError } from '@/utils/logger';
+import { createNotification } from './notificationsService';
+import {
+  getStockAlertDocumentForItem,
+  type StockAlertDocument,
+} from './stockAlertsService';
 import {
   FirestoreObserver,
   getCollection,
@@ -297,6 +305,9 @@ export async function adjustStockLevel(options: {
     STOCK_MOVEMENTS_COLLECTION,
   );
   const movementRef = doc(movementsCollection);
+  const alertRef = getStockAlertDocumentForItem(db, options.stockItemId);
+
+  let notificationPayload: AppNotificationCreateInput | null = null;
 
   await runTransaction(db, async transaction => {
     const itemSnapshot = await transaction.get(itemRef);
@@ -307,6 +318,7 @@ export async function adjustStockLevel(options: {
     }
 
     const previous = itemData.currentQuantityInGrams ?? 0;
+    const minimum = itemData.minimumQuantityInGrams ?? 0;
 
     let resulting = previous;
 
@@ -339,7 +351,102 @@ export async function adjustStockLevel(options: {
       performedBy: options.performedBy,
       performedAt: serverTimestamp(),
     });
+
+    const alertSnapshot = await transaction.get(alertRef);
+    const alertData = alertSnapshot.data() as StockAlertDocument | undefined;
+    const isBelowMinimum = resulting <= minimum;
+    const severity: StockAlertSeverity = resulting <= 0 ? 'critical' : 'warning';
+    const now = serverTimestamp();
+
+    notificationPayload = null;
+
+    if (isBelowMinimum) {
+      const isResolvedOrMissing = !alertData || alertData.status === 'resolved';
+      const isReopened = alertData && alertData.status !== 'open';
+      const severityEscalated =
+        alertData && alertData.severity !== severity && severity === 'critical';
+
+      if (isResolvedOrMissing) {
+        transaction.set(
+          alertRef,
+          {
+            stockItemId: options.stockItemId,
+            productId: itemData.productId,
+            status: 'open',
+            severity,
+            currentQuantityInGrams: resulting,
+            minimumQuantityInGrams: minimum,
+            triggeredAt: now,
+            acknowledgedAt: null,
+            resolvedAt: null,
+            lastNotificationAt: now,
+            createdAt: alertData?.createdAt ?? now,
+            updatedAt: now,
+          },
+          { merge: true },
+        );
+
+        notificationPayload = {
+          title: severity === 'critical' ? 'Estoque crítico' : 'Alerta de estoque',
+          message: `O item ${itemData.productId} está com ${resulting}g (mínimo ${minimum}g).`,
+          category: 'stock',
+          type: severity === 'critical' ? 'stock-critical' : 'stock-warning',
+          referenceId: options.stockItemId,
+        };
+      } else {
+        const updateData: Record<string, unknown> = {
+          currentQuantityInGrams: resulting,
+          minimumQuantityInGrams: minimum,
+          severity,
+          updatedAt: now,
+        };
+
+        let shouldNotify = false;
+
+        if (isReopened) {
+          updateData.status = 'open';
+          updateData.acknowledgedAt = null;
+          updateData.resolvedAt = null;
+          updateData.triggeredAt = now;
+          updateData.lastNotificationAt = now;
+          shouldNotify = true;
+        }
+
+        if (severityEscalated) {
+          updateData.lastNotificationAt = now;
+          shouldNotify = true;
+        }
+
+        transaction.update(alertRef, updateData);
+
+        if (shouldNotify) {
+          notificationPayload = {
+            title: severity === 'critical' ? 'Estoque crítico' : 'Alerta de estoque',
+            message: `O item ${itemData.productId} está com ${resulting}g (mínimo ${minimum}g).`,
+            category: 'stock',
+            type: severity === 'critical' ? 'stock-critical' : 'stock-warning',
+            referenceId: options.stockItemId,
+          };
+        }
+      }
+    } else if (alertData && alertData.status !== 'resolved') {
+      transaction.update(alertRef, {
+        status: 'resolved',
+        resolvedAt: now,
+        updatedAt: now,
+        currentQuantityInGrams: resulting,
+        minimumQuantityInGrams: minimum,
+      });
+    }
   });
+
+  if (notificationPayload) {
+    try {
+      await createNotification(notificationPayload);
+    } catch (notificationError) {
+      logError(notificationError, 'stock.adjustStockLevel.notification');
+    }
+  }
 
   const createdMovement = await getDoc(movementRef);
 
