@@ -57,8 +57,10 @@ app/
 ├── tsconfig.json
 ├── src/
 │   ├── components/
-│   │   └── layout/
-│   │       └── ScreenContainer.tsx
+│   │   ├── layout/
+│   │   │   └── ScreenContainer.tsx
+│   │   └── security/
+│   │       └── RoleGate.tsx
 │   ├── contexts/
 │   │   └── AuthContext.tsx
 │   ├── domain/
@@ -74,10 +76,12 @@ app/
 │   │   │   ├── useStock.ts
 │   │   │   └── useStockAlerts.ts
 │   │   ├── index.ts
-│   │   └── useAuth.ts
+│   │   ├── useAuth.ts
+│   │   └── useAuthorization.ts
 │   ├── navigation/
 │   │   ├── AppNavigator.tsx
-│   │   └── index.ts
+│   │   ├── index.ts
+│   │   └── routes.ts
 │   ├── providers/
 │   │   ├── AppProviders.tsx
 │   │   ├── AppThemeProvider.tsx
@@ -99,12 +103,22 @@ app/
 │   │       ├── recipesService.ts
 │   │       ├── stockAlertsService.ts
 │   │       ├── stockService.ts
+│   │       ├── usersService.ts
 │   │       └── utils.ts
 │   ├── theme/
 │   │   └── index.ts
 │   └── utils/
 │       ├── env.ts
 │       └── logger.ts
+├── tests/
+│   ├── authPersistence.test.ts
+│   ├── firestore/
+│   │   ├── productsService.test.ts
+│   │   ├── recipesService.test.ts
+│   │   └── stockService.test.ts
+│   ├── mocks/
+│   │   └── firebaseFirestore.ts
+│   └── setupTests.ts
 ├── firestore.rules          # Regras de segurança do Firestore (rascunho inicial)
 └── ...
 ```
@@ -180,6 +194,7 @@ app/
 | `npm run lint:fix`  | Aplica correções automáticas do ESLint.                                             |
 | `npm run format`    | Formata o código com Prettier.                                                      |
 | `npm run typecheck` | Verifica tipos com `tsc --noEmit`.                                                  |
+| `npm run test`      | Executa a suíte de testes unitários (Jest + ts-jest).                               |
 
 ## 🔄 Fluxo de Desenvolvimento
 
@@ -192,8 +207,11 @@ app/
    npm run lint
    npm run typecheck
    npm run format
+   npm run test
    ```
-6. **Testes automatizados:** em breve serão adicionados testes unitários e e2e; mantenha a arquitetura preparada para isso.
+6. **Testes automatizados:**
+   - Suítes unitárias cobrem autenticação (persistência do Firebase Auth) e os serviços do Firestore de produtos, receitas e estoque — execute `npm run test` para validá-las.
+   - À medida que novas telas forem adicionadas, priorize cobrir regras de acesso com UI tests (React Native Testing Library ou Detox) simulando papéis diferentes.
 
 ## 🗺️ Roadmap
 
@@ -202,6 +220,7 @@ app/
 - [ ] Construir módulo de estoque com alertas e histórico.
    - [x] Hooks e services de estoque com movimentos e ajustes otimistas.
    - [x] Alertas automáticos e notificações proativas.
+- [x] Acrescentar cobertura de testes unitários aos serviços do Firestore (produtos, receitas e estoque).
 - [ ] Criar fluxo de produção (planejamento, baixa automática, divergências).
    - [x] Agendamento e acompanhamento básico de planos de produção.
 - [x] Dashboard inicial com indicadores em tempo real (HomeScreen consumindo Firestore).
