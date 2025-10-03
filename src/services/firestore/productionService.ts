@@ -45,6 +45,9 @@ type ProductionPlanDocument = DocumentData & {
   notes?: string | null;
   status: ProductionStatus;
   requestedBy: string;
+  startedAt?: Timestamp | null;
+  completedAt?: Timestamp | null;
+  actualQuantityInUnits?: number | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   archivedAt?: Timestamp | null;
@@ -71,6 +74,9 @@ function mapProductionPlan(snapshot: ProductionPlanSnapshot): ProductionPlan {
     notes: data.notes ?? undefined,
     status: data.status,
     requestedBy: data.requestedBy,
+    startedAt: timestampToDate(data.startedAt),
+    completedAt: timestampToDate(data.completedAt),
+    actualQuantityInUnits: data.actualQuantityInUnits ?? null,
     createdAt: timestampToDate(data.createdAt) ?? new Date(),
     updatedAt: timestampToDate(data.updatedAt) ?? new Date(),
     archivedAt: timestampToDate(data.archivedAt),
@@ -196,6 +202,9 @@ export async function createProductionPlan(
     notes: input.notes ?? null,
     status: input.status ?? 'scheduled',
     requestedBy: input.requestedBy,
+    startedAt: serializeDateOrNull(input.startedAt),
+    completedAt: serializeDateOrNull(input.completedAt),
+    actualQuantityInUnits: input.actualQuantityInUnits ?? null,
     createdAt: now,
     updatedAt: now,
     archivedAt: serializeDateOrNull(input.archivedAt),
@@ -215,11 +224,15 @@ export async function updateProductionPlan(
     `${PRODUCTION_PLANS_COLLECTION}/${planId}`,
   );
 
-  const { scheduledFor, archivedAt, ...rest } = input;
+  const { scheduledFor, archivedAt, startedAt, completedAt, ...rest } = input;
 
   await updateDoc(docRef, {
     ...rest,
     ...(scheduledFor ? { scheduledFor: Timestamp.fromDate(scheduledFor) } : null),
+    ...(startedAt !== undefined ? { startedAt: serializeDateOrNull(startedAt) } : null),
+    ...(completedAt !== undefined
+      ? { completedAt: serializeDateOrNull(completedAt) }
+      : null),
     ...(archivedAt !== undefined
       ? { archivedAt: serializeDateOrNull(archivedAt) }
       : null),
@@ -245,6 +258,33 @@ export async function deleteProductionPlan(planId: string): Promise<void> {
   const db = getDb();
   const docRef = getDocument(db, `${PRODUCTION_PLANS_COLLECTION}/${planId}`);
   await deleteDoc(docRef);
+}
+
+export async function getProductionPlanById(planId: string): Promise<ProductionPlan> {
+  const db = getDb();
+  const docRef = getDocument<ProductionPlanDocument>(
+    db,
+    `${PRODUCTION_PLANS_COLLECTION}/${planId}`,
+  );
+  const snapshot = await getDoc(docRef);
+  return mapProductionPlan(snapshot);
+}
+
+export function subscribeToProductionPlan(
+  planId: string,
+  handlers: FirestoreObserver<ProductionPlan>,
+) {
+  const db = getDb();
+  const docRef = getDocument<ProductionPlanDocument>(
+    db,
+    `${PRODUCTION_PLANS_COLLECTION}/${planId}`,
+  );
+
+  return onSnapshot(
+    docRef,
+    document => handlers.next(mapProductionPlan(document)),
+    error => handlers.error?.(normalizeFirestoreError(error)),
+  );
 }
 
 export { PRODUCTION_PLANS_COLLECTION, mapProductionPlan };

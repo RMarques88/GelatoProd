@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -9,6 +9,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
@@ -21,6 +23,7 @@ import {
 } from '@/hooks/data';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { useAuth } from '@/hooks/useAuth';
+import type { AppStackParamList } from '@/navigation';
 import { logError } from '@/utils/logger';
 import type {
   NotificationStatus,
@@ -28,6 +31,7 @@ import type {
   UnitOfMeasure,
   UserRole,
 } from '@/domain';
+import { formatRelativeDate } from '@/utils/date';
 
 type ProductionStatusActionMap = Partial<
   Record<ProductionStatus, { label: string; next: ProductionStatus }>
@@ -65,6 +69,7 @@ const roleLabels: Record<UserRole, string> = {
 export function HomeScreen() {
   const { user, signOut, isLoading } = useAuth();
   const authorization = useAuthorization(user);
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const {
     products,
     isLoading: isLoadingProducts,
@@ -114,6 +119,15 @@ export function HomeScreen() {
     [user?.role],
   );
   const userDisplayName = useMemo(() => user?.name ?? 'Gelatiê', [user?.name]);
+  const productsById = useMemo(() => {
+    const map = new Map<string, typeof products[number]>();
+
+    for (const product of products) {
+      map.set(product.id, product);
+    }
+
+    return map;
+  }, [products]);
 
   const [newProductName, setNewProductName] = useState('');
   const [newProductWeight, setNewProductWeight] = useState('');
@@ -331,6 +345,33 @@ export function HomeScreen() {
     }
   };
 
+  const handleNavigateToStock = useCallback(() => {
+    if (!authorization.canViewStock) {
+      return;
+    }
+
+    navigation.navigate('Stock');
+  }, [authorization.canViewStock, navigation]);
+
+  const handleNavigateToStockAlerts = useCallback(() => {
+    if (!authorization.canViewStockAlerts) {
+      return;
+    }
+
+    navigation.navigate('StockAlerts');
+  }, [authorization.canViewStockAlerts, navigation]);
+
+  const handleNavigateToStockItem = useCallback(
+    (stockItemId: string) => {
+      if (!authorization.canViewStock) {
+        return;
+      }
+
+      navigation.navigate('StockItem', { stockItemId });
+    },
+    [authorization.canViewStock, navigation],
+  );
+
   const handleNotificationPress = async (
     notificationId: string,
     status: NotificationStatus,
@@ -404,22 +445,48 @@ export function HomeScreen() {
           />
         </View>
 
-        <Section title="Alertas de estoque" error={alertsError?.message}>
+        <Section
+          title="Alertas de estoque"
+          error={alertsError?.message}
+          action={
+            authorization.canViewStockAlerts && alerts.length > 0 ? (
+              <Pressable
+                onPress={handleNavigateToStockAlerts}
+                style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonDisabled]}
+              >
+                <Text style={styles.linkButtonText}>Ver todos</Text>
+              </Pressable>
+            ) : null
+          }
+        >
           {isLoadingAlerts ? (
             <ActivityIndicator color="#4E9F3D" />
           ) : alerts.length === 0 ? (
             <Text style={styles.emptyText}>Nenhum alerta ativo no momento.</Text>
           ) : (
             alerts.map(alert => (
-              <View key={alert.id} style={styles.listItem}>
-                <View>
-                  <Text style={styles.listItemTitle}>Produto #{alert.productId}</Text>
-                  <Text style={styles.listItemSubtitle}>
-                    {alert.currentQuantityInGrams}g disponíveis · mínimo{' '}
-                    {alert.minimumQuantityInGrams}g
-                  </Text>
-                </View>
-                <View style={styles.alertActionsWrapper}>
+              <Pressable
+                key={alert.id}
+                onPress={() => handleNavigateToStockItem(alert.stockItemId)}
+                style={({ pressed }) => [
+                  styles.listItem,
+                  styles.listItemInteractive,
+                  pressed && styles.listItemPressed,
+                ]}
+              >
+                <View style={styles.listItemContent}>
+                  <View>
+                    <Text style={styles.listItemTitle}>
+                      {productsById.get(alert.productId)?.name ?? `Produto #${alert.productId}`}
+                    </Text>
+                    <Text style={styles.listItemSubtitle}>
+                      {alert.currentQuantityInGrams}g disponíveis · mínimo {alert.minimumQuantityInGrams}g
+                    </Text>
+                    <Text style={styles.listItemMeta}>
+                      Atualizado {formatRelativeDate(alert.updatedAt)}
+                    </Text>
+                  </View>
+                  <View style={styles.alertActionsWrapper}>
                   <View
                     style={[
                       styles.alertBadge,
@@ -434,7 +501,10 @@ export function HomeScreen() {
                   <View style={styles.alertActions}>
                     {alert.status !== 'acknowledged' && authorization.canAcknowledgeAlerts ? (
                       <Pressable
-                        onPress={() => handleAcknowledgeAlertPress(alert.id)}
+                        onPress={event => {
+                          event.stopPropagation();
+                          handleAcknowledgeAlertPress(alert.id);
+                        }}
                         style={({ pressed }) => [
                           styles.secondaryButton,
                           pressed && styles.buttonPressed,
@@ -445,7 +515,10 @@ export function HomeScreen() {
                     ) : null}
                     {authorization.canResolveAlerts ? (
                       <Pressable
-                        onPress={() => handleResolveAlertPress(alert.id)}
+                        onPress={event => {
+                          event.stopPropagation();
+                          handleResolveAlertPress(alert.id);
+                        }}
                         style={({ pressed }) => [
                           styles.secondaryButton,
                           pressed && styles.buttonPressed,
@@ -455,8 +528,9 @@ export function HomeScreen() {
                       </Pressable>
                     ) : null}
                   </View>
+                  </View>
                 </View>
-              </View>
+              </Pressable>
             ))
           )}
         </Section>
@@ -779,7 +853,20 @@ export function HomeScreen() {
           )}
         </Section>
 
-        <Section title="Estoque" error={stockError?.message}>
+        <Section
+          title="Estoque"
+          error={stockError?.message}
+          action={
+            authorization.canViewStock ? (
+              <Pressable
+                onPress={handleNavigateToStock}
+                style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonDisabled]}
+              >
+                <Text style={styles.linkButtonText}>Abrir estoque</Text>
+              </Pressable>
+            ) : null
+          }
+        >
           {isLoadingStock ? (
             <ActivityIndicator color="#4E9F3D" />
           ) : stockItems.length === 0 ? (
@@ -788,20 +875,34 @@ export function HomeScreen() {
             </Text>
           ) : (
             stockItems.slice(0, 5).map(item => (
-              <View key={item.id} style={styles.listItem}>
-                <View>
-                  <Text style={styles.listItemTitle}>Produto #{item.productId}</Text>
-                  <Text style={styles.listItemSubtitle}>
-                    {item.currentQuantityInGrams}g disponíveis · mínimo{' '}
-                    {item.minimumQuantityInGrams}g
-                  </Text>
-                </View>
-                {item.currentQuantityInGrams <= item.minimumQuantityInGrams ? (
-                  <View style={[styles.statusBadge, styles.statusBadgeAlert]}>
-                    <Text style={styles.statusBadgeText}>Crítico</Text>
+              <Pressable
+                key={item.id}
+                onPress={() => handleNavigateToStockItem(item.id)}
+                style={({ pressed }) => [
+                  styles.listItem,
+                  styles.listItemInteractive,
+                  pressed && styles.listItemPressed,
+                ]}
+              >
+                <View style={styles.listItemContent}>
+                  <View>
+                    <Text style={styles.listItemTitle}>
+                      {productsById.get(item.productId)?.name ?? `Produto #${item.productId}`}
+                    </Text>
+                    <Text style={styles.listItemSubtitle}>
+                      {item.currentQuantityInGrams}g disponíveis · mínimo {item.minimumQuantityInGrams}g
+                    </Text>
+                    <Text style={styles.listItemMeta}>
+                      Atualizado {formatRelativeDate(item.updatedAt)}
+                    </Text>
                   </View>
-                ) : null}
-              </View>
+                  {item.currentQuantityInGrams <= item.minimumQuantityInGrams ? (
+                    <View style={[styles.statusBadge, styles.statusBadgeAlert]}>
+                      <Text style={styles.statusBadgeText}>Crítico</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </Pressable>
             ))
           )}
         </Section>
@@ -942,6 +1043,20 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
+  listItemInteractive: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  listItemPressed: {
+    opacity: 0.85,
+  },
+  listItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 8,
+  },
   listItemTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -951,6 +1066,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#5E5F61',
     marginTop: 4,
+  },
+  listItemMeta: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 6,
   },
   emptyText: {
     fontSize: 14,

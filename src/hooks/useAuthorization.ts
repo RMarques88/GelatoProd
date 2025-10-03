@@ -22,6 +22,11 @@ export type AuthorizationState = {
   role: UserRole | null;
   hasRole: (role: UserRole) => boolean;
   isAdmin: boolean;
+  canViewStock: boolean;
+  canManageStock: boolean;
+  canAdjustStock: boolean;
+  canViewStockAlerts: boolean;
+  canAcknowledgeStockAlerts: boolean;
   canManageProducts: boolean;
   canScheduleProduction: boolean;
   canAdvanceProduction: boolean;
@@ -43,6 +48,11 @@ export function useAuthorization(overrideUser?: AuthUser | null): AuthorizationS
       rolePriority(currentRole) >= rolePriority(requiredRole);
 
     const isAdmin = hasRole('admin');
+  const canViewStock = hasRole('gelatie');
+  const canManageStock = hasRole('manager');
+  const canAdjustStock = hasRole('manager');
+  const canViewStockAlerts = hasRole('gelatie');
+  const canAcknowledgeStockAlerts = hasRole('manager');
     const canManageProducts = hasRole('manager');
     const canScheduleProduction = hasRole('manager');
     const canAdvanceProduction = hasRole('manager');
@@ -56,6 +66,11 @@ export function useAuthorization(overrideUser?: AuthUser | null): AuthorizationS
       role: currentRole,
       hasRole,
       isAdmin,
+  canViewStock,
+  canManageStock,
+  canAdjustStock,
+  canViewStockAlerts,
+  canAcknowledgeStockAlerts,
       canManageProducts,
       canScheduleProduction,
       canAdvanceProduction,

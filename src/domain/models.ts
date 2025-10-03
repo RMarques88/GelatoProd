@@ -196,6 +196,9 @@ export interface ProductionPlan extends EntityTimestamps {
   notes?: string;
   status: ProductionStatus;
   requestedBy: DocumentId;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  actualQuantityInUnits?: number | null;
   archivedAt?: Date | null;
 }
 
@@ -208,6 +211,9 @@ export type ProductionPlanCreateInput = {
   notes?: string;
   status?: ProductionStatus;
   requestedBy: DocumentId;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  actualQuantityInUnits?: number | null;
   archivedAt?: Date | null;
 };
 
@@ -215,4 +221,90 @@ export type ProductionPlanUpdateInput = Partial<
   Omit<ProductionPlan, 'id' | 'createdAt' | 'updatedAt' | 'requestedBy'>
 > & {
   archivedAt?: Date | null;
+};
+
+export type ProductionStageStatus =
+  | 'pending'
+  | 'ready'
+  | 'in_progress'
+  | 'paused'
+  | 'completed'
+  | 'cancelled';
+
+export interface ProductionStage extends EntityTimestamps {
+  id: DocumentId;
+  planId: DocumentId;
+  name: string;
+  description?: string;
+  sequence: number;
+  status: ProductionStageStatus;
+  assignedTo?: DocumentId | null;
+  scheduledStart?: Date | null;
+  scheduledEnd?: Date | null;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  notes?: string;
+}
+
+export type ProductionStageCreateInput = {
+  planId: DocumentId;
+  name: string;
+  description?: string;
+  sequence: number;
+  status?: ProductionStageStatus;
+  assignedTo?: DocumentId | null;
+  scheduledStart?: Date | null;
+  scheduledEnd?: Date | null;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  notes?: string;
+};
+
+export type ProductionStageUpdateInput = Partial<
+  Omit<ProductionStage, 'id' | 'planId' | 'createdAt' | 'updatedAt'>
+>;
+
+export type ProductionDivergenceSeverity = 'low' | 'medium' | 'high';
+
+export type ProductionDivergenceStatus = 'open' | 'investigating' | 'resolved';
+
+export type ProductionDivergenceType =
+  | 'ingredient_shortage'
+  | 'equipment_issue'
+  | 'quality_issue'
+  | 'temperature_deviation'
+  | 'other';
+
+export interface ProductionDivergence extends EntityTimestamps {
+  id: DocumentId;
+  planId: DocumentId;
+  stageId?: DocumentId | null;
+  reportedBy: DocumentId;
+  resolvedBy?: DocumentId | null;
+  status: ProductionDivergenceStatus;
+  severity: ProductionDivergenceSeverity;
+  type: ProductionDivergenceType;
+  description: string;
+  expectedQuantityInUnits?: number | null;
+  actualQuantityInUnits?: number | null;
+  resolutionNotes?: string;
+  resolvedAt?: Date | null;
+}
+
+export type ProductionDivergenceCreateInput = {
+  planId: DocumentId;
+  stageId?: DocumentId | null;
+  reportedBy: DocumentId;
+  severity: ProductionDivergenceSeverity;
+  type: ProductionDivergenceType;
+  description: string;
+  expectedQuantityInUnits?: number | null;
+  actualQuantityInUnits?: number | null;
+};
+
+export type ProductionDivergenceUpdateInput = Partial<
+  Omit<ProductionDivergence, 'id' | 'planId' | 'reportedBy' | 'createdAt' | 'updatedAt'>
+> & {
+  resolvedBy?: DocumentId | null;
+  resolvedAt?: Date | null;
 };
