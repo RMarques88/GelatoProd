@@ -12,35 +12,24 @@ jest.mock('firebase/app', () => ({
   initializeApp: mockInitializeApp,
 }));
 
-const mockGetAuth = jest.fn(() => {
-  throw new Error('auth/not-initialized');
-});
+const mockGetAuth = jest.fn(() => mockAuthInstance);
 const mockInitializeAuth = jest.fn(() => mockAuthInstance);
-
-jest.mock('firebase/auth', () => ({
-  getAuth: mockGetAuth,
-  initializeAuth: mockInitializeAuth,
-}));
 
 const mockPersistence = { persistence: 'async-storage' };
 const mockGetReactNativePersistence = jest.fn(() => mockPersistence);
 
-jest.mock(
-  'firebase/auth/react-native',
-  () => ({
-    getReactNativePersistence: mockGetReactNativePersistence,
-  }),
-  { virtual: true },
-);
+jest.mock('firebase/auth', () => ({
+  getAuth: mockGetAuth,
+  initializeAuth: mockInitializeAuth,
+  getReactNativePersistence: mockGetReactNativePersistence,
+}));
 
 describe('getFirebaseAuth', () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
     mockGetApps.mockReturnValue([]);
-    mockGetAuth.mockImplementation(() => {
-      throw new Error('auth/not-initialized');
-    });
+    mockGetAuth.mockReturnValue(mockAuthInstance);
     mockInitializeAuth.mockReturnValue(mockAuthInstance);
     mockGetReactNativePersistence.mockReturnValue(mockPersistence);
   });
@@ -55,6 +44,7 @@ describe('getFirebaseAuth', () => {
       persistence: mockPersistence,
     });
     expect(mockGetReactNativePersistence).toHaveBeenCalledTimes(1);
+    expect(mockGetAuth).not.toHaveBeenCalled();
   });
 
   it('reuses the cached auth instance within the same launch', async () => {
@@ -85,5 +75,18 @@ describe('getFirebaseAuth', () => {
     expect(mockInitializeAuth).toHaveBeenNthCalledWith(2, mockApp, {
       persistence: mockPersistence,
     });
+  });
+
+  it('falls back to getAuth when initializeAuth throws', async () => {
+    mockInitializeAuth.mockImplementation(() => {
+      throw new Error('already-initialized');
+    });
+
+    const { getFirebaseAuth } = await import('@/services/firebase');
+    const auth = getFirebaseAuth();
+
+    expect(mockInitializeAuth).toHaveBeenCalledTimes(1);
+    expect(mockGetAuth).toHaveBeenCalledTimes(1);
+    expect(auth).toBe(mockAuthInstance);
   });
 });
