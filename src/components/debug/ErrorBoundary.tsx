@@ -12,7 +12,6 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Stat
   }
 
   componentDidCatch(error: unknown, errorInfo: unknown) {
-    // eslint-disable-next-line no-console
     console.error('[ErrorBoundary] Uncaught error', error, errorInfo);
   }
 
@@ -37,8 +36,8 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Stat
           <Text style={styles.subtitle}>Diagnóstico rápido:</Text>
           <Text style={styles.code}>{JSON.stringify(diag, null, 2)}</Text>
           <Text style={styles.hint}>
-            Verifique as variáveis EXPO_PUBLIC_* na build (EAS secrets ou env no profile) e
-            tente novamente. Este painel aparece para evitar que o app apenas feche sem
+            Verifique as variáveis EXPO_PUBLIC_* na build (EAS secrets ou env no profile)
+            e tente novamente. Este painel aparece para evitar que o app apenas feche sem
             explicação.
           </Text>
         </ScrollView>

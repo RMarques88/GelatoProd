@@ -99,7 +99,9 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       archivedAt: null,
     });
 
-    console.log(`✅ Produtos criados: Leite(${productLeiteId}), Açúcar(${productAcucarId}), Morango(${productMorangoId})`);
+    console.log(
+      `✅ Produtos criados: Leite(${productLeiteId}), Açúcar(${productAcucarId}), Morango(${productMorangoId})`,
+    );
 
     // Validar
     const leiteDoc = await leiteRef.get();
@@ -273,19 +275,20 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
 
     for (const ingredient of recipe?.ingredients || []) {
       const quantityNeeded = ingredient.quantityInGrams * batchFactor;
-      
+
       // Buscar item de estoque
       const stockSnapshot = await db
         .collection('stockItems')
         .where('productId', '==', ingredient.productId)
         .get();
-      
+
       if (!stockSnapshot.empty) {
         const stockDoc = stockSnapshot.docs[0];
         const stockData = stockDoc.data();
         const currentQty = stockData.currentQuantityInGrams;
         const newQty = currentQty - quantityNeeded;
-        const unitCost = stockData.averageUnitCostInBRL || stockData.highestUnitCostInBRL || 0;
+        const unitCost =
+          stockData.averageUnitCostInBRL || stockData.highestUnitCostInBRL || 0;
         const totalCost = unitCost * quantityNeeded;
 
         // Atualizar estoque
@@ -315,7 +318,9 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
           unitCostInBRL: unitCost,
         });
 
-        console.log(`  - ${ingredient.productId}: -${quantityNeeded}g (R$ ${totalCost.toFixed(2)})`);
+        console.log(
+          `  - ${ingredient.productId}: -${quantityNeeded}g (R$ ${totalCost.toFixed(2)})`,
+        );
       }
     }
 
@@ -362,7 +367,9 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
 
     movementsSnapshot.forEach(doc => {
       const movement = doc.data();
-      console.log(`  - ${movement.productId}: -${movement.quantityInGrams}g (R$ ${movement.totalCostInBRL?.toFixed(2) || '0,00'})`);
+      console.log(
+        `  - ${movement.productId}: -${movement.quantityInGrams}g (R$ ${movement.totalCostInBRL?.toFixed(2) || '0,00'})`,
+      );
 
       expect(movement.type).toBe('decrement');
       expect(movement.quantityInGrams).toBeGreaterThan(0);
@@ -416,10 +423,16 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     console.log(`  Receita: ${planData?.recipeName}`);
     console.log(`  Quantidade planejada: ${planData?.quantityInUnits}g`);
     console.log(`  Quantidade real: ${planData?.actualQuantityInUnits}g`);
-    console.log(`  Custo estimado: R$ ${planData?.estimatedProductionCostInBRL?.toFixed(2) || '0,00'}`);
-    console.log(`  Custo real: R$ ${planData?.actualProductionCostInBRL?.toFixed(2) || '0,00'}`);
+    console.log(
+      `  Custo estimado: R$ ${planData?.estimatedProductionCostInBRL?.toFixed(2) || '0,00'}`,
+    );
+    console.log(
+      `  Custo real: R$ ${planData?.actualProductionCostInBRL?.toFixed(2) || '0,00'}`,
+    );
     console.log(`  Status: ${planData?.status}`);
-    console.log(`  Concluído em: ${planData?.completedAt?.toDate?.().toLocaleString('pt-BR')}`);
+    console.log(
+      `  Concluído em: ${planData?.completedAt?.toDate?.().toLocaleString('pt-BR')}`,
+    );
 
     expect(planData?.actualProductionCostInBRL).toBeGreaterThan(0);
     expect(planData?.completedAt).toBeTruthy();

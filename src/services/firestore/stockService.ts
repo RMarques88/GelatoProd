@@ -169,7 +169,7 @@ export async function createStockItem(input: StockItemCreateInput): Promise<Stoc
     averageUnitCost: input.averageUnitCostInBRL,
     highestUnitCost: input.highestUnitCostInBRL,
   });
-  
+
   const db = getDb();
   const colRef = getCollection<StockItemDocument>(db, STOCK_ITEMS_COLLECTION);
 
@@ -184,7 +184,7 @@ export async function createStockItem(input: StockItemCreateInput): Promise<Stoc
     createdAt: now,
     updatedAt: now,
   });
-  
+
   console.log('✅ [StockService] Item criado com ID:', docRef.id);
 
   const createdDoc = await getDoc(docRef);
@@ -372,7 +372,7 @@ export async function adjustStockLevel(options: {
     totalCostInBRL: options.totalCostInBRL,
     note: options.note,
   });
-  
+
   const db = getDb();
   const itemRef = getDocument<StockItemDocument>(
     db,
@@ -471,12 +471,18 @@ export async function adjustStockLevel(options: {
       }
     } else if (options.type === 'decrement') {
       const effectiveUnitCost = previousAverage ?? itemData.highestUnitCostInBRL ?? null;
-      
+
       if (effectiveUnitCost && Number.isFinite(effectiveUnitCost)) {
         movementUnitCost = effectiveUnitCost;
         movementTotalCost = effectiveUnitCost * options.quantityInGrams;
       } else {
-        console.warn('⚠️  SEM CUSTO para decrement (avg:', previousAverage, 'highest:', itemData.highestUnitCostInBRL, ')');
+        console.warn(
+          '⚠️  SEM CUSTO para decrement (avg:',
+          previousAverage,
+          'highest:',
+          itemData.highestUnitCostInBRL,
+          ')',
+        );
       }
 
       if (resulting === 0) {
@@ -502,12 +508,16 @@ export async function adjustStockLevel(options: {
     }
 
     // Agora podemos fazer as escritas (updates e sets)
-    console.log(`💾 Atualizando estoque: ${previous}g → ${resulting}g (${options.type} ${options.quantityInGrams}g)`);
-    
+    console.log(
+      `💾 Atualizando estoque: ${previous}g → ${resulting}g (${options.type} ${options.quantityInGrams}g)`,
+    );
+
     transaction.update(itemRef, itemUpdatePayload);
 
-    console.log(`📝 Criando movimentação: tipo=${options.type}, qty=${options.quantityInGrams}g, custo=R$${movementTotalCost?.toFixed(2) || '0'}`);
-    
+    console.log(
+      `📝 Criando movimentação: tipo=${options.type}, qty=${options.quantityInGrams}g, custo=R$${movementTotalCost?.toFixed(2) || '0'}`,
+    );
+
     transaction.set(movementRef, {
       productId: itemData.productId,
       stockItemId: options.stockItemId,

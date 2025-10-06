@@ -94,7 +94,7 @@ export async function completeProductionPlanWithConsumption(options: {
   divergences: ProductionDivergence[];
 }> {
   const { planId, performedBy } = options;
-  
+
   console.log('═'.repeat(80));
   console.log('🏭 [PRODUÇÃO] INICIANDO CONCLUSÃO');
   console.log(`📋 Plano: ${planId}`);
@@ -103,10 +103,10 @@ export async function completeProductionPlanWithConsumption(options: {
 
   const plan = await getProductionPlanById(planId);
   console.log(`✅ Plano: ${plan.code} - ${plan.recipeName} (${plan.quantityInUnits}g)`);
-  
+
   const recipe = await getRecipeById(plan.recipeId);
   console.log(`✅ Receita: ${recipe.name} (${recipe.ingredients.length} ingredientes)`);
-  
+
   const stages = await listProductionStages({ planId });
 
   let availabilityRecord: ProductionPlanAvailabilityRecord | null = null;
@@ -164,7 +164,9 @@ export async function completeProductionPlanWithConsumption(options: {
     const consumed = stockItem ? Math.min(requiredQuantity, available) : 0;
     const missing = Math.max(0, requiredQuantity - consumed);
 
-    console.log(`  📦 Produto: necessário ${requiredQuantity}g | disponível ${available}g | consumindo ${consumed}g`);
+    console.log(
+      `  📦 Produto: necessário ${requiredQuantity}g | disponível ${available}g | consumindo ${consumed}g`,
+    );
 
     totalConsumedInGrams += consumed;
     totalMissingInGrams += missing;
@@ -187,7 +189,9 @@ export async function completeProductionPlanWithConsumption(options: {
         if (adjustment.totalCostInBRL && Number.isFinite(adjustment.totalCostInBRL)) {
           totalCostInBRL += adjustment.totalCostInBRL;
         }
-        console.log(`  ✅ Consumido! Novo estoque: ${adjustment.resultingQuantityInGrams}g | Custo: R$ ${adjustment.totalCostInBRL?.toFixed(2) || '0.00'}`);
+        console.log(
+          `  ✅ Consumido! Novo estoque: ${adjustment.resultingQuantityInGrams}g | Custo: R$ ${adjustment.totalCostInBRL?.toFixed(2) || '0.00'}`,
+        );
       } catch (adjustError) {
         console.error(`  ❌ ERRO ao consumir estoque:`, adjustError);
         logError(adjustError, 'production.complete.adjust');

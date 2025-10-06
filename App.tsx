@@ -1,9 +1,9 @@
 import { Suspense } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 
+import { ErrorBoundary } from '@/components/debug/ErrorBoundary';
 import { AppNavigator } from '@/navigation';
 import { AppProviders } from '@/providers';
-import { ErrorBoundary } from '@/components/debug/ErrorBoundary';
 
 export default function App() {
   return (

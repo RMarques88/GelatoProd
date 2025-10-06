@@ -364,7 +364,9 @@ export default function StockReportScreen() {
   );
 
   const pricePer100g = pricingSettings?.sellingPricePer100gInBRL ?? 0;
-  const pricePerKg = pricingSettings?.sellingPricePerKilogramInBRL ?? (pricePer100g ? pricePer100g * 10 : 0);
+  const pricePerKg =
+    pricingSettings?.sellingPricePerKilogramInBRL ??
+    (pricePer100g ? pricePer100g * 10 : 0);
 
   const sellingPrice = useMemo(() => {
     return {

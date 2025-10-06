@@ -175,7 +175,9 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
 
     console.log(`\n📊 Cálculo de disponibilidade:`);
     console.log(`  Físico: ${physicalStock}g`);
-    console.log(`  Reservado: ${totalReserved}g (${plansSnapshot.size} produções × 1000g)`);
+    console.log(
+      `  Reservado: ${totalReserved}g (${plansSnapshot.size} produções × 1000g)`,
+    );
     console.log(`  Disponível: ${available}g (${physicalStock} - ${totalReserved})`);
 
     expect(physicalStock).toBe(5000);
@@ -218,8 +220,12 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
 
     console.log(`📊 Cálculo após cancelamento:`);
     console.log(`  Físico: ${physicalStock}g`);
-    console.log(`  Reservado: ${totalReservedAfter}g (${activePlansSnapshot.size} produções × 1000g)`);
-    console.log(`  Disponível: ${availableAfter}g (${physicalStock} - ${totalReservedAfter})`);
+    console.log(
+      `  Reservado: ${totalReservedAfter}g (${activePlansSnapshot.size} produções × 1000g)`,
+    );
+    console.log(
+      `  Disponível: ${availableAfter}g (${physicalStock} - ${totalReservedAfter})`,
+    );
 
     expect(activePlansSnapshot.size).toBe(4);
     expect(totalReservedAfter).toBe(4000);

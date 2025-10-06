@@ -8,6 +8,26 @@ export type ProductRequirement = {
   requiredQuantityInGrams: number;
 };
 
+export type RecipeIngredientBreakdownProductNode = {
+  kind: 'product';
+  productId: string;
+  quantityInGrams: number;
+};
+
+export type RecipeIngredientBreakdownRecipeNode = {
+  kind: 'recipe';
+  recipeId: string;
+  recipeName: string;
+  requestedQuantityInGrams: number;
+  yieldInGrams: number;
+  batchFactor: number;
+  ingredients: RecipeIngredientBreakdownNode[];
+};
+
+export type RecipeIngredientBreakdownNode =
+  | RecipeIngredientBreakdownProductNode
+  | RecipeIngredientBreakdownRecipeNode;
+
 type RecipeCache = Map<string, Recipe>;
 
 type RecipeLoader = (recipeId: string) => Promise<Recipe>;
@@ -19,6 +39,7 @@ type AccumulateOptions = {
   requirements: ProductRequirementMap;
   traversalStack: Set<string>;
   loadRecipe: RecipeLoader;
+  breakdownNode?: RecipeIngredientBreakdownRecipeNode;
 };
 
 function calculateBatchFactor(
@@ -53,8 +74,15 @@ async function getRecipeFromCache(
 }
 
 async function accumulateProductRequirements(options: AccumulateOptions): Promise<void> {
-  const { recipe, batchFactor, cache, requirements, traversalStack, loadRecipe } =
-    options;
+  const {
+    recipe,
+    batchFactor,
+    cache,
+    requirements,
+    traversalStack,
+    loadRecipe,
+    breakdownNode,
+  } = options;
 
   if (!Number.isFinite(batchFactor) || batchFactor <= 0) {
     console.log(
@@ -88,6 +116,12 @@ async function accumulateProductRequirements(options: AccumulateOptions): Promis
         console.log(
           `✅ [productionRequirements] Produto ${ingredient.referenceId}: +${requiredQuantity}g (total acumulado: ${updated}g)`,
         );
+
+        breakdownNode?.ingredients.push({
+          kind: 'product',
+          productId: ingredient.referenceId,
+          quantityInGrams: requiredQuantity,
+        });
         continue;
       }
 
@@ -102,10 +136,35 @@ async function accumulateProductRequirements(options: AccumulateOptions): Promis
           console.warn(
             `⚠️  [productionRequirements] Receita encadeada ${childRecipe.id} sem rendimento válido (${childRecipe.yieldInGrams}). Ignorando ingredientes dependentes.`,
           );
+
+          breakdownNode?.ingredients.push({
+            kind: 'recipe',
+            recipeId: childRecipe.id,
+            recipeName: childRecipe.name,
+            requestedQuantityInGrams: requiredQuantity,
+            yieldInGrams: childRecipe.yieldInGrams ?? 0,
+            batchFactor: 0,
+            ingredients: [],
+          });
           continue;
         }
 
         const childBatchFactor = requiredQuantity / childRecipe.yieldInGrams;
+
+        let childNode: RecipeIngredientBreakdownRecipeNode | undefined;
+
+        if (breakdownNode) {
+          childNode = {
+            kind: 'recipe',
+            recipeId: childRecipe.id,
+            recipeName: childRecipe.name,
+            requestedQuantityInGrams: requiredQuantity,
+            yieldInGrams: childRecipe.yieldInGrams ?? 0,
+            batchFactor: Number.isFinite(childBatchFactor) ? childBatchFactor : 0,
+            ingredients: [],
+          };
+          breakdownNode.ingredients.push(childNode);
+        }
 
         await accumulateProductRequirements({
           recipe: childRecipe,
@@ -114,6 +173,7 @@ async function accumulateProductRequirements(options: AccumulateOptions): Promis
           requirements,
           traversalStack,
           loadRecipe,
+          breakdownNode: childNode,
         });
       }
     }
@@ -148,4 +208,53 @@ export async function resolveProductRequirements(options: {
   });
 
   return requirements;
+}
+
+export async function resolveProductRequirementsWithBreakdown(options: {
+  quantityInUnits: number;
+  unitOfMeasure: UnitOfMeasure;
+  recipe: Recipe;
+  loadRecipe?: RecipeLoader;
+}): Promise<{
+  requirements: ProductRequirementMap;
+  breakdown: RecipeIngredientBreakdownRecipeNode;
+}> {
+  const { quantityInUnits, unitOfMeasure, recipe, loadRecipe = getRecipeById } = options;
+
+  const cache: RecipeCache = new Map([[recipe.id, recipe]]);
+  const requirements: ProductRequirementMap = new Map();
+  const batchFactor = calculateBatchFactor(
+    quantityInUnits,
+    unitOfMeasure,
+    recipe.yieldInGrams,
+  );
+
+  const requestedQuantityInGrams =
+    unitOfMeasure === 'GRAMS'
+      ? quantityInUnits
+      : Number.isFinite(recipe.yieldInGrams) && recipe.yieldInGrams > 0
+        ? batchFactor * recipe.yieldInGrams
+        : 0;
+
+  const breakdown: RecipeIngredientBreakdownRecipeNode = {
+    kind: 'recipe',
+    recipeId: recipe.id,
+    recipeName: recipe.name,
+    requestedQuantityInGrams,
+    yieldInGrams: recipe.yieldInGrams ?? 0,
+    batchFactor: Number.isFinite(batchFactor) ? batchFactor : 0,
+    ingredients: [],
+  };
+
+  await accumulateProductRequirements({
+    recipe,
+    batchFactor,
+    cache,
+    requirements,
+    traversalStack: new Set(),
+    loadRecipe,
+    breakdownNode: breakdown,
+  });
+
+  return { requirements, breakdown };
 }

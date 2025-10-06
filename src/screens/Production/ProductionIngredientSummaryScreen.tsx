@@ -10,11 +10,14 @@ import {
 } from 'react-native';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
+import { getProductionPlanById } from '@/services/firestore/productionService';
 import { getProductById } from '@/services/firestore/productsService';
 import { getRecipeById } from '@/services/firestore/recipesService';
-import { getProductionPlanById } from '@/services/firestore/productionService';
 import { listStockItems } from '@/services/firestore/stockService';
-import { resolveProductRequirements } from '@/services/productionRequirements';
+import {
+  resolveProductRequirementsWithBreakdown,
+  type RecipeIngredientBreakdownRecipeNode,
+} from '@/services/productionRequirements';
 import type { Recipe, ProductionPlan, UnitOfMeasure } from '@/domain';
 import type { AppStackParamList } from '@/navigation';
 import type { RouteProp } from '@react-navigation/native';
@@ -96,6 +99,11 @@ export function ProductionIngredientSummaryScreen() {
   const [plan, setPlan] = useState<ProductionPlan | null>(null);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [ingredientSummary, setIngredientSummary] = useState<IngredientSummary[]>([]);
+  const [recipeBreakdown, setRecipeBreakdown] =
+    useState<RecipeIngredientBreakdownRecipeNode | null>(null);
+  const [productLookup, setProductLookup] = useState<
+    Map<string, { name: string; barcode: string | null }>
+  >(new Map());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<IngredientSummaryError | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -161,6 +169,8 @@ export function ProductionIngredientSummaryScreen() {
   useEffect(() => {
     if (!planId) {
       setIngredientSummary([]);
+      setRecipeBreakdown(null);
+      setProductLookup(new Map());
       setRecipe(null);
       setPlan(null);
       setIsLoading(false);
@@ -192,21 +202,25 @@ export function ProductionIngredientSummaryScreen() {
         setRecipe(recipeData);
 
         // Calculate requirements
-        const requirementsMap = await resolveProductRequirements({
-          quantityInUnits: planData.quantityInUnits,
-          unitOfMeasure: planData.unitOfMeasure,
-          recipe: recipeData,
-        });
+        const { requirements: requirementsMap, breakdown } =
+          await resolveProductRequirementsWithBreakdown({
+            quantityInUnits: planData.quantityInUnits,
+            unitOfMeasure: planData.unitOfMeasure,
+            recipe: recipeData,
+          });
 
         if (cancelled) return;
 
-        const requirementEntries = Array.from(requirementsMap.entries()).filter(
+        const requirementEntries: Array<[string, number]> = Array.from(
+          requirementsMap.entries(),
+        );
+        const filteredRequirementEntries = requirementEntries.filter(
           ([, quantity]) => Number.isFinite(quantity) && quantity > 0,
         );
 
         // Fetch product and stock data for each ingredient
         const summaries: IngredientSummary[] = await Promise.all(
-          requirementEntries.map(async ([productId, requiredQuantity]) => {
+          filteredRequirementEntries.map(async ([productId, requiredQuantity]) => {
             const [product, stockItems] = await Promise.all([
               getProductById(productId).catch(() => null),
               listStockItems({ productId }).catch(() => []),
@@ -260,6 +274,15 @@ export function ProductionIngredientSummaryScreen() {
         );
 
         setIngredientSummary(sortedSummaries);
+        setProductLookup(
+          new Map(
+            sortedSummaries.map(item => [
+              item.productId,
+              { name: item.productName, barcode: item.barcode },
+            ]),
+          ),
+        );
+        setRecipeBreakdown(breakdown);
       } catch (err) {
         if (cancelled) return;
 
@@ -273,6 +296,8 @@ export function ProductionIngredientSummaryScreen() {
           message: fallbackMessage,
         });
         setIngredientSummary([]);
+        setRecipeBreakdown(null);
+        setProductLookup(new Map());
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -292,6 +317,79 @@ export function ProductionIngredientSummaryScreen() {
   const handleGoBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
+
+  const renderRecipeNodeCard = useCallback(
+    (node: RecipeIngredientBreakdownRecipeNode, depth = 0) => {
+      if (!node) {
+        return null;
+      }
+
+      const formattedBatchFactor =
+        Number.isFinite(node.batchFactor) && node.batchFactor > 0
+          ? node.batchFactor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+          : null;
+
+      return (
+        <View style={[styles.recipeCard, depth > 0 && styles.recipeCardNested]}>
+          <View style={styles.recipeCardHeader}>
+            <Text style={styles.recipeCardTitle}>{node.recipeName}</Text>
+            {formattedBatchFactor ? (
+              <Text style={styles.recipeCardBadge}>x{formattedBatchFactor}</Text>
+            ) : null}
+          </View>
+          <Text style={styles.recipeCardMeta}>
+            Quantidade solicitada: {formatGrams(node.requestedQuantityInGrams)}
+          </Text>
+          <Text style={styles.recipeCardMeta}>
+            Rendimento base: {formatGrams(node.yieldInGrams)}
+          </Text>
+          <View style={styles.recipeIngredientsList}>
+            {node.ingredients.length === 0 ? (
+              <Text style={styles.recipeEmptyMessage}>
+                Nenhum ingrediente mapeado para esta receita.
+              </Text>
+            ) : (
+              node.ingredients.map((child, index) => {
+                const key =
+                  child.kind === 'product'
+                    ? `product-${child.productId}-${index}`
+                    : `recipe-${child.recipeId}-${index}`;
+
+                if (child.kind === 'product') {
+                  const productMeta = productLookup.get(child.productId);
+                  const label = productMeta?.name ?? `Produto ${child.productId}`;
+
+                  return (
+                    <View key={key} style={styles.recipeIngredientRow}>
+                      <View style={styles.recipeIngredientBullet} />
+                      <View style={styles.recipeIngredientContent}>
+                        <Text style={styles.recipeIngredientName}>{label}</Text>
+                        <Text style={styles.recipeIngredientMeta}>
+                          Quantidade: {formatGrams(child.quantityInGrams)}
+                        </Text>
+                        {productMeta?.barcode ? (
+                          <Text style={styles.recipeIngredientMeta}>
+                            Código de barras: {productMeta.barcode}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                }
+
+                return (
+                  <View key={key} style={styles.recipeNestedWrapper}>
+                    {renderRecipeNodeCard(child, depth + 1)}
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </View>
+      );
+    },
+    [productLookup],
+  );
 
   return (
     <ScreenContainer>
@@ -450,6 +548,17 @@ export function ProductionIngredientSummaryScreen() {
                 );
               })}
             </View>
+
+            {recipeBreakdown ? (
+              <View style={styles.recipeStructureSection}>
+                <Text style={styles.recipeStructureHeading}>Estrutura por receita</Text>
+                <Text style={styles.recipeStructureSubheading}>
+                  Visualize como as receitas encadeadas se desdobram em ingredientes
+                  finais para esta produção.
+                </Text>
+                {renderRecipeNodeCard(recipeBreakdown)}
+              </View>
+            ) : null}
           </View>
         )}
 
@@ -586,6 +695,91 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 16,
     overflow: 'hidden',
+  },
+  recipeStructureSection: {
+    marginTop: 24,
+    gap: 12,
+  },
+  recipeStructureHeading: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  recipeStructureSubheading: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  recipeCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    gap: 12,
+  },
+  recipeCardNested: {
+    marginTop: 12,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+  },
+  recipeCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  recipeCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  recipeCardBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563EB',
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  recipeCardMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  recipeIngredientsList: {
+    gap: 12,
+  },
+  recipeEmptyMessage: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  recipeIngredientRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  recipeIngredientBullet: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2563EB',
+    marginTop: 6,
+  },
+  recipeIngredientContent: {
+    flex: 1,
+    gap: 4,
+  },
+  recipeIngredientName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  recipeIngredientMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  recipeNestedWrapper: {
+    marginTop: 12,
   },
   ingredientRow: {
     flexDirection: 'row',

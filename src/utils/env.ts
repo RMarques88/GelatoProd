@@ -31,7 +31,10 @@ function readEnv(value: string | undefined, key: string, fallback = ''): string 
 }
 
 const firebaseConfig = {
-  apiKey: readEnv(process.env.EXPO_PUBLIC_FIREBASE_API_KEY, 'EXPO_PUBLIC_FIREBASE_API_KEY'),
+  apiKey: readEnv(
+    process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+    'EXPO_PUBLIC_FIREBASE_API_KEY',
+  ),
   authDomain: readEnv(
     process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
     'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN',
@@ -50,8 +53,10 @@ const firebaseConfig = {
   ),
   appId: readEnv(process.env.EXPO_PUBLIC_FIREBASE_APP_ID, 'EXPO_PUBLIC_FIREBASE_APP_ID'),
   measurementId:
-    readEnv(process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID, 'EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID') ||
-    undefined,
+    readEnv(
+      process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
+      'EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID',
+    ) || undefined,
 } as const satisfies FirebaseEnv;
 
 export const appEnv: AppEnv = {

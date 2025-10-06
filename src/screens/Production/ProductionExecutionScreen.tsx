@@ -734,10 +734,11 @@ export function ProductionExecutionScreen() {
     console.log('📝 [ProductionExecution] Mostrando confirmação para o usuário');
 
     Alert.alert('Concluir produção', confirmMessage, [
-      { 
-        text: 'Cancelar', 
+      {
+        text: 'Cancelar',
         style: 'cancel',
-        onPress: () => console.log('🚫 [ProductionExecution] Usuário cancelou a conclusão'),
+        onPress: () =>
+          console.log('🚫 [ProductionExecution] Usuário cancelou a conclusão'),
       },
       {
         text: 'Concluir',
@@ -746,10 +747,13 @@ export function ProductionExecutionScreen() {
           console.log('✅ [ProductionExecution] Usuário confirmou - iniciando conclusão');
           setIsCompleting(true);
           try {
-            console.log('🚀 [ProductionExecution] Chamando completeProductionPlanWithConsumption', {
-              planId,
-              performedBy: user.id,
-            });
+            console.log(
+              '🚀 [ProductionExecution] Chamando completeProductionPlanWithConsumption',
+              {
+                planId,
+                performedBy: user.id,
+              },
+            );
             const result = await completeProductionPlanWithConsumption({
               planId,
               performedBy: user.id,
@@ -775,8 +779,14 @@ export function ProductionExecutionScreen() {
               Alert.alert('Produção concluída', 'Estoque atualizado com sucesso.');
             }
           } catch (completeError) {
-            console.error('💥 [ProductionExecution] ERRO ao concluir produção:', completeError);
-            console.error('💥 [ProductionExecution] Stack trace:', completeError instanceof Error ? completeError.stack : 'sem stack');
+            console.error(
+              '💥 [ProductionExecution] ERRO ao concluir produção:',
+              completeError,
+            );
+            console.error(
+              '💥 [ProductionExecution] Stack trace:',
+              completeError instanceof Error ? completeError.stack : 'sem stack',
+            );
             logAndAlertError(
               completeError,
               'Erro ao concluir a produção. Confira o estoque.',

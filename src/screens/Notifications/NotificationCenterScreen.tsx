@@ -26,6 +26,8 @@ const CATEGORY_FILTERS = [
   { key: 'production', label: 'Produção' },
 ] as const;
 
+const SAFE_AREA_BUFFER = 50;
+
 type CategoryFilterKey = (typeof CATEGORY_FILTERS)[number]['key'];
 
 type NotificationItemProps = {
@@ -89,6 +91,7 @@ export function NotificationCenterScreen() {
     retry,
     unreadCount,
   } = useNotifications({
+    status: 'unread',
     category: filter === 'all' ? undefined : (filter as NotificationCategory),
     limit: 50,
   });
@@ -232,7 +235,9 @@ export function NotificationCenterScreen() {
 
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Nenhuma notificação por aqui.</Text>
+        <Text style={styles.emptyText}>
+          Você está em dia! Nenhuma notificação pendente por aqui.
+        </Text>
       </View>
     );
   }, [error, isLoading, retry]);
@@ -298,6 +303,8 @@ export function NotificationCenterScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={renderSeparator}
+        ListHeaderComponent={<View style={styles.safeAreaSpacer} />}
+        ListFooterComponent={<View style={styles.safeAreaSpacer} />}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -398,7 +405,7 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   listContent: {
-    paddingBottom: 32,
+    paddingBottom: 16,
   },
   notificationCard: {
     backgroundColor: '#FFFFFF',
@@ -490,6 +497,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#1F2937',
+  },
+  safeAreaSpacer: {
+    height: SAFE_AREA_BUFFER,
+    width: '100%',
   },
 });
 

@@ -1,5 +1,8 @@
 import { createProductionPlanAvailabilityRecord } from '@/services/firestore/productionAvailabilityService';
-import { createProductionPlan, listProductionPlans } from '@/services/firestore/productionService';
+import {
+  createProductionPlan,
+  listProductionPlans,
+} from '@/services/firestore/productionService';
 import { getRecipeById } from '@/services/firestore/recipesService';
 import { listStockItems } from '@/services/firestore/stockService';
 import { resolveProductRequirements } from './productionRequirements';
@@ -34,7 +37,7 @@ async function loadRecipe(recipeId: string, override?: Recipe): Promise<Recipe> 
 
 /**
  * Calcula quantidades reservadas por produções agendadas/em andamento
- * 
+ *
  * Retorna um Map com: productId => quantidadeReservadaEmGramas
  */
 async function calculateReservedQuantities(options: {
@@ -84,9 +87,7 @@ async function calculateReservedQuantities(options: {
     }
   }
 
-  console.log(
-    `✅ [Reservas] Total de produtos com reservas: ${reservedByProduct.size}`,
-  );
+  console.log(`✅ [Reservas] Total de produtos com reservas: ${reservedByProduct.size}`);
 
   return reservedByProduct;
 }
@@ -113,19 +114,19 @@ async function resolveAvailabilityItems(options: {
 
   for (const [productId, requiredQuantity] of productRequirements.entries()) {
     const stockItems = await listStockItems({ productId });
-    
+
     // Quantidade física no estoque
     const physicalQuantity = stockItems.reduce(
       (sum, item) => sum + (item.currentQuantityInGrams ?? 0),
       0,
     );
-    
+
     // Quantidade já reservada por outros planos
     const reservedQuantity = reservedQuantities.get(productId) || 0;
-    
+
     // Quantidade realmente disponível = física - reservada
     const availableQuantity = Math.max(0, physicalQuantity - reservedQuantity);
-    
+
     const shortage = Math.max(0, requiredQuantity - availableQuantity);
 
     console.log(`📦 [Disponibilidade] ${productId.slice(0, 8)}...`, {
@@ -249,13 +250,13 @@ export async function checkProductionPlanAvailability(options: {
   const status = shortages.length > 0 ? 'insufficient' : 'sufficient';
 
   console.log('');
-  console.log(`${status === 'sufficient' ? '✅' : '⚠️'} [DISPONIBILIDADE] Status: ${status}`);
+  console.log(
+    `${status === 'sufficient' ? '✅' : '⚠️'} [DISPONIBILIDADE] Status: ${status}`,
+  );
   if (shortages.length > 0) {
     console.log(`❌ Faltas detectadas: ${shortages.length} produto(s)`);
     shortages.forEach(s => {
-      console.log(
-        `   - ${s.productId.slice(0, 8)}...: falta ${s.shortageInGrams}g`,
-      );
+      console.log(`   - ${s.productId.slice(0, 8)}...: falta ${s.shortageInGrams}g`);
     });
   }
   console.log('═'.repeat(80));

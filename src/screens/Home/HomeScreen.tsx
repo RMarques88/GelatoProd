@@ -29,12 +29,12 @@ import {
 } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import { completeProductionPlanWithConsumption } from '@/services/productionExecution';
 import {
   checkProductionPlanAvailability,
   scheduleProductionPlan,
   type PlanAvailabilityResult,
 } from '@/services/productionScheduling';
-import { completeProductionPlanWithConsumption } from '@/services/productionExecution';
 import { formatRelativeDate } from '@/utils/date';
 import { logError } from '@/utils/logger';
 
