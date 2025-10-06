@@ -1,0 +1,962 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ReportingAnalyticsPanel renders analytics data snapshot 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#FFFFFF",
+      "borderRadius": 16,
+      "elevation": 3,
+      "marginTop": 24,
+      "padding": 20,
+      "shadowColor": "#111827",
+      "shadowOffset": {
+        "height": 6,
+        "width": 0,
+      },
+      "shadowOpacity": 0.06,
+      "shadowRadius": 12,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+        "justifyContent": "space-between",
+        "marginBottom": 16,
+      }
+    }
+  >
+    <View>
+      <Text
+        style={
+          {
+            "color": "#111827",
+            "fontSize": 18,
+            "fontWeight": "700",
+          }
+        }
+      >
+        Tendências analíticas
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#6B7280",
+            "fontSize": 13,
+            "marginTop": 4,
+          }
+        }
+      >
+        Semana
+         · 
+        01 out – 07 out
+      </Text>
+    </View>
+  </View>
+  <View
+    style={
+      {
+        "flexDirection": "column",
+        "gap": 16,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#F9FAFB",
+          "borderRadius": 14,
+          "gap": 12,
+          "padding": 16,
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "alignItems": "center",
+              "borderRadius": 20,
+              "height": 40,
+              "justifyContent": "center",
+              "width": 40,
+            },
+            {
+              "backgroundColor": "#E0F2FE",
+            },
+          ]
+        }
+      >
+        <Icon
+          name="bar-chart-outline"
+        />
+      </View>
+      <Text
+        style={
+          {
+            "color": "#1F2937",
+            "fontSize": 16,
+            "fontWeight": "600",
+          }
+        }
+      >
+        Produção por receita
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#6B7280",
+            "fontSize": 13,
+          }
+        }
+      >
+        Semana 40 (01 out – 07 out)
+      </Text>
+      <View
+        style={
+          {
+            "flexDirection": "row",
+            "gap": 12,
+          }
+        }
+      >
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "flex": 1,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 16,
+                "fontWeight": "700",
+              }
+            }
+          >
+            3
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+                "marginTop": 4,
+              }
+            }
+          >
+            Planos concluídos
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "flex": 1,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 16,
+                "fontWeight": "700",
+              }
+            }
+          >
+            260
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+                "marginTop": 4,
+              }
+            }
+          >
+            Qtd planejada
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "flex": 1,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 16,
+                "fontWeight": "700",
+              }
+            }
+          >
+            248
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+                "marginTop": 4,
+              }
+            }
+          >
+            Qtd real
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#E5E7EB",
+            "height": 0.5,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "gap": 10,
+          }
+        }
+      >
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "gap": 2,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 14,
+                "fontWeight": "600",
+              }
+            }
+          >
+            Sorvete de Baunilha
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+              }
+            }
+          >
+            2
+             plano(s) ·
+             
+            170
+             
+            un reais
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "gap": 2,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 14,
+                "fontWeight": "600",
+              }
+            }
+          >
+            Gelato de Pistache
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+              }
+            }
+          >
+            1
+             plano(s) ·
+             
+            78
+             
+            un reais
+          </Text>
+        </View>
+      </View>
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "#F9FAFB",
+          "borderRadius": 14,
+          "gap": 12,
+          "padding": 16,
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "alignItems": "center",
+              "borderRadius": 20,
+              "height": 40,
+              "justifyContent": "center",
+              "width": 40,
+            },
+            {
+              "backgroundColor": "#FEF3C7",
+            },
+          ]
+        }
+      >
+        <Icon
+          name="leaf-outline"
+        />
+      </View>
+      <Text
+        style={
+          {
+            "color": "#1F2937",
+            "fontSize": 16,
+            "fontWeight": "600",
+          }
+        }
+      >
+        Consumo de insumos
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#6B7280",
+            "fontSize": 13,
+          }
+        }
+      >
+        Semana 40 (01 out – 07 out)
+      </Text>
+      <View
+        style={
+          {
+            "flexDirection": "row",
+            "gap": 12,
+          }
+        }
+      >
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "flex": 1,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 16,
+                "fontWeight": "700",
+              }
+            }
+          >
+            4
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+                "marginTop": 4,
+              }
+            }
+          >
+            Movimentações
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "flex": 1,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 16,
+                "fontWeight": "700",
+              }
+            }
+          >
+            3.200
+            g
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+                "marginTop": 4,
+              }
+            }
+          >
+            Consumo total
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#E5E7EB",
+            "height": 0.5,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "gap": 10,
+          }
+        }
+      >
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "gap": 2,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 14,
+                "fontWeight": "600",
+              }
+            }
+          >
+            Leite integral
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+              }
+            }
+          >
+            1.800
+             
+            g · 
+            2
+             mov.
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "gap": 2,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 14,
+                "fontWeight": "600",
+              }
+            }
+          >
+            Açúcar refinado
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+              }
+            }
+          >
+            900
+             
+            g · 
+            1
+             mov.
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "gap": 2,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 14,
+                "fontWeight": "600",
+              }
+            }
+          >
+            Creme de leite
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+              }
+            }
+          >
+            500
+             
+            g · 
+            1
+             mov.
+          </Text>
+        </View>
+      </View>
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "#F9FAFB",
+          "borderRadius": 14,
+          "gap": 12,
+          "padding": 16,
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "alignItems": "center",
+              "borderRadius": 20,
+              "height": 40,
+              "justifyContent": "center",
+              "width": 40,
+            },
+            {
+              "backgroundColor": "#EDE9FE",
+            },
+          ]
+        }
+      >
+        <Icon
+          name="alert-circle-outline"
+        />
+      </View>
+      <Text
+        style={
+          {
+            "color": "#1F2937",
+            "fontSize": 16,
+            "fontWeight": "600",
+          }
+        }
+      >
+        Divergências de produção
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#6B7280",
+            "fontSize": 13,
+          }
+        }
+      >
+        Semana 40 (01 out – 07 out)
+      </Text>
+      <View
+        style={
+          {
+            "flexDirection": "row",
+            "gap": 12,
+          }
+        }
+      >
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "flex": 1,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 16,
+                "fontWeight": "700",
+              }
+            }
+          >
+            2
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+                "marginTop": 4,
+              }
+            }
+          >
+            Registros
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "flex": 1,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 16,
+                "fontWeight": "700",
+              }
+            }
+          >
+            35
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+                "marginTop": 4,
+              }
+            }
+          >
+            Faltas acumuladas (un)
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#E5E7EB",
+            "height": 0.5,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "gap": 8,
+          }
+        }
+      >
+        <View
+          style={
+            {
+              "alignItems": "center",
+              "flexDirection": "row",
+              "gap": 8,
+            }
+          }
+        >
+          <View
+            style={
+              [
+                {
+                  "borderRadius": 4,
+                  "height": 8,
+                  "width": 8,
+                },
+                {
+                  "backgroundColor": "#DC2626",
+                },
+              ]
+            }
+          />
+          <Text
+            style={
+              {
+                "color": "#4B5563",
+                "fontSize": 12,
+              }
+            }
+          >
+            HIGH
+            : 
+            1
+             registro(s)
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "alignItems": "center",
+              "flexDirection": "row",
+              "gap": 8,
+            }
+          }
+        >
+          <View
+            style={
+              [
+                {
+                  "borderRadius": 4,
+                  "height": 8,
+                  "width": 8,
+                },
+                {
+                  "backgroundColor": "#F59E0B",
+                },
+              ]
+            }
+          />
+          <Text
+            style={
+              {
+                "color": "#4B5563",
+                "fontSize": 12,
+              }
+            }
+          >
+            MEDIUM
+            : 
+            1
+             registro(s)
+          </Text>
+        </View>
+      </View>
+    </View>
+  </View>
+</View>
+`;
+
+exports[`ReportingAnalyticsPanel renders error state snapshot 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#FFFFFF",
+      "borderRadius": 16,
+      "elevation": 3,
+      "marginTop": 24,
+      "padding": 20,
+      "shadowColor": "#111827",
+      "shadowOffset": {
+        "height": 6,
+        "width": 0,
+      },
+      "shadowOpacity": 0.06,
+      "shadowRadius": 12,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+        "justifyContent": "space-between",
+        "marginBottom": 16,
+      }
+    }
+  >
+    <View>
+      <Text
+        style={
+          {
+            "color": "#111827",
+            "fontSize": 18,
+            "fontWeight": "700",
+          }
+        }
+      >
+        Tendências analíticas
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#6B7280",
+            "fontSize": 13,
+            "marginTop": 4,
+          }
+        }
+      >
+        Semana
+         · 
+        01 out – 07 out
+      </Text>
+    </View>
+  </View>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "backgroundColor": "#FEF2F2",
+        "borderColor": "#FCA5A5",
+        "borderRadius": 12,
+        "borderWidth": 0.5,
+        "flexDirection": "row",
+        "gap": 12,
+        "marginBottom": 16,
+        "padding": 16,
+      }
+    }
+  >
+    <Icon
+      name="alert-circle-outline"
+    />
+    <View
+      style={
+        {
+          "flex": 1,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#991B1B",
+            "fontSize": 14,
+            "fontWeight": "600",
+          }
+        }
+      >
+        Não foi possível carregar as métricas.
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#B91C1C",
+            "fontSize": 13,
+            "marginTop": 2,
+          }
+        }
+      >
+        Firestore indisponível
+      </Text>
+    </View>
+    <View
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onBlur={[Function]}
+      onClick={[Function]}
+      onFocus={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        [
+          {
+            "backgroundColor": "#111827",
+            "borderRadius": 999,
+            "paddingHorizontal": 14,
+            "paddingVertical": 8,
+          },
+          false,
+        ]
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#FFFFFF",
+            "fontSize": 13,
+            "fontWeight": "600",
+          }
+        }
+      >
+        Tentar novamente
+      </Text>
+    </View>
+  </View>
+</View>
+`;

@@ -1,0 +1,191 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function hasAnyRole(requiredRoles) {
+      let userRole = getUserRole();
+      return userRole != null && userRole in requiredRoles;
+    }
+
+    function isManager() {
+      return hasAnyRole([
+        'manager',
+        'admin',
+        'gelatie',
+        'Gelatie',
+        'GELATIE',
+        'gelatiê',
+        'Gelatiê',
+        'Gelatié',
+        'GELATIÊ',
+      ]);
+    }
+
+    function isAdmin() {
+      return hasAnyRole([
+        'admin',
+        'gelatie',
+        'Gelatie',
+        'GELATIE',
+        'gelatiê',
+        'Gelatiê',
+        'Gelatié',
+        'GELATIÊ',
+      ]);
+    }
+
+    function canExecuteProduction() {
+      return hasAnyRole([
+        'admin',
+        'manager',
+        'gelatie',
+        'Gelatie',
+        'GELATIE',
+        'gelatiê',
+        'Gelatiê',
+        'Gelatié',
+        'GELATIÊ',
+        'produtor',
+        'Produtor',
+        'PRODUTOR',
+      ]);
+    }
+
+    function hasServerTimestamp(field) {
+      return request.resource.data.keys().hasAll([field]) &&
+        request.resource.data[field] == request.time;
+    }
+
+    function enforceTimestampsOnWrite() {
+      return (resource == null && hasServerTimestamp('createdAt') && hasServerTimestamp('updatedAt')) ||
+        (resource != null && request.resource.data.updatedAt == request.time &&
+          (!resource.data.keys().hasAll(['createdAt']) || request.resource.data.createdAt == resource.data.createdAt));
+    }
+
+    function respectsWriteCooldown(seconds) {
+      return resource == null ||
+        !resource.data.keys().hasAll(['updatedAt']) ||
+        request.time > resource.data.updatedAt + duration.value(seconds, 's');
+    }
+
+    function isRapidStatusUpdate() {
+      return resource != null &&
+        request.resource.data.keys().hasOnly(['status', 'createdAt', 'updatedAt']) &&
+        request.resource.data.keys().hasAll(['status', 'createdAt', 'updatedAt']) &&
+        request.resource.data.status != resource.data.status;
+    }
+
+    function isProductionCompletion() {
+      return resource != null &&
+        request.resource.data.status == 'completed' &&
+        resource.data.status != 'completed';
+    }
+
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManager() && enforceTimestampsOnWrite() && respectsWriteCooldown(2);
+      allow delete: if false; // produtos são arquivados, não removidos definitivamente
+    }
+
+    match /recipes/{recipeId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManager() && enforceTimestampsOnWrite() && respectsWriteCooldown(2);
+      allow delete: if isManager();
+    }
+
+    match /stockItems/{stockItemId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManager() && enforceTimestampsOnWrite() && respectsWriteCooldown(2);
+      allow delete: if isManager();
+    }
+
+    match /stockMovements/{movementId} {
+      allow read: if isAuthenticated();
+      allow create: if canExecuteProduction(); // produtores podem consumir estoque
+      allow update, delete: if false; // movimentações são imutáveis
+    }
+
+    // Alertas de estoque (abertos/resolvidos automaticamente pelos fluxos do app)
+    match /stockAlerts/{alertId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManager() && enforceTimestampsOnWrite() && respectsWriteCooldown(2);
+      allow delete: if isAdmin();
+    }
+
+    // Central de notificações (criada pelo app e marcada como lida pelos usuários)
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      // O app cria notificações de estoque/produção
+      allow create: if isManager();
+      // Usuários podem marcar como lida; admins e gerentes têm permissão ampla
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Planejamento de produção
+    match /productionPlans/{planId} {
+      allow read: if isAuthenticated();
+      allow create: if isManager() && enforceTimestampsOnWrite() && respectsWriteCooldown(2);
+      allow update: if canExecuteProduction() && enforceTimestampsOnWrite() &&
+        (respectsWriteCooldown(2) || isRapidStatusUpdate() || isProductionCompletion()); // produtores podem executar e concluir
+      allow delete: if isAdmin();
+    }
+
+    // Etapas de produção
+    match /productionStages/{stageId} {
+      allow read: if isAuthenticated();
+      allow create: if isManager() && enforceTimestampsOnWrite() && respectsWriteCooldown(2);
+      allow update: if canExecuteProduction() && enforceTimestampsOnWrite() && respectsWriteCooldown(2); // produtores podem avançar etapas
+      allow delete: if isAdmin();
+    }
+
+    // Divergências de produção
+    match /productionDivergences/{divergenceId} {
+      allow read: if isAuthenticated();
+      allow create: if canExecuteProduction() && enforceTimestampsOnWrite() && respectsWriteCooldown(2); // produtores podem registrar divergências
+      allow update: if isManager() && enforceTimestampsOnWrite() && respectsWriteCooldown(2);
+      allow delete: if isAdmin();
+    }
+
+    match /productionPlanAvailability/{recordId} {
+      allow read: if isAuthenticated();
+      allow create: if canExecuteProduction() && enforceTimestampsOnWrite() && respectsWriteCooldown(2);
+      allow update: if canExecuteProduction() && enforceTimestampsOnWrite() && respectsWriteCooldown(2);
+      allow delete: if isAdmin();
+    }
+
+    // Sequências para geração de códigos automáticos
+    match /appSequences/{sequenceName} {
+      allow read: if isAuthenticated();
+      allow create, update: if canExecuteProduction(); // produtores precisam gerar códigos
+      allow delete: if false;
+    }
+
+    // Perfis de usuário (cada usuário pode ler/atualizar o próprio perfil)
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if hasAnyRole(['admin', 'gelatie', 'gelatiê', 'Gelatiê', 'Gelatié', 'GELATIÊ']);
+      allow create, update: if isAuthenticated() && request.auth.uid == userId && enforceTimestampsOnWrite() && respectsWriteCooldown(5);
+      allow create, update: if hasAnyRole(['admin', 'gelatie', 'gelatiê', 'Gelatiê', 'Gelatié', 'GELATIÊ']) && enforceTimestampsOnWrite() && respectsWriteCooldown(5);
+      allow delete: if hasAnyRole(['admin', 'gelatie', 'gelatiê', 'Gelatiê', 'Gelatié', 'GELATIÊ']);
+    }
+
+    // Configurações da aplicação (somente gelatiê pode editar)
+    match /appSettings/{settingId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+  }
+}
+
