@@ -193,7 +193,7 @@ export function HomeScreen() {
     markAsRead,
     markAllAsRead,
     unreadCount,
-  } = useNotifications({ limit: 10, enabled: canReadNotifications });
+  } = useNotifications({ limit: 10, status: 'unread', enabled: canReadNotifications });
   const {
     plans,
     isLoading: isLoadingPlans,
@@ -206,6 +206,10 @@ export function HomeScreen() {
     enabled: canViewPlans,
   });
 
+  const unreadNotifications = useMemo(
+    () => notifications.filter(notification => notification.status === 'unread'),
+    [notifications],
+  );
   const roleLabel = useMemo(() => (user ? roleLabels[user.role] : 'Sem acesso'), [user]);
   const userDisplayName = useMemo(() => user?.name ?? 'Gelatiê', [user?.name]);
   const userId = user?.id ?? null;
@@ -922,7 +926,7 @@ export function HomeScreen() {
             title="Notificações"
             error={notificationsError?.message}
             action={
-              notifications.length > 0 && authorization.canManageNotifications ? (
+              unreadNotifications.length > 0 && authorization.canManageNotifications ? (
                 <Pressable
                   onPress={handleMarkAllNotifications}
                   disabled={isMarkingNotifications}
@@ -942,10 +946,10 @@ export function HomeScreen() {
           >
             {isLoadingNotifications ? (
               <ActivityIndicator color="#4E9F3D" />
-            ) : notifications.length === 0 ? (
+            ) : unreadNotifications.length === 0 ? (
               <Text style={styles.emptyText}>Nenhuma notificação por aqui.</Text>
             ) : (
-              notifications.slice(0, 6).map(notification => (
+              unreadNotifications.slice(0, 6).map(notification => (
                 <Pressable
                   key={notification.id}
                   onPress={() =>
