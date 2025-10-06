@@ -343,6 +343,10 @@ Issues bem documentadas aceleram o atendimento e evitam deslocamentos desnecess�
    ```
 4. Abra PR com contexto, screenshots e passos de teste.
 
+## Sugestões
+
+Se você tiver alguma sugestão para melhorar o desenvolvimento da aplicação, features novas, mudanças em regras de negócios, aprimoramento e otimização de processos, siga o próximo passo. Toda ajuda à melhorar a aplicaçao é bem vinda!
+
 ## 📄 Licença
 
 Projeto licenciado sob os termos da [Licença MIT](./licence.md).
