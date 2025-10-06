@@ -9,9 +9,11 @@ Aplicativo mobile (Expo + React Native) que organiza o dia a dia da produção a
 - [Atualizações Recentes](#-atualizações-recentes)
 - [Stack Tecnológica](#-stack-tecnológica)
 - [Arquitetura do Projeto](#-arquitetura-do-projeto)
+- [Coleções do Firestore](#-coleções-do-firestore)
 - [Configuração do Ambiente](#-configuração-do-ambiente)
 - [Variáveis de Ambiente](#-variáveis-de-ambiente)
 - [Scripts NPM](#-scripts-npm)
+- [Distribuição e Builds](#-distribuição-e-builds)
 - [Fluxo de Desenvolvimento](#-fluxo-de-desenvolvimento)
 - [Guia de Testes Manuais](#-guia-de-testes-manuais)
 - [Segurança e Boas Práticas](#-segurança-e-boas-práticas)
@@ -123,7 +125,28 @@ app/
 - Logs de erro devem passar por `logError` para manter saída consistente.
 - Testes E2E criam dados reais no Firestore e limpam automaticamente após execução — veja [`E2E_TESTING_SETUP.md`](./E2E_TESTING_SETUP.md) para configuração.
 
-## 💻 Configuração do Ambiente
+## �️ Coleções do Firestore
+
+| Coleção / Documento                            | Campos principais                                                      | Observações de negócio                                                                                         |
+| ---------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `users`                                        | `displayName`, `role`, `phoneNumber`, timestamps                      | Sincronizado com Firebase Auth. Toda ação sensível consulta `useAuthorization` para validar permissões.        |
+| `products`                                     | `name`, `tags`, `barcode`, `isActive`                                 | Base para estoque e receitas. Produtos arquivados permanecem referenciáveis por histórico.                     |
+| `recipes`                                      | `yieldInGrams`, `ingredients[]`, `instructions`, `isActive`           | Ingredientes aceitam referência cruzada (recipe → recipe). Serviço impede ciclos infinitos.                    |
+| `stockItems`                                   | `productId`, `currentQuantityInGrams`, `minimumQuantityInGrams`       | Mantém ponteiros para último movimento e custos médios/maiores. Gera alertas automaticamente abaixo do mínimo. |
+| `stockMovements`                               | `type`, `quantityInGrams`, `unitCostInBRL`, `performedBy`, `note`     | Histórico imutável; usado em relatórios e conciliação de custo.                                                |
+| `stockAlerts`                                  | `status`, `severity`, `lastNotificationAt`                            | Notificações internas partem daqui. Gelatiê consegue reconhecer ou resolver; estoquista apenas reconhece.      |
+| `productionPlans`                              | `code`, `scheduledFor`, `status`, `estimated/actualProductionCost`    | Sequência automática (`PROD-001`). Integra com disponibilidade, execução e divergências.                       |
+| `productionStages`                             | `planId`, `sequence`, `status`, `assignedTo`, `timestamps`            | Descreve etapas operacionais. Atualização dispara logs e desbloqueio de ações na Home.                         |
+| `productionDivergences`                        | `planId`, `severity`, `type`, `description`, `resolutionNotes`        | Criadas durante execução quando algo foge do planejado. Alimenta relatórios de performance.                    |
+| `productionAvailability` (`planAvailability`)  | `planId`, `shortages[]`, `status`, `confirmedBy`, custos estimados    | Resultado da checagem de estoque antes da produção. Guarda confirmação manual do Gelatiê quando há falta.     |
+| `notifications`                                | `title`, `message`, `category`, `status`, `readAt`                    | Alimenta Home + Central. Consulta sempre retorna ordenado por `createdAt` desc. Limpeza automática > 30 dias.  |
+| `appSettings/pricing` (subcoleção em `appSettings`) | `sellingPricePer100gInBRL`, `sellingPricePerKilogramInBRL`, `updatedBy` | Mantém preço de venda global. Permissão exclusiva do Gelatiê; hook `usePricingSettings` provê cache.           |
+
+- Todos os documentos herdam `createdAt`/`updatedAt` (server timestamps). Regras recusam payload sem `serverTimestamp()`.
+- Índices obrigatórios estão listados em [`CRIAR_INDICES_FIRESTORE.md`](./CRIAR_INDICES_FIRESTORE.md) e [`FIRESTORE_INDICES_MANUAL.md`](./FIRESTORE_INDICES_MANUAL.md).
+- Scripts de migração vivem em `src/migrations` e devem registrar alterações massivas para manter a rastreabilidade.
+
+## �💻 Configuração do Ambiente
 
 1. **Pré-requisitos**
    - Node.js 20+
@@ -192,6 +215,115 @@ app/
 | `npm run typecheck` | `tsc --noEmit` para garantir compatibilidade de tipos.                             |
 | `npm run test`      | Jest + ts-jest com mocks de Firestore (testes unitários).                          |
 | `npm run test:e2e`  | Testes End-to-End com Firebase Admin SDK (requer `firebase-service-account.json`). |
+## 🚀 Distribuição e Builds
+
+### 1. Pré-requisitos e autenticação no Expo
+
+1. Garanta dependências atualizadas e Expo CLI funcionando:
+
+   ```powershell
+   npm install
+   npx expo doctor
+   ```
+
+2. Use a conta do Expo definida para o projeto. O login não fica salvo no repositório, então cada máquina precisa autenticar:
+
+   ```powershell
+   npx eas login          # Faz o login (usa browser/OTP)
+   npx eas whoami         # Confirma usuário logado
+   ```
+
+3. Se for a primeira execução em um computador novo, rode a configuração automática. O arquivo `eas.json` já está versionado; este comando só garante o linking do app com o projeto Expo existente:
+
+   ```powershell
+   npx eas build:configure
+   ```
+
+### 2. Perfis de build disponíveis (`eas.json`)
+
+| Perfil            | Destino             | Observações                                                                                   |
+| ----------------- | ------------------- | --------------------------------------------------------------------------------------------- |
+| `development`     | APK com Development Client | Hot reload + menus de debug. Usa `distribution: internal` para instalar direto no aparelho. |
+| `preview`         | APK para testes internos  | Sem Development Client, ideal para QA curto.                                                  |
+| `production`      | AAB (Google Play)        | Incrementa `versionCode` automaticamente. Usado para Play Store / produção oficial.          |
+| `production-apk`  | APK assinado             | Canal `production`, distribuição interna, perfeito para sideload ou testes em campo.         |
+
+Os certificados Android ficam sob gestão do Expo. Para revisar ou fazer backup manual, utilize `npx eas credentials`.
+
+### 3. Preparar variáveis de ambiente para builds na nuvem
+
+1. **Crie um arquivo dedicado a produção**, baseado no `.env.example` (nunca commitar valores sensíveis):
+
+   ```powershell
+   Copy-Item .env.example .env.production
+   ```
+
+2. Preencha as chaves Firebase/flags no `.env.production`. O serviço `src/utils/env.ts` utiliza apenas variáveis com prefixo `EXPO_PUBLIC_`, então nada extra é necessário.
+
+3. **Envie as variáveis para o EAS**. A CLI 16+ suporta envio em lote com um único comando:
+
+   ```powershell
+   npx eas secret:push --scope project --env-file .env.production
+   ```
+
+   > Caso sua CLI esteja desatualizada, use `npx eas upgrade` ou crie secret por secret: `npx eas secret:create --scope project --name EXPO_PUBLIC_FIREBASE_API_KEY --value "..."`.
+
+4. Valide o resultado com:
+
+   ```powershell
+   npx eas secret:list --scope project
+   ```
+
+5. Sempre que uma variável mudar, reenvie o arquivo `.env.production`. O EAS substitui valores existentes automaticamente.
+
+### 4. Gerar APK/ABB com `npx`
+
+**Build de produção (AAB para Play Store):**
+
+```powershell
+npx eas build --platform android --profile production
+```
+
+**Build direto em APK assinado (sideload / distribuição interna):**
+
+```powershell
+npx eas build --platform android --profile production-apk
+```
+
+- Use `--clear-cache` se notar resquícios de builds antigos.
+- Ao final, o terminal mostra a URL do build (`https://expo.dev/accounts/<org>/projects/<app>/builds/<id>`). Baixe o artefato diretamente por lá.
+- Para builds locais (exigem Android SDK instalado), adicione `--local`:
+
+  ```powershell
+  npx eas build --platform android --profile production-apk --local
+  ```
+
+### 5. Submissão e canais OTA
+
+- Envie o AAB para a Play Store diretamente pela CLI:
+
+  ```powershell
+  npx eas submit --platform android --profile production
+  ```
+
+- Para atualizações OTA (JS bundle sem rebuild nativo), utilize os canais já configurados:
+
+  ```powershell
+  npx eas update --branch production --message "Correções de notificações"
+  ```
+
+  > O canal `production` é o mesmo usado pelo perfil `production-apk`, garantindo que os dispositivos recebam o bundle correto.
+
+- Monitore builds e updates em tempo real no painel [Expo EAS Dashboard](https://expo.dev/accounts) com a mesma conta usada no login.
+
+### 6. Checklist antes de publicar
+
+1. Garanta que os testes e linters passaram (`npm run lint`, `npm run typecheck`, `npm run test`).
+2. Confirme que `.env.production` corresponde ao ambiente (Firebase, Sentry, analytics, etc.).
+3. Revise as notas de versão e atualize `app.json` (`expo.version`) caso publique novo patch.
+4. Rode `npx eas update --branch preview` se quiser uma validação OTA antes de liberar para produção.
+5. Faça download do build, instale em um dispositivo real e execute smoke tests: login, Home, fluxo de produção e central de notificações.
+
 
 ## 🔄 Fluxo de Desenvolvimento
 
