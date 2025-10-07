@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:e2e": "jest tests/e2e --detectOpenHandles --forceExit --runInBand",
-    "db:seed:users": "node ./scripts/seed-users.js"
+    "db:seed:users": "node ./scripts/seed-users.js",
+    "db:wipe": "node ./scripts/wipe-firestore.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.3",

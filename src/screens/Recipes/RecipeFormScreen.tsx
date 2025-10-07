@@ -127,6 +127,21 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
     Alert.alert('Overrides salvos', 'Acessórios específicos desta receita foram salvos.');
   }, [accessoryOverrides, pricingSettings?.accessories, recipeId, updatePricingSettings]);
 
+  const revertAccessoryOverrides = useCallback(async () => {
+    if (!recipeId) return;
+    const current = pricingSettings?.accessories ?? { items: [], overridesByRecipeId: {} };
+    const nextOverrides = { ...(current.overridesByRecipeId ?? {}) };
+    delete nextOverrides[recipeId];
+    await updatePricingSettings({
+      accessories: {
+        items: current.items ?? [],
+        overridesByRecipeId: nextOverrides,
+      },
+    });
+    setAccessoryOverrides([]);
+    Alert.alert('Overrides removidos', 'Esta receita voltou a usar os acessórios globais.');
+  }, [pricingSettings?.accessories, recipeId, updatePricingSettings]);
+
   const canManage = authorization.canManageProducts;
   const title = recipeId ? 'Editar receita' : 'Nova receita';
 
@@ -420,7 +435,12 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>{title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>{title}</Text>
+            {recipeId && existingOverrides && existingOverrides.length > 0 ? (
+              <Text style={styles.overrideBadge}>Overrides ativos</Text>
+            ) : null}
+          </View>
           <Text style={styles.subtitle}>
             {recipeId
               ? 'Atualize as informações da receita selecionada.'
@@ -681,16 +701,37 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                   );
                 })
               )}
-              {accessoryOverrides.length > 0 ? (
-                <Pressable
-                  onPress={saveAccessoryOverrides}
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    pressed && styles.primaryButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.primaryButtonText}>Salvar overrides</Text>
-                </Pressable>
+              {recipeId ? (
+                <View style={styles.overrideActionsRow}>
+                  {accessoryOverrides.length > 0 ? (
+                    <Pressable
+                      disabled={!canManage}
+                      onPress={saveAccessoryOverrides}
+                      style={({ pressed }) => [
+                        styles.primaryButton,
+                        pressed && styles.primaryButtonPressed,
+                        styles.overrideActionButton,
+                        !canManage && styles.disabledButton,
+                      ]}
+                    >
+                      <Text style={styles.primaryButtonText}>Salvar overrides</Text>
+                    </Pressable>
+                  ) : null}
+                  {existingOverrides && existingOverrides.length > 0 ? (
+                    <Pressable
+                      disabled={!canManage}
+                      onPress={revertAccessoryOverrides}
+                      style={({ pressed }) => [
+                        styles.secondaryButton,
+                        pressed && styles.secondaryButtonPressed,
+                        styles.overrideActionButton,
+                        !canManage && styles.disabledSecondaryButton,
+                      ]}
+                    >
+                      <Text style={styles.secondaryButtonText}>Reverter para globais</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               ) : null}
             </View>
           ) : null}
@@ -1354,4 +1395,33 @@ const styles = StyleSheet.create({
   },
   accessoryRemoveBtn: { padding: 6, borderRadius: 8, backgroundColor: '#FEE2E2' },
   accessoryRemoveBtnPressed: { opacity: 0.8 },
+  overrideActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  overrideActionButton: { flex: 1 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  overrideBadge: {
+    backgroundColor: '#1F2937',
+    color: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  disabledSecondaryButton: {
+    opacity: 0.5,
+  },
 });

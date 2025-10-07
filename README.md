@@ -70,18 +70,23 @@ Estrutura em `appSettings/pricing` (campo `accessories`):
 
 ```ts
 type AccessoriesConfig = {
-   items?: Array<{
-      productId: string;           // referência a products/{id}
-      defaultQtyPerPortion: number; // quantidade padrão por porção base (100 g)
-   }>;
-   overridesByRecipeId?: Record<string, Array<{
-      productId: string;
-      defaultQtyPerPortion: number;
-   }> | undefined>;
+  items?: Array<{
+    productId: string; // referência a products/{id}
+    defaultQtyPerPortion: number; // quantidade padrão por porção base (100 g)
+  }>;
+  overridesByRecipeId?: Record<
+    string,
+    | Array<{
+        productId: string;
+        defaultQtyPerPortion: number;
+      }>
+    | undefined
+  >;
 };
 ```
 
 Regras de precedência:
+
 1. Se existir `overridesByRecipeId[recipeId]` com pelo menos 1 item → usa somente essa lista
 2. Caso contrário → usa `items` globais
 3. Ausência de ambos → custo de acessórios = 0
@@ -104,14 +109,24 @@ Heurística: 1 ml ≈ 1 g (aceita para simplificação operacional de embalagens
 Semântica para “limpar” um override: remover todos os itens de uma receita pode ser interpretado como “sem acessórios para esta receita” — mantemos a chave com lista vazia? Atualmente: uma lista vazia **anula** o custo (não cai para globais). Documentar decisão ao usuário (UI futura pode oferecer botão “Reverter para globais”).
 
 Impacto nas Telas:
+
 - `RecipeFormScreen`: seção para editar overrides por receita.
 - `FinancialReportScreen` e `Home` reutilizam util `computeFinancialSummary` garantindo consistência.
 - `StockReportScreen`: já possuía cálculo alinhado; overrides respeitados.
 
+Semântica de Reversão:
+
+- A ação "Reverter para globais" na `RecipeFormScreen` remove a chave `overridesByRecipeId[recipeId]` do documento de pricing.
+- Isso difere de salvar uma lista vazia. Lista vazia significa: "Esta receita NÃO usa acessórios" (custo zero, não cai nos globais).
+- Removendo a chave, a receita volta a herdar `accessories.items` globais automaticamente.
+- UI exibe badge "Overrides ativos" enquanto existir entrada não vazia para a receita.
+
 Testes adicionados:
+
 - `financialSummary.test.ts`: valida globais vs override e janela de datas.
 
 Próximos incrementos sugeridos:
+
 - Botão “Reverter para padrão” removendo entry do `overridesByRecipeId`.
 - Indicador visual na UI quando uma receita está usando override (badge).
 - Relatório detalhado de custo de acessórios por receita.

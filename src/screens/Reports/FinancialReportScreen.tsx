@@ -60,18 +60,32 @@ export default function FinancialReportScreen() {
     return { rangeFrom: _from, rangeTo: _to };
   }, []);
 
-  const summary = useMemo(
-    () =>
-      computeFinancialSummary(
-        plans,
-        products,
-        stockItems,
-        settings ?? undefined,
-        rangeFrom,
-        rangeTo,
-      ),
-    [plans, products, stockItems, settings, rangeFrom, rangeTo],
-  );
+  const { summary, hasAnyOverride } = useMemo(() => {
+    // detect overrides presence among filtered plans within window
+    const s = computeFinancialSummary(
+      plans,
+      products,
+      stockItems,
+      settings ?? undefined,
+      rangeFrom,
+      rangeTo,
+    );
+    let any = false;
+    const overrides = settings?.accessories?.overridesByRecipeId;
+    if (overrides) {
+      for (const p of plans) {
+        if (!p.recipeId) continue;
+        if (overrides[p.recipeId] && overrides[p.recipeId]!.length > 0) {
+          const ref = p.completedAt ?? p.scheduledFor;
+          if (ref && ref >= rangeFrom && ref <= rangeTo) {
+            any = true;
+            break;
+          }
+        }
+      }
+    }
+    return { summary: s, hasAnyOverride: any };
+  }, [plans, products, stockItems, settings, rangeFrom, rangeTo]);
 
   const isLoading = isLoadingPricing || isLoadingPlans;
 
@@ -112,13 +126,20 @@ export default function FinancialReportScreen() {
             label="Custo real"
             value={currency.format(summary.cost)}
           />
-          <SummaryCard
-            iconName="trending-up-outline"
-            iconBackground="#DBEAFE"
-            iconColor="#1D4ED8"
-            label="Margem (estimada)"
-            value={currency.format(summary.margin)}
-          />
+          <View style={{ flexBasis: '32%', flexGrow: 1 }}>
+            <SummaryCard
+              iconName="trending-up-outline"
+              iconBackground="#DBEAFE"
+              iconColor="#1D4ED8"
+              label="Margem (estimada)"
+              value={currency.format(summary.margin)}
+            />
+            {hasAnyOverride ? (
+              <View style={styles.badgeRow}>
+                <Text style={styles.overrideBadge}>Overrides ativos</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
       )}
 
@@ -142,13 +163,20 @@ export default function FinancialReportScreen() {
               label="Custo (proj.)"
               value={currency.format(projection.cost)}
             />
-            <SummaryCard
-              iconName="trending-up-outline"
-              iconBackground="#E0F2FE"
-              iconColor="#0369A1"
-              label="Margem (proj.)"
-              value={currency.format(projection.margin)}
-            />
+            <View style={{ flexBasis: '32%', flexGrow: 1 }}>
+              <SummaryCard
+                iconName="trending-up-outline"
+                iconBackground="#E0F2FE"
+                iconColor="#0369A1"
+                label="Margem (proj.)"
+                value={currency.format(projection.margin)}
+              />
+              {hasAnyOverride ? (
+                <View style={styles.badgeRow}>
+                  <Text style={styles.overrideBadge}>Overrides ativos</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
         )}
       </View>
@@ -224,5 +252,24 @@ const styles = StyleSheet.create({
   cardText: {
     fontSize: 14,
     color: '#4B5563',
+  },
+  badgeRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  overrideBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F3E8FF',
+    color: '#6D28D9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    overflow: 'hidden',
+    textTransform: 'uppercase',
   },
 });

@@ -607,6 +607,7 @@ export default function StockReportScreen() {
     reportingTo,
     sellingPrice.per100g,
     computeAccessoriesCost,
+    computeRevenue,
   ]);
 
   const handleSavePrice = useCallback(async () => {
