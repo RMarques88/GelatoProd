@@ -129,7 +129,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
 
   const revertAccessoryOverrides = useCallback(async () => {
     if (!recipeId) return;
-    const current = pricingSettings?.accessories ?? { items: [], overridesByRecipeId: {} };
+    const current = pricingSettings?.accessories ?? {
+      items: [],
+      overridesByRecipeId: {},
+    };
     const nextOverrides = { ...(current.overridesByRecipeId ?? {}) };
     delete nextOverrides[recipeId];
     await updatePricingSettings({
@@ -139,7 +142,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
       },
     });
     setAccessoryOverrides([]);
-    Alert.alert('Overrides removidos', 'Esta receita voltou a usar os acessórios globais.');
+    Alert.alert(
+      'Overrides removidos',
+      'Esta receita voltou a usar os acessórios globais.',
+    );
   }, [pricingSettings?.accessories, recipeId, updatePricingSettings]);
 
   const canManage = authorization.canManageProducts;
@@ -728,7 +734,9 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                         !canManage && styles.disabledSecondaryButton,
                       ]}
                     >
-                      <Text style={styles.secondaryButtonText}>Reverter para globais</Text>
+                      <Text style={styles.secondaryButtonText}>
+                        Reverter para globais
+                      </Text>
                     </Pressable>
                   ) : null}
                 </View>

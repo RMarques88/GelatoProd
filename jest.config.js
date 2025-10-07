@@ -13,4 +13,12 @@ module.exports = {
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setupTests.ts'],
   clearMocks: true,
+  verbose: true,
+  reporters: [
+    'default',
+    [
+      '<rootDir>/tests/time-reporter.js',
+      { slowTestThresholdMs: 1500 }, // marca testes acima de 1.5s
+    ],
+  ],
 };

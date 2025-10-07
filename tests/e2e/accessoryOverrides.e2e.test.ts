@@ -24,7 +24,10 @@ interface PricingSettingsDoc {
   extraCostPer100gInBRL?: number;
   accessories?: {
     items?: Array<{ productId: string; defaultQtyPerPortion: number }>;
-    overridesByRecipeId?: Record<string, Array<{ productId: string; defaultQtyPerPortion: number }>>;
+    overridesByRecipeId?: Record<
+      string,
+      Array<{ productId: string; defaultQtyPerPortion: number }>
+    >;
   };
   updatedAt?: Date;
 }
@@ -32,12 +35,15 @@ interface PricingSettingsDoc {
 describe('E2E: Accessories Overrides -> Margem Financeira', () => {
   let testUserId: string;
   let recipeId: string;
-  let planId: string;
   let cupProductId: string;
   let toppingProductId: string;
 
   beforeAll(async () => {
-    const user = await createTestUser('test-accessories@gelatoprod.com', 'test123456', 'gelatie');
+    const user = await createTestUser(
+      'test-accessories@gelatoprod.com',
+      'test123456',
+      'gelatie',
+    );
     testUserId = user.uid;
 
     // Limpa coleções essenciais (não remove outras que possam interferir em permissões)
@@ -105,7 +111,7 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
     });
     recipeId = recipeRef.id;
 
-    const planRef = await db.collection('productionPlans').add({
+    const _planRef = await db.collection('productionPlans').add({
       recipeId: recipeId,
       quantityInGrams: 1000,
       unitOfMeasure: 'GRAMS',
@@ -115,7 +121,6 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    planId = planRef.id;
 
     // Helper para recomputar margem diretamente via util server-side simplificada
     async function computeMargin(): Promise<number> {
@@ -130,7 +135,10 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
 
       // Determinar lista de acessórios efetiva
       const overrides = settings.accessories?.overridesByRecipeId?.[recipeId];
-      const effective = overrides && overrides.length > 0 ? overrides : settings.accessories?.items ?? [];
+      const effective =
+        overrides && overrides.length > 0
+          ? overrides
+          : (settings.accessories?.items ?? []);
 
       // Mapear custos de produtos (consulta simples)
       const productsSnap = await db.collection('products').get();

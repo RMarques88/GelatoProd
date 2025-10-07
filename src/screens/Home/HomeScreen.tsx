@@ -1,3 +1,4 @@
+/* eslint-disable import/order */
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,26 +20,26 @@ import {
 
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
-import {
-  useNotifications,
-  useProductionPlans,
-  usePricingSettings,
-  useProducts,
-  useRecipes,
-  useStockAlerts,
-  useStockItems,
-} from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import {
+  useNotifications,
+  usePricingSettings,
+  useProducts,
+  useProductionPlans,
+  useStockAlerts,
+  useStockItems,
+  useRecipes,
+} from '@/hooks/data';
+import { formatRelativeDate } from '@/utils/date';
+import { computeFinancialSummary } from '@/utils/financial';
+import { logError } from '@/utils/logger';
 import { completeProductionPlanWithConsumption } from '@/services/productionExecution';
 import {
   checkProductionPlanAvailability,
   scheduleProductionPlan,
   type PlanAvailabilityResult,
 } from '@/services/productionScheduling';
-import { formatRelativeDate } from '@/utils/date';
-import { computeFinancialSummary } from '@/utils/financial';
-import { logError } from '@/utils/logger';
 
 import type {
   NotificationStatus,
@@ -207,10 +208,12 @@ export function HomeScreen() {
     enabled: canViewPlans,
   });
 
+  /* eslint-disable prettier/prettier */
   const unreadNotifications = useMemo(
-    () => notifications.filter(notification => notification.status === 'unread'),
+    () => notifications.filter((n: (typeof notifications)[number]) => n.status === 'unread'),
     [notifications],
   );
+  /* eslint-enable prettier/prettier */
   const roleLabel = useMemo(() => (user ? roleLabels[user.role] : 'Sem acesso'), [user]);
   const userDisplayName = useMemo(() => user?.name ?? 'Gelatiê', [user?.name]);
   const userId = user?.id ?? null;
@@ -268,12 +271,12 @@ export function HomeScreen() {
   const [selectedDayFilter, setSelectedDayFilter] = useState<string | 'all'>('all');
 
   const activeProducts = useMemo(
-    () => products.filter(product => product.isActive),
+    () => products.filter((p: (typeof products)[number]) => p.isActive),
     [products],
   );
 
   const criticalAlerts = useMemo(
-    () => alerts.filter(alert => alert.severity === 'critical'),
+    () => alerts.filter((a: (typeof alerts)[number]) => a.severity === 'critical'),
     [alerts],
   );
 
@@ -286,7 +289,7 @@ export function HomeScreen() {
   );
 
   const inProgressPlans = useMemo(
-    () => plans.filter(plan => plan.status === 'in_progress'),
+    () => plans.filter((pl: (typeof plans)[number]) => pl.status === 'in_progress'),
     [plans],
   );
 
@@ -320,7 +323,8 @@ export function HomeScreen() {
 
   const displayedPlans = useMemo(() => filteredPlans.slice(0, 10), [filteredPlans]);
   const selectedRecipe = useMemo(
-    () => recipes.find(recipe => recipe.id === selectedRecipeId) ?? null,
+    () =>
+      recipes.find((r: (typeof recipes)[number]) => r.id === selectedRecipeId) ?? null,
     [recipes, selectedRecipeId],
   );
 
@@ -357,16 +361,12 @@ export function HomeScreen() {
   }, [isSubmittingPlan, parsedPlanDate, parsedPlanQuantity, selectedRecipe]);
   const filteredRecipes = useMemo(() => {
     const term = recipeSearchTerm.trim().toLowerCase();
-    if (!term) {
-      return recipes;
-    }
-
-    return recipes.filter(recipe => {
-      const nameMatches = recipe.name.toLowerCase().includes(term);
-      const descriptionMatches = recipe.description
-        ? recipe.description.toLowerCase().includes(term)
+    if (!term) return recipes;
+    return recipes.filter((r: (typeof recipes)[number]) => {
+      const nameMatches = r.name.toLowerCase().includes(term);
+      const descriptionMatches = r.description
+        ? r.description.toLowerCase().includes(term)
         : false;
-
       return nameMatches || descriptionMatches;
     });
   }, [recipeSearchTerm, recipes]);
@@ -762,29 +762,49 @@ export function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={headerRowStyle}>
-          <View>
-            <Text style={styles.heading}>King Gelato HQ</Text>
-            <Text style={styles.subtitle}>
-              Acompanhe a produção artesanal e o frescor da vitrine em tempo real.
-            </Text>
-            <View style={styles.userMetaRow}>
-              <Text style={styles.userGreeting}>Olá, {userDisplayName}</Text>
-              {user ? (
-                <View style={styles.roleBadge}>
-                  <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+        <View style={styles.headerWrapper}>
+          <View style={headerRowStyle}>
+            <View style={styles.headerLeftCluster}>
+              <View style={styles.avatarCircle}>
+                <Ionicons name="ice-cream" size={22} color="#FFFFFF" />
+              </View>
+              <View style={styles.headerTextArea}>
+                <Text style={styles.heading}>King Gelato HQ</Text>
+                <Text style={styles.subtitle} numberOfLines={2}>
+                  Acompanhe a produção artesanal e o frescor da vitrine em tempo real.
+                </Text>
+                <View style={styles.userMetaRow}>
+                  <Text style={styles.userGreeting}>Olá, {userDisplayName}</Text>
+                  {user ? (
+                    <View style={styles.roleBadgePrimary}>
+                      <Ionicons name="person" size={12} color="#1D4ED8" />
+                      <Text style={styles.roleBadgePrimaryText}>{roleLabel}</Text>
+                    </View>
+                  ) : null}
+                  {unreadNotifications.length > 0 ? (
+                    <View style={styles.unreadPill}>
+                      <Text style={styles.unreadPillText}>
+                        {unreadNotifications.length} alerta
+                        {unreadNotifications.length > 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
-              ) : null}
+              </View>
             </View>
+            <Pressable
+              style={({ pressed }) => [
+                signOutButtonStyle,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={signOut}
+              disabled={isLoading}
+              accessibilityLabel="Sair da conta"
+            >
+              <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.buttonText}>Sair</Text>
+            </Pressable>
           </View>
-          <Pressable
-            style={({ pressed }) => [signOutButtonStyle, pressed && styles.buttonPressed]}
-            onPress={signOut}
-            disabled={isLoading}
-          >
-            <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.buttonText}>Sair</Text>
-          </Pressable>
         </View>
 
         {shouldShowMetrics && (
@@ -857,7 +877,7 @@ export function HomeScreen() {
             ) : alerts.length === 0 ? (
               <Text style={styles.emptyText}>Nenhum alerta ativo no momento.</Text>
             ) : (
-              alerts.map(alert => (
+              alerts.map((alert: (typeof alerts)[number]) => (
                 <Pressable
                   key={alert.id}
                   onPress={() => handleNavigateToStockItem(alert.stockItemId)}
@@ -961,26 +981,28 @@ export function HomeScreen() {
             ) : unreadNotifications.length === 0 ? (
               <Text style={styles.emptyText}>Nenhuma notificação por aqui.</Text>
             ) : (
-              unreadNotifications.slice(0, 6).map(notification => (
-                <Pressable
-                  key={notification.id}
-                  onPress={() =>
-                    handleNotificationPress(notification.id, notification.status)
-                  }
-                  style={({ pressed }) => [
-                    styles.notificationCard,
-                    notification.status === 'unread' && styles.notificationCardUnread,
-                    pressed && styles.notificationPressed,
-                  ]}
-                >
-                  <Text style={styles.notificationTitle}>{notification.title}</Text>
-                  <Text style={styles.notificationMessage}>{notification.message}</Text>
-                  <Text style={styles.notificationMeta}>
-                    {notification.createdAt.toLocaleDateString('pt-BR')} ·{' '}
-                    {notification.status === 'unread' ? 'Novo' : 'Lido'}
-                  </Text>
-                </Pressable>
-              ))
+              /* eslint-disable prettier/prettier */
+              unreadNotifications.slice(0, 6).map((notification: (typeof unreadNotifications)[number]) => (
+                  <Pressable
+                    key={notification.id}
+                    onPress={() =>
+                      handleNotificationPress(notification.id, notification.status)
+                    }
+                    style={({ pressed }) => [
+                      styles.notificationCard,
+                      notification.status === 'unread' && styles.notificationCardUnread,
+                      pressed && styles.notificationPressed,
+                    ]}
+                  >
+                    <Text style={styles.notificationTitle}>{notification.title}</Text>
+                    <Text style={styles.notificationMessage}>{notification.message}</Text>
+                    <Text style={styles.notificationMeta}>
+                      {notification.createdAt.toLocaleDateString('pt-BR')} ·{' '}
+                      {notification.status === 'unread' ? 'Novo' : 'Lido'}
+                    </Text>
+                  </Pressable>
+                ))
+              /* eslint-enable prettier/prettier */
             )}
           </Section>
         )}
@@ -1043,8 +1065,9 @@ export function HomeScreen() {
                     : 'Nenhuma produção agendada para este dia.'}
                 </Text>
               ) : (
-                displayedPlans.map(plan => {
-                  const action = productionStatusActions[plan.status];
+                displayedPlans.map((plan: (typeof displayedPlans)[number]) => {
+                  const status = plan.status as ProductionStatus;
+                  const action = productionStatusActions[status];
                   return (
                     <View key={plan.id} style={styles.listItem}>
                       <View style={styles.planInfo}>
@@ -1078,7 +1101,7 @@ export function HomeScreen() {
                                 styles.statusBadgeTextInactive,
                             ]}
                           >
-                            {productionStatusLabels[plan.status]}
+                            {productionStatusLabels[status]}
                           </Text>
                         </View>
                         <View style={styles.planActions}>
@@ -1322,30 +1345,17 @@ export function HomeScreen() {
                   Nenhum produto cadastrado até o momento.
                 </Text>
               ) : (
-                products.slice(0, 5).map(product => (
+                products.slice(0, 5).map((product: (typeof products)[number]) => (
                   <View key={product.id} style={styles.productCard}>
                     <View style={styles.productInfo}>
                       <Text style={styles.productName}>{product.name}</Text>
                       <Text style={styles.productBarcode}>
                         {product.barcode ? `${product.barcode}` : 'Sem código de barras'}
                       </Text>
-                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                      <View style={styles.inlineRowGap}>
                         {product.unitOfMeasure ? (
-                          <View
-                            style={{
-                              paddingHorizontal: 10,
-                              paddingVertical: 4,
-                              borderRadius: 999,
-                              backgroundColor: '#EFF6FF',
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontSize: 12,
-                                fontWeight: '600',
-                                color: '#1D4ED8',
-                              }}
-                            >
+                          <View style={styles.miniBadgeInfo}>
+                            <Text style={styles.miniBadgeInfoText}>
                               Unidade:{' '}
                               {product.unitOfMeasure === 'GRAMS'
                                 ? 'g'
@@ -1360,21 +1370,8 @@ export function HomeScreen() {
                           </View>
                         ) : null}
                         {product.trackInventory === false ? (
-                          <View
-                            style={{
-                              paddingHorizontal: 10,
-                              paddingVertical: 4,
-                              borderRadius: 999,
-                              backgroundColor: '#FEF3C7',
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontSize: 12,
-                                fontWeight: '600',
-                                color: '#B45309',
-                              }}
-                            >
+                          <View style={styles.miniBadgeWarn}>
+                            <Text style={styles.miniBadgeWarnText}>
                               Sem controle de estoque
                             </Text>
                           </View>
@@ -1385,12 +1382,9 @@ export function HomeScreen() {
                       style={[
                         styles.statusBadge,
                         !product.isActive && styles.statusBadgeInactive,
+                        styles.clearButton,
                       ]}
-                    >
-                      <Text style={styles.statusBadgeText}>
-                        {product.isActive ? 'Ativo' : 'Inativo'}
-                      </Text>
-                    </View>
+                    />
                   </View>
                 ))
               )}
@@ -1414,20 +1408,9 @@ export function HomeScreen() {
                     />
                   </View>
                   <View style={styles.formRow}>
-                    <View
-                      style={[
-                        styles.input,
-                        styles.inputHalf,
-                        {
-                          paddingVertical: 0,
-                          paddingHorizontal: 0,
-                          backgroundColor: 'transparent',
-                          borderWidth: 0,
-                        },
-                      ]}
-                    >
+                    <View style={[styles.input, styles.inputHalf, styles.clearContainer]}>
                       <Text style={styles.inputLabel}>Unidade</Text>
-                      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                      <View style={styles.inlineWrapRow}>
                         {(
                           [
                             'GRAMS',
@@ -1466,16 +1449,8 @@ export function HomeScreen() {
                         ))}
                       </View>
                     </View>
-                    <View
-                      style={[styles.input, styles.inputHalf, { paddingVertical: 12 }]}
-                    >
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}
-                      >
+                    <View style={[styles.input, styles.inputHalf, styles.inputTall]}>
+                      <View style={styles.rowSpaceBetween}>
                         <Text style={styles.inputLabel}>Controlar estoque</Text>
                         <Pressable
                           onPress={() => setNewProductTrackInventory(prev => !prev)}
@@ -1537,7 +1512,7 @@ export function HomeScreen() {
               ) : recipes.length === 0 ? (
                 <Text style={styles.emptyText}>Nenhuma receita registrada ainda.</Text>
               ) : (
-                recipes.slice(0, 5).map(recipe => (
+                recipes.slice(0, 5).map((recipe: (typeof recipes)[number]) => (
                   <View key={recipe.id} style={styles.listItem}>
                     <View>
                       <Text style={styles.listItemTitle}>{recipe.name}</Text>
@@ -1609,7 +1584,7 @@ export function HomeScreen() {
                 Cadastre produtos para começar o controle.
               </Text>
             ) : (
-              stockItems.slice(0, 5).map(item => (
+              stockItems.slice(0, 5).map((item: (typeof stockItems)[number]) => (
                 <Pressable
                   key={item.id}
                   onPress={() => handleNavigateToStockItem(item.id)}
@@ -1785,6 +1760,61 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 32,
+  },
+  headerWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 28,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  headerLeftCluster: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    flex: 1,
+  },
+  avatarCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  headerTextArea: { flex: 1 },
+  roleBadgePrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  roleBadgePrimaryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1D4ED8',
+  },
+  unreadPill: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  unreadPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B91C1C',
   },
   headerRow: {
     flexDirection: 'row',
@@ -2604,6 +2634,61 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     marginTop: 6,
+  },
+  // Newly added extracted inline styles
+  inlineRowGap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  miniBadgeInfo: {
+    backgroundColor: '#DBEAFE',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  miniBadgeInfoText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1D4ED8',
+  },
+  miniBadgeWarn: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  miniBadgeWarnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+  clearButton: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  inlineWrapRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  inputTall: {
+    minHeight: 110,
+    justifyContent: 'flex-start',
+  },
+  rowSpaceBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  clearContainer: {
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
 });
 
