@@ -210,7 +210,8 @@ export function HomeScreen() {
 
   /* eslint-disable prettier/prettier */
   const unreadNotifications = useMemo(
-    () => notifications.filter((n: (typeof notifications)[number]) => n.status === 'unread'),
+    () =>
+      notifications.filter((n: (typeof notifications)[number]) => n.status === 'unread'),
     [notifications],
   );
   /* eslint-enable prettier/prettier */
@@ -982,7 +983,9 @@ export function HomeScreen() {
               <Text style={styles.emptyText}>Nenhuma notificação por aqui.</Text>
             ) : (
               /* eslint-disable prettier/prettier */
-              unreadNotifications.slice(0, 6).map((notification: (typeof unreadNotifications)[number]) => (
+              unreadNotifications
+                .slice(0, 6)
+                .map((notification: (typeof unreadNotifications)[number]) => (
                   <Pressable
                     key={notification.id}
                     onPress={() =>

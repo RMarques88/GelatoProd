@@ -98,6 +98,45 @@ export function ProductPickerModal({
     onClose();
   }, [initialQuery, onClose]);
 
+  const renderItem = useCallback(
+    ({ item }: { item: Product }) => {
+      const isSelected = selectedIds.has(item.id);
+      const unit = unitBadge(item.unitOfMeasure);
+      return (
+        <Pressable
+          onPress={() => toggleSelect(item.id)}
+          style={({ pressed }) => [
+            styles.row,
+            pressed && styles.rowPressed,
+            isSelected && styles.rowSelected,
+          ]}
+        >
+          <View style={styles.rowContent}>
+            <Text style={styles.rowTitle} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.rowMeta} numberOfLines={1}>
+              {item.barcode ? `EAN ${item.barcode}` : 'Sem código'} · {unit}
+            </Text>
+          </View>
+          <View style={[styles.check, isSelected && styles.checkSelected]}>
+            {isSelected ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+          </View>
+        </Pressable>
+      );
+    },
+    [selectedIds, toggleSelect],
+  );
+
+  const ListEmpty = useCallback(
+    () => (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>Nenhum produto encontrado.</Text>
+      </View>
+    ),
+    [],
+  );
+
   return (
     <Modal animationType="slide" visible={visible} onRequestClose={closeAndReset}>
       <View style={styles.container}>
@@ -128,39 +167,8 @@ export function ProductPickerModal({
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => {
-            const isSelected = selectedIds.has(item.id);
-            const unit = unitBadge(item.unitOfMeasure);
-            return (
-              <Pressable
-                onPress={() => toggleSelect(item.id)}
-                style={({ pressed }) => [
-                  styles.row,
-                  pressed && styles.rowPressed,
-                  isSelected && styles.rowSelected,
-                ]}
-              >
-                <View style={styles.rowContent}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.rowMeta} numberOfLines={1}>
-                    {item.barcode ? `EAN ${item.barcode}` : 'Sem código'} · {unit}
-                  </Text>
-                </View>
-                <View style={[styles.check, isSelected && styles.checkSelected]}>
-                  {isSelected ? (
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                  ) : null}
-                </View>
-              </Pressable>
-            );
-          }}
-          ListEmptyComponent={() => (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>Nenhum produto encontrado.</Text>
-            </View>
-          )}
+          renderItem={renderItem}
+          ListEmptyComponent={ListEmpty}
         />
 
         <View style={styles.footer}>

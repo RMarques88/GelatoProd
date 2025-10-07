@@ -15,6 +15,8 @@ import {
   View,
 } from 'react-native';
 
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ProductPickerModal } from '@/components/inputs/ProductPickerModal';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
@@ -23,8 +25,6 @@ import { useProducts, useRecipes, usePricingSettings } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { logError } from '@/utils/logger';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type IngredientFormValue = {
   type: RecipeIngredient['type'];
@@ -666,7 +666,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                       : (product?.unitOfMeasure ?? 'GRAMS').toLowerCase();
                   return (
                     <View key={`${item.productId}-${idx}`} style={styles.accessoryRow}>
-                      <View style={{ flex: 1 }}>
+                      <View style={styles.flex1}>
                         <Text style={styles.accessoryName} numberOfLines={1}>
                           {product?.name ?? item.productId}
                         </Text>
@@ -1410,6 +1410,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   overrideActionButton: { flex: 1 },
+  flex1: { flex: 1 },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -11,6 +11,9 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import type { StockAlertStatus, StockMovementType } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
@@ -32,9 +35,6 @@ import {
 } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
-import type { StockAlertStatus, StockMovementType } from '@/domain';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Stock'>;
 
@@ -463,7 +463,7 @@ export default function StockListScreen({ navigation }: Props) {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={styles.productTitleRow}>
                 <Text style={styles.productName}>{product?.name ?? item.productId}</Text>
                 {product?.unitOfMeasure ? (
                   <View style={styles.unitBadge}>
@@ -991,6 +991,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  productTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   emptyState: {
     alignItems: 'center',
