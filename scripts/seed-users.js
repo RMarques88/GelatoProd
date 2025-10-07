@@ -27,7 +27,7 @@ const USERS = [
     password: DEFAULT_PASSWORD,
     displayName: 'Gelatie',
     role: 'gelatie',
-  }
+  },
 ];
 
 async function upsertUser({ email, password, displayName, role }) {
@@ -59,7 +59,7 @@ async function upsertUser({ email, password, displayName, role }) {
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
-      { merge: true }
+      { merge: true },
     );
 
     // eslint-disable-next-line no-console
@@ -87,7 +87,10 @@ async function upsertUser({ email, password, displayName, role }) {
     }
 
     // eslint-disable-next-line no-console
-    console.log('\n✅ Concluído. Credenciais padrão: email conforme acima, senha:', DEFAULT_PASSWORD);
+    console.log(
+      '\n✅ Concluído. Credenciais padrão: email conforme acima, senha:',
+      DEFAULT_PASSWORD,
+    );
     process.exit(0);
   } catch (e) {
     process.exit(1);

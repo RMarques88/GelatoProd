@@ -82,10 +82,9 @@ export default function StockListScreen({ navigation }: Props) {
 
   const alertStatuses = useMemo(() => ['open', 'acknowledged'] as StockAlertStatus[], []);
 
-  const { stockItems, isLoading, error, adjust, retry, create, update } =
-    useStockItems({
-      includeArchived,
-    });
+  const { stockItems, isLoading, error, adjust, retry, create, update } = useStockItems({
+    includeArchived,
+  });
   const { alerts } = useStockAlerts({ status: alertStatuses });
   const { products } = useProducts({ includeInactive: true });
   const { movements } = useStockMovements({ limit: 20 });

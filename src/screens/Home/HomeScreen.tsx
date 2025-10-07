@@ -1292,13 +1292,13 @@ export function HomeScreen() {
                 </Text>
               ) : (
                 products.slice(0, 5).map(product => (
-                  <View key={product.id} style={styles.listItem}>
-                    <View>
-                      <Text style={styles.listItemTitle}>{product.name}</Text>
-                      <Text style={styles.listItemSubtitle}>
+                  <View key={product.id} style={styles.productCard}>
+                    <View style={styles.productInfo}>
+                      <Text style={styles.productName}>{product.name}</Text>
+                      <Text style={styles.productBarcode}>
                         {product.barcode
-                          ? `Código de barras: ${product.barcode}`
-                          : 'Código de barras não informado'}
+                          ? `${product.barcode}`
+                          : 'Sem código de barras'}
                       </Text>
                     </View>
                     <View
@@ -1324,13 +1324,15 @@ export function HomeScreen() {
                     onChangeText={setNewProductName}
                     style={styles.input}
                   />
-                  <BarcodeScannerField
-                    placeholder="Código de barras (opcional)"
-                    value={newProductBarcode}
-                    onChangeText={setNewProductBarcode}
-                    inputStyle={styles.input}
-                    editable={!isSubmittingProduct}
-                  />
+                  <View>
+                    <Text style={styles.inputLabel}>Código de barras (opcional):</Text>
+                    <BarcodeScannerField
+                      placeholder="Digite ou escaneie o código"
+                      value={newProductBarcode}
+                      onChangeText={setNewProductBarcode}
+                      editable={!isSubmittingProduct}
+                    />
+                  </View>
                   {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
                   <Pressable
                     onPress={handleCreateProduct}
@@ -1751,7 +1753,17 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   section: {
-    marginBottom: 28,
+    marginBottom: 32,
+  },
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1823,6 +1835,37 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
+  },
+  productCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  productInfo: {
+    flex: 1,
+    gap: 6,
+  },
+  productName: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  productBarcode: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontFamily: 'monospace',
   },
   listItemInteractive: {
     borderWidth: 1,
@@ -2010,6 +2053,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: '#111827',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
   },
   inputHalf: {
     flex: 1,
@@ -2416,14 +2465,16 @@ type SectionProps = {
 function Section({ title, children, error, action }: SectionProps) {
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        <View style={styles.sectionHeaderRight}>
-          {error ? <Text style={styles.sectionError}>{error}</Text> : null}
-          {action}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          <View style={styles.sectionHeaderRight}>
+            {error ? <Text style={styles.sectionError}>{error}</Text> : null}
+            {action}
+          </View>
         </View>
+        {children}
       </View>
-      {children}
     </View>
   );
 }

@@ -34,12 +34,7 @@ export function EditMinimumQuantityModal({
   disabled = false,
 }: EditMinimumQuantityModalProps) {
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}
@@ -49,9 +44,7 @@ export function EditMinimumQuantityModal({
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>Editar quantidade mínima</Text>
-              {productName ? (
-                <Text style={styles.subtitle}>{productName}</Text>
-              ) : null}
+              {productName ? <Text style={styles.subtitle}>{productName}</Text> : null}
             </View>
             <Pressable
               onPress={onClose}

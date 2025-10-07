@@ -166,7 +166,9 @@ export function subscribeToStockAlerts(
       let alerts = snapshot.docs.map(mapStockAlert);
 
       alerts = alerts.filter(alert => normalizedStatuses.includes(alert.status));
-      alerts.sort((first, second) => second.updatedAt.getTime() - first.updatedAt.getTime());
+      alerts.sort(
+        (first, second) => second.updatedAt.getTime() - first.updatedAt.getTime(),
+      );
 
       if (options?.limit && !shouldFilterInQuery) {
         alerts = alerts.slice(0, options.limit);

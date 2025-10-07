@@ -127,19 +127,19 @@ app/
 
 ## �️ Coleções do Firestore
 
-| Coleção / Documento                            | Campos principais                                                      | Observações de negócio                                                                                         |
-| ---------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `users`                                        | `displayName`, `role`, `phoneNumber`, timestamps                      | Sincronizado com Firebase Auth. Toda ação sensível consulta `useAuthorization` para validar permissões.        |
-| `products`                                     | `name`, `tags`, `barcode`, `isActive`                                 | Base para estoque e receitas. Produtos arquivados permanecem referenciáveis por histórico.                     |
-| `recipes`                                      | `yieldInGrams`, `ingredients[]`, `instructions`, `isActive`           | Ingredientes aceitam referência cruzada (recipe → recipe). Serviço impede ciclos infinitos.                    |
-| `stockItems`                                   | `productId`, `currentQuantityInGrams`, `minimumQuantityInGrams`       | Mantém ponteiros para último movimento e custos médios/maiores. Gera alertas automaticamente abaixo do mínimo. |
-| `stockMovements`                               | `type`, `quantityInGrams`, `unitCostInBRL`, `performedBy`, `note`     | Histórico imutável; usado em relatórios e conciliação de custo.                                                |
-| `stockAlerts`                                  | `status`, `severity`, `lastNotificationAt`                            | Notificações internas partem daqui. Gelatiê consegue reconhecer ou resolver; estoquista apenas reconhece.      |
-| `productionPlans`                              | `code`, `scheduledFor`, `status`, `estimated/actualProductionCost`    | Sequência automática (`PROD-001`). Integra com disponibilidade, execução e divergências.                       |
-| `productionStages`                             | `planId`, `sequence`, `status`, `assignedTo`, `timestamps`            | Descreve etapas operacionais. Atualização dispara logs e desbloqueio de ações na Home.                         |
-| `productionDivergences`                        | `planId`, `severity`, `type`, `description`, `resolutionNotes`        | Criadas durante execução quando algo foge do planejado. Alimenta relatórios de performance.                    |
-| `productionAvailability` (`planAvailability`)  | `planId`, `shortages[]`, `status`, `confirmedBy`, custos estimados    | Resultado da checagem de estoque antes da produção. Guarda confirmação manual do Gelatiê quando há falta.     |
-| `notifications`                                | `title`, `message`, `category`, `status`, `readAt`                    | Alimenta Home + Central. Consulta sempre retorna ordenado por `createdAt` desc. Limpeza automática > 30 dias.  |
+| Coleção / Documento                                 | Campos principais                                                       | Observações de negócio                                                                                         |
+| --------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `users`                                             | `displayName`, `role`, `phoneNumber`, timestamps                        | Sincronizado com Firebase Auth. Toda ação sensível consulta `useAuthorization` para validar permissões.        |
+| `products`                                          | `name`, `tags`, `barcode`, `isActive`                                   | Base para estoque e receitas. Produtos arquivados permanecem referenciáveis por histórico.                     |
+| `recipes`                                           | `yieldInGrams`, `ingredients[]`, `instructions`, `isActive`             | Ingredientes aceitam referência cruzada (recipe → recipe). Serviço impede ciclos infinitos.                    |
+| `stockItems`                                        | `productId`, `currentQuantityInGrams`, `minimumQuantityInGrams`         | Mantém ponteiros para último movimento e custos médios/maiores. Gera alertas automaticamente abaixo do mínimo. |
+| `stockMovements`                                    | `type`, `quantityInGrams`, `unitCostInBRL`, `performedBy`, `note`       | Histórico imutável; usado em relatórios e conciliação de custo.                                                |
+| `stockAlerts`                                       | `status`, `severity`, `lastNotificationAt`                              | Notificações internas partem daqui. Gelatiê consegue reconhecer ou resolver; estoquista apenas reconhece.      |
+| `productionPlans`                                   | `code`, `scheduledFor`, `status`, `estimated/actualProductionCost`      | Sequência automática (`PROD-001`). Integra com disponibilidade, execução e divergências.                       |
+| `productionStages`                                  | `planId`, `sequence`, `status`, `assignedTo`, `timestamps`              | Descreve etapas operacionais. Atualização dispara logs e desbloqueio de ações na Home.                         |
+| `productionDivergences`                             | `planId`, `severity`, `type`, `description`, `resolutionNotes`          | Criadas durante execução quando algo foge do planejado. Alimenta relatórios de performance.                    |
+| `productionAvailability` (`planAvailability`)       | `planId`, `shortages[]`, `status`, `confirmedBy`, custos estimados      | Resultado da checagem de estoque antes da produção. Guarda confirmação manual do Gelatiê quando há falta.      |
+| `notifications`                                     | `title`, `message`, `category`, `status`, `readAt`                      | Alimenta Home + Central. Consulta sempre retorna ordenado por `createdAt` desc. Limpeza automática > 30 dias.  |
 | `appSettings/pricing` (subcoleção em `appSettings`) | `sellingPricePer100gInBRL`, `sellingPricePerKilogramInBRL`, `updatedBy` | Mantém preço de venda global. Permissão exclusiva do Gelatiê; hook `usePricingSettings` provê cache.           |
 
 - Todos os documentos herdam `createdAt`/`updatedAt` (server timestamps). Regras recusam payload sem `serverTimestamp()`.
@@ -215,6 +215,7 @@ app/
 | `npm run typecheck` | `tsc --noEmit` para garantir compatibilidade de tipos.                             |
 | `npm run test`      | Jest + ts-jest com mocks de Firestore (testes unitários).                          |
 | `npm run test:e2e`  | Testes End-to-End com Firebase Admin SDK (requer `firebase-service-account.json`). |
+
 ## 🚀 Distribuição e Builds
 
 ### 1. Pré-requisitos e autenticação no Expo
@@ -241,12 +242,12 @@ app/
 
 ### 2. Perfis de build disponíveis (`eas.json`)
 
-| Perfil            | Destino             | Observações                                                                                   |
-| ----------------- | ------------------- | --------------------------------------------------------------------------------------------- |
-| `development`     | APK com Development Client | Hot reload + menus de debug. Usa `distribution: internal` para instalar direto no aparelho. |
-| `preview`         | APK para testes internos  | Sem Development Client, ideal para QA curto.                                                  |
-| `production`      | AAB (Google Play)        | Incrementa `versionCode` automaticamente. Usado para Play Store / produção oficial.          |
-| `production-apk`  | APK assinado             | Canal `production`, distribuição interna, perfeito para sideload ou testes em campo.         |
+| Perfil           | Destino                    | Observações                                                                                 |
+| ---------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| `development`    | APK com Development Client | Hot reload + menus de debug. Usa `distribution: internal` para instalar direto no aparelho. |
+| `preview`        | APK para testes internos   | Sem Development Client, ideal para QA curto.                                                |
+| `production`     | AAB (Google Play)          | Incrementa `versionCode` automaticamente. Usado para Play Store / produção oficial.         |
+| `production-apk` | APK assinado               | Canal `production`, distribuição interna, perfeito para sideload ou testes em campo.        |
 
 Os certificados Android ficam sob gestão do Expo. Para revisar ou fazer backup manual, utilize `npx eas credentials`.
 
@@ -323,7 +324,6 @@ npx eas build --platform android --profile production-apk
 3. Revise as notas de versão e atualize `app.json` (`expo.version`) caso publique novo patch.
 4. Rode `npx eas update --branch preview` se quiser uma validação OTA antes de liberar para produção.
 5. Faça download do build, instale em um dispositivo real e execute smoke tests: login, Home, fluxo de produção e central de notificações.
-
 
 ## 🔄 Fluxo de Desenvolvimento
 

@@ -885,7 +885,7 @@ export default function StockReportScreen() {
           getProductName={getProductName}
         />
 
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Produções concluídas</Text>
             {isLoadingCompletedPlans ? <ActivityIndicator color="#2563EB" /> : null}
@@ -992,7 +992,7 @@ export default function StockReportScreen() {
           </View>
         ) : null}
 
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Checagens de disponibilidade</Text>
             {isLoadingAvailability ? <ActivityIndicator color="#4E9F3D" /> : null}
@@ -1076,7 +1076,7 @@ export default function StockReportScreen() {
           )}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Movimentações recentes</Text>
             {isLoadingMovements ? <ActivityIndicator color="#4E9F3D" /> : null}
@@ -1119,7 +1119,7 @@ export default function StockReportScreen() {
           )}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Alertas ativos</Text>
             {isLoadingAlerts ? <ActivityIndicator color="#4E9F3D" /> : null}
@@ -1160,7 +1160,7 @@ export default function StockReportScreen() {
           )}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Divergências de produção</Text>
             {isLoadingDivergences ? <ActivityIndicator color="#4E9F3D" /> : null}
@@ -1278,14 +1278,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   analyticsFiltersSection: {
-    marginBottom: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 32,
     gap: 12,
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   configurationCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
-    gap: 16,
+    marginBottom: 32,
+    gap: 20,
     shadowColor: '#000000',
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -1414,6 +1423,17 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 28,
+  },
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 32,
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
