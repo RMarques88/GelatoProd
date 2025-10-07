@@ -115,6 +115,15 @@ export function HomeScreen() {
     () => (isCompactMetricsLayout ? styles.metricCardCompact : undefined),
     [isCompactMetricsLayout],
   );
+  const isCompactHeaderLayout = width < 640;
+  const headerRowStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [styles.headerRow, isCompactHeaderLayout && styles.headerRowCompact],
+    [isCompactHeaderLayout],
+  );
+  const signOutButtonStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [styles.button, isCompactHeaderLayout && styles.buttonFullWidth],
+    [isCompactHeaderLayout],
+  );
 
   const productionPlanStatuses = useMemo(
     () => ['scheduled', 'in_progress'] as ProductionStatus[],
@@ -175,16 +184,6 @@ export function HomeScreen() {
     acknowledge: acknowledgeAlert,
     resolve: resolveAlert,
   } = useStockAlerts({ status: stockAlertStatuses, enabled: canViewAlerts });
-
-  // DEBUG: Log temporário para investigar alertas
-  console.log(`🏠 [HomeScreen] Estado dos alertas:`, {
-    enabled: canViewAlerts,
-    statusFilter: stockAlertStatuses,
-    alertsCount: alerts.length,
-    isLoading: isLoadingAlerts,
-    hasError: !!alertsError,
-    alerts: alerts.map(a => ({ id: a.id, status: a.status, severity: a.severity })),
-  });
 
   const {
     notifications,
@@ -750,7 +749,7 @@ export function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
+        <View style={headerRowStyle}>
           <View>
             <Text style={styles.heading}>King Gelato HQ</Text>
             <Text style={styles.subtitle}>
@@ -766,7 +765,7 @@ export function HomeScreen() {
             </View>
           </View>
           <Pressable
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+            style={({ pressed }) => [signOutButtonStyle, pressed && styles.buttonPressed]}
             onPress={signOut}
             disabled={isLoading}
           >
@@ -1631,6 +1630,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 16,
   },
+  headerRowCompact: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   heading: {
     fontSize: 24,
     fontWeight: '600',
@@ -1669,6 +1672,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 20,
     paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  buttonFullWidth: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
   },
   buttonPressed: {
     opacity: 0.85,
@@ -1999,6 +2009,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
+    color: '#111827',
   },
   inputHalf: {
     flex: 1,
@@ -2268,6 +2279,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     backgroundColor: '#F9FAFB',
+    color: '#111827',
   },
   recipeListContent: {
     paddingBottom: 8,

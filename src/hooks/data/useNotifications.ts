@@ -32,6 +32,25 @@ export function useNotifications(
 ): UseNotificationsResult {
   const { status, category, limit, suspense, enabled = true } = options;
 
+  const normalizedStatusFilter = useMemo<NotificationStatus[] | null>(() => {
+    if (!status) {
+      return null;
+    }
+
+    return Array.isArray(status) ? status : [status];
+  }, [status]);
+
+  const shouldRemoveOnRead = useMemo(() => {
+    if (!normalizedStatusFilter || normalizedStatusFilter.length === 0) {
+      return false;
+    }
+
+    return (
+      normalizedStatusFilter.includes('unread') &&
+      normalizedStatusFilter.every(currentStatus => currentStatus === 'unread')
+    );
+  }, [normalizedStatusFilter]);
+
   const subscribe = useCallback(
     ({
       next,
@@ -66,12 +85,22 @@ export function useNotifications(
   const handleMarkAsRead = useCallback(
     async (notificationId: string) => {
       let snapshot: AppNotification | undefined;
+      let snapshotIndex = -1;
 
       mutate(previous => {
-        snapshot = previous.find(notification => notification.id === notificationId);
+        snapshotIndex = previous.findIndex(
+          notification => notification.id === notificationId,
+        );
+        snapshot = snapshotIndex >= 0 ? previous[snapshotIndex] : undefined;
 
         if (!snapshot) {
           return previous;
+        }
+
+        if (shouldRemoveOnRead) {
+          const nextNotifications = [...previous];
+          nextNotifications.splice(snapshotIndex, 1);
+          return nextNotifications;
         }
 
         return previous.map(notification =>
@@ -87,36 +116,51 @@ export function useNotifications(
 
       try {
         const updated = await markNotificationAsRead(notificationId);
-        mutate(previous =>
-          previous.map(notification =>
-            notification.id === notificationId ? updated : notification,
-          ),
-        );
+
+        if (!shouldRemoveOnRead) {
+          mutate(previous =>
+            previous.map(notification =>
+              notification.id === notificationId ? updated : notification,
+            ),
+          );
+        }
+
         return updated;
       } catch (markError) {
         if (snapshot) {
-          mutate(previous =>
-            previous.map(notification =>
+          mutate(previous => {
+            if (shouldRemoveOnRead) {
+              const nextNotifications = [...previous];
+              const safeIndex = snapshotIndex < 0 ? 0 : snapshotIndex;
+              nextNotifications.splice(safeIndex, 0, snapshot!);
+              return nextNotifications;
+            }
+
+            return previous.map(notification =>
               notification.id === notificationId ? snapshot! : notification,
-            ),
-          );
+            );
+          });
         }
         throw markError;
       }
     },
-    [mutate],
+    [mutate, shouldRemoveOnRead],
   );
 
   const handleMarkAllAsRead = useCallback(async () => {
     const previous = data.map(notification => ({ ...notification }));
 
-    mutate(previousNotifications =>
-      previousNotifications.map(notification => ({
+    mutate(previousNotifications => {
+      if (shouldRemoveOnRead) {
+        return [];
+      }
+
+      return previousNotifications.map(notification => ({
         ...notification,
         status: 'read',
         readAt: new Date(),
-      })),
-    );
+      }));
+    });
 
     try {
       await markAllNotificationsAsRead();
@@ -124,7 +168,7 @@ export function useNotifications(
       mutate(() => previous);
       throw bulkError;
     }
-  }, [data, mutate]);
+  }, [data, mutate, shouldRemoveOnRead]);
 
   const unreadCount = useMemo(
     () => data.filter(notification => notification.status === 'unread').length,

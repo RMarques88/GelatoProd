@@ -8,7 +8,6 @@ import {
   getDocs,
   limit,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -73,16 +72,14 @@ export function mapStockAlert(snapshot: StockAlertSnapshot): StockAlert {
   };
 }
 
-function buildStatusConstraint(statuses?: StockAlertStatus[]): QueryConstraint | null {
+const DEFAULT_ALERT_STATUSES: ReadonlyArray<StockAlertStatus> = ['open', 'acknowledged'];
+
+function normalizeStatusFilter(statuses?: StockAlertStatus[] | null): StockAlertStatus[] {
   if (!statuses || statuses.length === 0) {
-    return where('status', 'in', ['open', 'acknowledged']);
+    return [...DEFAULT_ALERT_STATUSES];
   }
 
-  if (statuses.length === 1) {
-    return where('status', '==', statuses[0]);
-  }
-
-  return where('status', 'in', statuses);
+  return statuses;
 }
 
 export async function listStockAlerts(options?: {
@@ -95,10 +92,11 @@ export async function listStockAlerts(options?: {
   const colRef = getCollection<StockAlertDocument>(db, STOCK_ALERTS_COLLECTION);
 
   const constraints: QueryConstraint[] = [];
+  const normalizedStatuses = normalizeStatusFilter(options?.status);
+  const shouldFilterInQuery = normalizedStatuses.length === 1;
 
-  const statusConstraint = buildStatusConstraint(options?.status);
-  if (statusConstraint) {
-    constraints.push(statusConstraint);
+  if (shouldFilterInQuery) {
+    constraints.push(where('status', '==', normalizedStatuses[0]));
   }
 
   if (options?.onlyCritical) {
@@ -109,16 +107,23 @@ export async function listStockAlerts(options?: {
     constraints.push(where('productId', '==', options.productId));
   }
 
-  constraints.push(orderBy('updatedAt', 'desc'));
-
-  if (options?.limit) {
+  if (options?.limit && shouldFilterInQuery) {
     constraints.push(limit(options.limit));
   }
 
   const alertsQuery = query(colRef, ...constraints);
   const snapshot = await getDocs(alertsQuery);
 
-  return snapshot.docs.map(mapStockAlert);
+  let alerts = snapshot.docs.map(mapStockAlert);
+
+  alerts = alerts.filter(alert => normalizedStatuses.includes(alert.status));
+  alerts.sort((first, second) => second.updatedAt.getTime() - first.updatedAt.getTime());
+
+  if (options?.limit && !shouldFilterInQuery) {
+    alerts = alerts.slice(0, options.limit);
+  }
+
+  return alerts;
 }
 
 export function subscribeToStockAlerts(
@@ -134,10 +139,11 @@ export function subscribeToStockAlerts(
   const colRef = getCollection<StockAlertDocument>(db, STOCK_ALERTS_COLLECTION);
 
   const constraints: QueryConstraint[] = [];
-  const statusConstraint = buildStatusConstraint(options?.status);
+  const normalizedStatuses = normalizeStatusFilter(options?.status);
+  const shouldFilterInQuery = normalizedStatuses.length === 1;
 
-  if (statusConstraint) {
-    constraints.push(statusConstraint);
+  if (shouldFilterInQuery) {
+    constraints.push(where('status', '==', normalizedStatuses[0]));
   }
 
   if (options?.onlyCritical) {
@@ -148,9 +154,7 @@ export function subscribeToStockAlerts(
     constraints.push(where('productId', '==', options.productId));
   }
 
-  constraints.push(orderBy('updatedAt', 'desc'));
-
-  if (options?.limit) {
+  if (options?.limit && shouldFilterInQuery) {
     constraints.push(limit(options.limit));
   }
 
@@ -159,19 +163,15 @@ export function subscribeToStockAlerts(
   return onSnapshot(
     alertsQuery,
     snapshot => {
-      const alerts = snapshot.docs.map(mapStockAlert);
-      console.log(`📊 [StockAlerts] Recebidos ${alerts.length} alertas:`, {
-        total: alerts.length,
-        open: alerts.filter(a => a.status === 'open').length,
-        critical: alerts.filter(a => a.severity === 'critical').length,
-        statusFilter: options?.status,
-        alerts: alerts.map(a => ({
-          id: a.id,
-          status: a.status,
-          severity: a.severity,
-          productId: a.productId,
-        })),
-      });
+      let alerts = snapshot.docs.map(mapStockAlert);
+
+      alerts = alerts.filter(alert => normalizedStatuses.includes(alert.status));
+      alerts.sort((first, second) => second.updatedAt.getTime() - first.updatedAt.getTime());
+
+      if (options?.limit && !shouldFilterInQuery) {
+        alerts = alerts.slice(0, options.limit);
+      }
+
       handlers.next(alerts);
     },
     error => handlers.error?.(normalizeFirestoreError(error)),

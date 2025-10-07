@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   Alert,
   FlatList,
@@ -22,6 +23,7 @@ import {
   CreateStockItemModal,
   type CreateStockItemModalState,
 } from '@/components/stock/CreateStockItemModal';
+import { EditMinimumQuantityModal } from '@/components/stock/EditMinimumQuantityModal';
 import {
   useStockItems,
   useStockMovements,
@@ -62,13 +64,28 @@ export default function StockListScreen({ navigation }: Props) {
     initialQuantity: '',
   });
   const [isCreatingItem, setIsCreatingItem] = useState(false);
+  const [editMinimumState, setEditMinimumState] = useState<{
+    visible: boolean;
+    itemId: string | null;
+    value: string;
+    productName: string | null;
+    error: string | null;
+  }>({
+    visible: false,
+    itemId: null,
+    value: '',
+    productName: null,
+    error: null,
+  });
+  const [isUpdatingMinimum, setIsUpdatingMinimum] = useState(false);
   const [filterText, setFilterText] = useState('');
 
   const alertStatuses = useMemo(() => ['open', 'acknowledged'] as StockAlertStatus[], []);
 
-  const { stockItems, isLoading, error, adjust, retry, create } = useStockItems({
-    includeArchived,
-  });
+  const { stockItems, isLoading, error, adjust, retry, create, update } =
+    useStockItems({
+      includeArchived,
+    });
   const { alerts } = useStockAlerts({ status: alertStatuses });
   const { products } = useProducts({ includeInactive: true });
   const { movements } = useStockMovements({ limit: 20 });
@@ -176,6 +193,86 @@ export default function StockListScreen({ navigation }: Props) {
     setCreateState(nextState);
   }, []);
 
+  const openEditMinimumModal = useCallback(
+    (stockItemId: string, productName?: string | null) => {
+      const item = stockItems.find(candidate => candidate.id === stockItemId);
+
+      if (!item) {
+        Alert.alert(
+          'Item não encontrado',
+          'Não foi possível localizar o item selecionado para atualizar o mínimo.',
+        );
+        return;
+      }
+
+      setEditMinimumState({
+        visible: true,
+        itemId: stockItemId,
+        value: String(item.minimumQuantityInGrams),
+        productName: productName ?? null,
+        error: null,
+      });
+    },
+    [stockItems],
+  );
+
+  const closeEditMinimumModal = useCallback(() => {
+    setEditMinimumState(previous => ({ ...previous, visible: false }));
+  }, []);
+
+  const handleMinimumValueChange = useCallback((nextValue: string) => {
+    setEditMinimumState(previous => ({ ...previous, value: nextValue, error: null }));
+  }, []);
+
+  const handleConfirmMinimumUpdate = useCallback(async () => {
+    if (!editMinimumState.itemId) {
+      return;
+    }
+
+    const trimmedValue = editMinimumState.value.trim();
+    const valueWithoutSpaces = trimmedValue.replace(/\s+/g, '');
+    const sanitizedValue = valueWithoutSpaces.includes(',')
+      ? valueWithoutSpaces.replace(/\./g, '').replace(',', '.')
+      : valueWithoutSpaces;
+    const parsedValue = Number(sanitizedValue);
+
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+      setEditMinimumState(previous => ({
+        ...previous,
+        error: 'Informe um valor maior que zero.',
+      }));
+      return;
+    }
+
+    try {
+      setIsUpdatingMinimum(true);
+      await update(editMinimumState.itemId, {
+        minimumQuantityInGrams: parsedValue,
+      });
+
+      setEditMinimumState({
+        visible: false,
+        itemId: null,
+        value: '',
+        productName: null,
+        error: null,
+      });
+
+      Alert.alert(
+        'Quantidade mínima atualizada',
+        'Os alertas serão gerados com base no novo limite mínimo.',
+      );
+    } catch (updateError) {
+      const message =
+        updateError instanceof Error
+          ? updateError.message
+          : 'Não foi possível atualizar a quantidade mínima.';
+      setEditMinimumState(previous => ({ ...previous, error: message }));
+    } finally {
+      setIsUpdatingMinimum(false);
+    }
+  }, [editMinimumState, update]);
+
   const modalState = useMemo<AdjustStockModalState>(() => {
     const { visible, type, quantity, note, totalCost } = adjustState;
     return { visible, type, quantity, note, totalCost };
@@ -197,6 +294,10 @@ export default function StockListScreen({ navigation }: Props) {
 
   const actionsRowStyle = useMemo(
     () => [styles.actionsRow, isCompactLayout && styles.actionsRowCompact],
+    [isCompactLayout],
+  );
+  const filterRowStyle = useMemo(
+    () => [styles.filterRow, isCompactLayout && styles.filterRowCompact],
     [isCompactLayout],
   );
 
@@ -359,14 +460,46 @@ export default function StockListScreen({ navigation }: Props) {
               <Text style={styles.productName}>{product?.name ?? item.productId}</Text>
               <Text style={styles.productMeta}>ID produto: {item.productId}</Text>
             </View>
-            <View style={styles.quantityBadge}>
-              <Text style={styles.quantityText}>{item.currentQuantityInGrams} g</Text>
-              <Text style={styles.quantitySubtext}>Atual</Text>
+            <View style={styles.cardHeaderRight}>
+              <View style={styles.quantityBadge}>
+                <Text style={styles.quantityText}>{item.currentQuantityInGrams} g</Text>
+                <Text style={styles.quantitySubtext}>Atual</Text>
+              </View>
+              {authorization.canManageStock ? (
+                <Pressable
+                  onPress={() => openEditMinimumModal(item.id, product?.name)}
+                  style={({ pressed }) => [
+                    styles.editMinimumButton,
+                    pressed && styles.editMinimumButtonPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Editar quantidade mínima"
+                  accessibilityHint="Abre um modal para atualizar o limite mínimo desse item"
+                >
+                  <Ionicons name="pencil" size={16} color="#1F2937" />
+                  <Text style={styles.editMinimumButtonText}>Editar mínimo</Text>
+                </Pressable>
+              ) : null}
             </View>
           </View>
 
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Mínimo: {item.minimumQuantityInGrams} g</Text>
+            <View style={styles.metaMinimumRow}>
+              <Text style={styles.metaLabel}>Mínimo: {item.minimumQuantityInGrams} g</Text>
+              {authorization.canManageStock ? (
+                <Pressable
+                  onPress={() => openEditMinimumModal(item.id, product?.name)}
+                  style={({ pressed }) => [
+                    styles.metaEditButton,
+                    pressed && styles.metaEditButtonPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Editar quantidade mínima"
+                >
+                  <Text style={styles.metaEditButtonText}>Editar</Text>
+                </Pressable>
+              ) : null}
+            </View>
             <Text style={styles.metaLabel}>
               {movement
                 ? `Última mov.: ${movementTypeLabels[movement.type]} (${movement.quantityInGrams} g)`
@@ -423,11 +556,13 @@ export default function StockListScreen({ navigation }: Props) {
     [
       alertsByItem,
       authorization.canAdjustStock,
+      authorization.canManageStock,
       lastMovementByItem,
       actionsRowStyle,
       isCompactLayout,
       navigation,
       openAdjustModal,
+      openEditMinimumModal,
       productsById,
     ],
   );
@@ -490,7 +625,7 @@ export default function StockListScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={styles.filterRow}>
+      <View style={filterRowStyle}>
         <BarcodeScannerField
           value={filterText}
           onChangeText={setFilterText}
@@ -506,6 +641,7 @@ export default function StockListScreen({ navigation }: Props) {
             onPress={handleClearFilter}
             style={({ pressed }) => [
               styles.clearFilterButton,
+              isCompactLayout && styles.clearFilterButtonFullWidth,
               pressed && styles.clearFilterButtonPressed,
             ]}
             accessibilityRole="button"
@@ -554,6 +690,18 @@ export default function StockListScreen({ navigation }: Props) {
         disabled={
           !authorization.canManageStock || availableProductsForCreation.length === 0
         }
+      />
+
+      <EditMinimumQuantityModal
+        visible={editMinimumState.visible}
+        value={editMinimumState.value}
+        productName={editMinimumState.productName}
+        errorMessage={editMinimumState.error}
+        onChangeValue={handleMinimumValueChange}
+        onClose={closeEditMinimumModal}
+        onConfirm={handleConfirmMinimumUpdate}
+        isSubmitting={isUpdatingMinimum}
+        disabled={!authorization.canManageStock}
       />
     </ScreenContainer>
   );
@@ -604,8 +752,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: '#FFFFFF',
   },
+  filterRowCompact: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 10,
+  },
   filterScannerField: {
     flex: 1,
+    minWidth: 0,
   },
   filterInput: {
     fontSize: 15,
@@ -619,6 +773,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#D1D5DB',
+  },
+  clearFilterButtonFullWidth: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   clearFilterButtonPressed: {
     opacity: 0.85,
@@ -679,6 +838,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   productName: {
     fontSize: 18,
     fontWeight: '600',
@@ -705,16 +869,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
+  editMinimumButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  editMinimumButtonPressed: {
+    backgroundColor: '#E5E7EB',
+  },
+  editMinimumButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
     marginBottom: 12,
   },
+  metaMinimumRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   metaLabel: {
     fontSize: 13,
     fontWeight: '500',
     color: '#4B5563',
+  },
+  metaEditButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#F9FAFB',
+  },
+  metaEditButtonPressed: {
+    backgroundColor: '#E5E7EB',
+  },
+  metaEditButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1F2937',
   },
   alertBadge: {
     alignSelf: 'flex-start',

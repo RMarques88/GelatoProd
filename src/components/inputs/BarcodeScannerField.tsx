@@ -175,6 +175,7 @@ export function BarcodeScannerField({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    position: 'relative',
   },
   input: {
     borderRadius: 12,
@@ -184,6 +185,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
+    color: '#111827',
     paddingRight: 52,
   },
   scanButton: {
