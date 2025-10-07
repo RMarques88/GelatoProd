@@ -96,28 +96,30 @@ export function BarcodeScannerField({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <TextInput
-        {...rest}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        editable={!isDisabled}
-        keyboardType={keyboardType}
-        autoCapitalize="none"
-        autoCorrect={false}
-        style={[styles.input, inputStyle]}
-      />
-      <Pressable
-        style={({ pressed }) => [
-          styles.scanButton,
-          (pressed || scannerVisible) && !isDisabled ? styles.scanButtonPressed : null,
-          isDisabled && styles.scanButtonDisabled,
-        ]}
-        onPress={handleOpenScanner}
-        disabled={isDisabled}
-      >
-        <Ionicons name="camera" size={18} color="#FFFFFF" />
-      </Pressable>
+      <View style={[styles.field, isDisabled && styles.fieldDisabled]}>
+        <TextInput
+          {...rest}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          editable={!isDisabled}
+          keyboardType={keyboardType}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={[styles.input, inputStyle]}
+        />
+        <Pressable
+          style={({ pressed }) => [
+            styles.scanButton,
+            (pressed || scannerVisible) && !isDisabled ? styles.scanButtonPressed : null,
+            isDisabled && styles.scanButtonDisabled,
+          ]}
+          onPress={handleOpenScanner}
+          disabled={isDisabled}
+        >
+          <Ionicons name="camera" size={18} color="#FFFFFF" />
+        </Pressable>
+      </View>
       {helperMessage ? <Text style={styles.helperText}>{helperMessage}</Text> : null}
 
       <Modal
@@ -175,23 +177,30 @@ export function BarcodeScannerField({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    position: 'relative',
   },
-  input: {
+  field: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#D4D5D8',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingLeft: 14,
+    paddingRight: 8,
+    paddingVertical: 4,
+  },
+  fieldDisabled: {
+    opacity: 0.6,
+  },
+  input: {
+    flex: 1,
     fontSize: 15,
     color: '#111827',
-    paddingRight: 52,
+    paddingVertical: 8,
+    paddingRight: 8,
   },
   scanButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
+    marginLeft: 8,
     width: 36,
     height: 36,
     borderRadius: 18,
