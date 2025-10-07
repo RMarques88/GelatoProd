@@ -484,22 +484,7 @@ export default function StockListScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.metaRow}>
-            <View style={styles.metaMinimumRow}>
-              <Text style={styles.metaLabel}>Mínimo: {item.minimumQuantityInGrams} g</Text>
-              {authorization.canManageStock ? (
-                <Pressable
-                  onPress={() => openEditMinimumModal(item.id, product?.name)}
-                  style={({ pressed }) => [
-                    styles.metaEditButton,
-                    pressed && styles.metaEditButtonPressed,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Editar quantidade mínima"
-                >
-                  <Text style={styles.metaEditButtonText}>Editar</Text>
-                </Pressable>
-              ) : null}
-            </View>
+            <Text style={styles.metaLabel}>Mínimo: {item.minimumQuantityInGrams} g</Text>
             <Text style={styles.metaLabel}>
               {movement
                 ? `Última mov.: ${movementTypeLabels[movement.type]} (${movement.quantityInGrams} g)`
@@ -742,15 +727,11 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    flexWrap: 'wrap',
     marginBottom: 16,
-    backgroundColor: '#FFFFFF',
+    width: '100%',
   },
   filterRowCompact: {
     flexDirection: 'column',
@@ -760,6 +741,7 @@ const styles = StyleSheet.create({
   filterScannerField: {
     flex: 1,
     minWidth: 0,
+    maxWidth: '100%',
   },
   filterInput: {
     fontSize: 15,
@@ -773,6 +755,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#D1D5DB',
+    alignSelf: 'center',
   },
   clearFilterButtonFullWidth: {
     alignSelf: 'stretch',
@@ -894,31 +877,10 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
-  metaMinimumRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   metaLabel: {
     fontSize: 13,
     fontWeight: '500',
     color: '#4B5563',
-  },
-  metaEditButton: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#F9FAFB',
-  },
-  metaEditButtonPressed: {
-    backgroundColor: '#E5E7EB',
-  },
-  metaEditButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1F2937',
   },
   alertBadge: {
     alignSelf: 'flex-start',
