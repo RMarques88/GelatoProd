@@ -9,6 +9,7 @@ import ProductFormScreen from '@/screens/Products/ProductFormScreen';
 import ProductsListScreen from '@/screens/Products/ProductsListScreen';
 import RecipeFormScreen from '@/screens/Recipes/RecipeFormScreen';
 import RecipesListScreen from '@/screens/Recipes/RecipesListScreen';
+import FinancialReportScreen from '@/screens/Reports/FinancialReportScreen';
 import StockReportScreen from '@/screens/Reports/StockReportScreen';
 import StockAlertsScreen from '@/screens/Stock/StockAlertsScreen';
 import StockItemScreen from '@/screens/Stock/StockItemScreen';
@@ -35,6 +36,7 @@ export type AppStackParamList = {
         from?: string;
         to?: string;
       };
+  FinancialReports: undefined;
   ProductionPlanner: undefined;
   ProductionExecution: { planId: string };
   ProductionIngredientSummary: { planId: string };
@@ -146,6 +148,14 @@ export const appRoutes: AppRouteConfig<keyof AppStackParamList>[] = [
       headerShown: false,
     },
     description: 'Relatórios de entradas, saídas e divergências do estoque.',
+  },
+  {
+    name: 'FinancialReports',
+    component: FinancialReportScreen,
+    requiredRole: 'gelatie',
+    allowedRoles: ['gelatie'],
+    options: { headerShown: false },
+    description: 'Relatórios financeiros (receita, custos e margem).',
   },
   {
     name: 'ProductionPlanner',

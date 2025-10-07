@@ -22,6 +22,7 @@ import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
   useNotifications,
   useProductionPlans,
+  usePricingSettings,
   useProducts,
   useRecipes,
   useStockAlerts,
@@ -36,6 +37,7 @@ import {
   type PlanAvailabilityResult,
 } from '@/services/productionScheduling';
 import { formatRelativeDate } from '@/utils/date';
+import { computeFinancialSummary } from '@/utils/financial';
 import { logError } from '@/utils/logger';
 
 import type {
@@ -719,6 +721,11 @@ export function HomeScreen() {
     [authorization.canViewReports, navigation],
   );
 
+  const handleNavigateToFinancialReports = useCallback(() => {
+    if (!authorization.hasRole('gelatie')) return;
+    navigation.navigate('FinancialReports');
+  }, [authorization, navigation]);
+
   const handleNavigateToStockItem = useCallback(
     (stockItemId: string) => {
       if (!authorization.canViewStock) {
@@ -1273,6 +1280,24 @@ export function HomeScreen() {
 
         {shouldShowMetrics && (
           <>
+            {authorization.hasRole('gelatie') ? (
+              <Section
+                title="Resumo financeiro"
+                action={
+                  <Pressable
+                    onPress={handleNavigateToFinancialReports}
+                    style={({ pressed }) => [
+                      styles.linkButton,
+                      pressed && styles.linkButtonDisabled,
+                    ]}
+                  >
+                    <Text style={styles.linkButtonText}>Abrir financeiro</Text>
+                  </Pressable>
+                }
+              >
+                <HomeFinancialSummary />
+              </Section>
+            ) : null}
             <Section
               title="Produtos"
               error={productsError?.message}
@@ -1302,10 +1327,59 @@ export function HomeScreen() {
                     <View style={styles.productInfo}>
                       <Text style={styles.productName}>{product.name}</Text>
                       <Text style={styles.productBarcode}>
-                        {product.barcode
-                          ? `${product.barcode}`
-                          : 'Sem código de barras'}
+                        {product.barcode ? `${product.barcode}` : 'Sem código de barras'}
                       </Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                        {product.unitOfMeasure ? (
+                          <View
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 4,
+                              borderRadius: 999,
+                              backgroundColor: '#EFF6FF',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                fontWeight: '600',
+                                color: '#1D4ED8',
+                              }}
+                            >
+                              Unidade:{' '}
+                              {product.unitOfMeasure === 'GRAMS'
+                                ? 'g'
+                                : product.unitOfMeasure === 'KILOGRAMS'
+                                  ? 'kg'
+                                  : product.unitOfMeasure === 'MILLILITERS'
+                                    ? 'ml'
+                                    : product.unitOfMeasure === 'LITERS'
+                                      ? 'L'
+                                      : 'un'}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {product.trackInventory === false ? (
+                          <View
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 4,
+                              borderRadius: 999,
+                              backgroundColor: '#FEF3C7',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                fontWeight: '600',
+                                color: '#B45309',
+                              }}
+                            >
+                              Sem controle de estoque
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                     </View>
                     <View
                       style={[
@@ -1340,10 +1414,29 @@ export function HomeScreen() {
                     />
                   </View>
                   <View style={styles.formRow}>
-                    <View style={[styles.input, styles.inputHalf, { paddingVertical: 0, paddingHorizontal: 0, backgroundColor: 'transparent', borderWidth: 0 }]}> 
+                    <View
+                      style={[
+                        styles.input,
+                        styles.inputHalf,
+                        {
+                          paddingVertical: 0,
+                          paddingHorizontal: 0,
+                          backgroundColor: 'transparent',
+                          borderWidth: 0,
+                        },
+                      ]}
+                    >
                       <Text style={styles.inputLabel}>Unidade</Text>
                       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                        {(['GRAMS','KILOGRAMS','MILLILITERS','LITERS','UNITS'] as UnitOfMeasure[]).map(unit => (
+                        {(
+                          [
+                            'GRAMS',
+                            'KILOGRAMS',
+                            'MILLILITERS',
+                            'LITERS',
+                            'UNITS',
+                          ] as UnitOfMeasure[]
+                        ).map(unit => (
                           <Pressable
                             key={unit}
                             onPress={() => setNewProductUnit(unit)}
@@ -1359,25 +1452,46 @@ export function HomeScreen() {
                                 newProductUnit === unit && styles.filterChipTextSelected,
                               ]}
                             >
-                              {unit === 'GRAMS' ? 'g' : unit === 'KILOGRAMS' ? 'kg' : unit === 'MILLILITERS' ? 'ml' : unit === 'LITERS' ? 'L' : 'un'}
+                              {unit === 'GRAMS'
+                                ? 'g'
+                                : unit === 'KILOGRAMS'
+                                  ? 'kg'
+                                  : unit === 'MILLILITERS'
+                                    ? 'ml'
+                                    : unit === 'LITERS'
+                                      ? 'L'
+                                      : 'un'}
                             </Text>
                           </Pressable>
                         ))}
                       </View>
                     </View>
-                    <View style={[styles.input, styles.inputHalf, { paddingVertical: 12 }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View
+                      style={[styles.input, styles.inputHalf, { paddingVertical: 12 }]}
+                    >
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
                         <Text style={styles.inputLabel}>Controlar estoque</Text>
                         <Pressable
                           onPress={() => setNewProductTrackInventory(prev => !prev)}
-                          style={({ pressed }) => [styles.switchChip, pressed && styles.switchChipPressed]}
+                          style={({ pressed }) => [
+                            styles.switchChip,
+                            pressed && styles.switchChipPressed,
+                          ]}
                         >
                           <Text style={styles.switchChipText}>
                             {newProductTrackInventory ? 'Sim' : 'Não'}
                           </Text>
                         </Pressable>
                       </View>
-                      <Text style={styles.formHint}>Desative para itens de venda como copo/guardanapo/cascão.</Text>
+                      <Text style={styles.formHint}>
+                        Desative para itens de venda como copo/guardanapo/cascão.
+                      </Text>
                     </View>
                   </View>
                   {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
@@ -2577,6 +2691,61 @@ function PermissionNotice({ message }: PermissionNoticeProps) {
   return (
     <View style={styles.permissionNotice}>
       <Text style={styles.permissionNoticeText}>{message}</Text>
+    </View>
+  );
+}
+
+// Lightweight summary for last 30 days used in Home (reusing financial util for consistency)
+function HomeFinancialSummary() {
+  const { settings } = usePricingSettings();
+  const { plans, isLoading: isLoadingPlans } = useProductionPlans({
+    status: ['completed'],
+    includeArchived: false,
+    limit: 250,
+  });
+  const { products } = useProducts({ includeInactive: true });
+  const { stockItems } = useStockItems({ includeArchived: true });
+
+  const { revenue, cost, margin } = useMemo(() => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - 30);
+    return computeFinancialSummary(
+      plans,
+      products,
+      stockItems,
+      settings ?? undefined,
+      from,
+      to,
+    );
+  }, [plans, products, stockItems, settings]);
+
+  return (
+    <View style={styles.metricsRow}>
+      <MetricCard
+        label="Receita (estim.) 30d"
+        iconName="cash-outline"
+        iconBackground="#DCFCE7"
+        iconColor="#047857"
+        value={Math.round(revenue)}
+        isLoading={isLoadingPlans}
+      />
+      <MetricCard
+        label="Custo (real) 30d"
+        iconName="pricetag-outline"
+        iconBackground="#E0E7FF"
+        iconColor="#3730A3"
+        value={Math.round(cost)}
+        isLoading={isLoadingPlans}
+      />
+      <MetricCard
+        label="Margem 30d"
+        iconName="trending-up-outline"
+        iconBackground="#DBEAFE"
+        iconColor="#1D4ED8"
+        value={Math.round(margin)}
+        isLoading={isLoadingPlans}
+      />
     </View>
   );
 }

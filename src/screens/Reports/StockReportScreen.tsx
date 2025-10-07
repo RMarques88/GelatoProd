@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { ProductPickerModal } from '@/components/inputs/ProductPickerModal';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { ReportingAnalyticsPanel } from '@/components/stock/ReportingAnalyticsPanel';
@@ -22,6 +23,7 @@ import {
   useStockAlerts,
   useStockMovements,
   useProductionDivergences,
+  useStockItems,
 } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
@@ -283,6 +285,11 @@ export default function StockReportScreen() {
   const [priceError, setPriceError] = useState<string | null>(null);
   const [priceSuccess, setPriceSuccess] = useState<string | null>(null);
   const priceFeedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Accessories configured in settings (list of productIds + default qty per porção 100 g)
+  const [accessories, setAccessories] = useState<
+    Array<{ productId: string; defaultQtyPerPortion: number }>
+  >([]);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -295,14 +302,18 @@ export default function StockReportScreen() {
   const { products } = useProducts({
     enabled: canViewReports,
   });
+  const { stockItems } = useStockItems({
+    includeArchived: true,
+    enabled: canViewReports,
+  });
   const productsById = useMemo(() => {
-    const map = new Map<string, string>();
-    products.forEach(product => map.set(product.id, product.name));
+    const map = new Map<string, (typeof products)[number]>();
+    products.forEach(product => map.set(product.id, product));
     return map;
   }, [products]);
 
   const getProductName = useCallback(
-    (productId: string) => productsById.get(productId) ?? 'Produto sem nome',
+    (productId: string) => productsById.get(productId)?.name ?? 'Produto sem nome',
     [productsById],
   );
 
@@ -332,7 +343,9 @@ export default function StockReportScreen() {
       return { from: customRange.from, to: customRange.to } as const;
     }
     const defaultPreset = REPORTING_RANGE_PRESETS[1];
-    const preset = REPORTING_RANGE_PRESETS.find(item => item.id === selectedRangePreset) ?? defaultPreset;
+    const preset =
+      REPORTING_RANGE_PRESETS.find(item => item.id === selectedRangePreset) ??
+      defaultPreset;
     return { rangeInDays: preset.days } as const;
   }, [customRange.from, customRange.to, selectedRangePreset]);
 
@@ -343,7 +356,11 @@ export default function StockReportScreen() {
     from: reportingFrom,
     to: reportingTo,
     refetch: refetchReporting,
-  } = useReportingSummaries({ granularity, enabled: canViewReports, ...reportingRangeSelection });
+  } = useReportingSummaries({
+    granularity,
+    enabled: canViewReports,
+    ...reportingRangeSelection,
+  });
 
   const reportingRangeLabel = useMemo(
     () => formatDateRangeLabel(reportingFrom, reportingTo),
@@ -355,28 +372,56 @@ export default function StockReportScreen() {
     pricingSettings?.sellingPricePerKilogramInBRL ??
     (pricePer100g ? pricePer100g * 10 : 0);
   const extraPer100g = pricingSettings?.extraCostPer100gInBRL ?? 0;
-  const extraPerKg = pricingSettings?.extraCostPerKilogramInBRL ?? (extraPer100g ? extraPer100g * 10 : 0);
+  const extraPerKg =
+    pricingSettings?.extraCostPerKilogramInBRL ?? (extraPer100g ? extraPer100g * 10 : 0);
 
-  const sellingPrice = useMemo(() => ({ per100g: pricePer100g, perKg: pricePerKg }), [pricePer100g, pricePerKg]);
-  const extraCost = useMemo(() => ({ per100g: extraPer100g, perKg: extraPerKg }), [extraPer100g, extraPerKg]);
+  const sellingPrice = useMemo(
+    () => ({ per100g: pricePer100g, perKg: pricePerKg }),
+    [pricePer100g, pricePerKg],
+  );
+  const extraCost = useMemo(
+    () => ({ per100g: extraPer100g, perKg: extraPerKg }),
+    [extraPer100g, extraPerKg],
+  );
 
   useEffect(() => {
     if (Number.isFinite(pricePer100g) && !isSavingPrice) {
-      const formatted = pricePer100g.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const formatted = pricePer100g.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
       setSellingPriceInput(prev => (prev !== formatted ? formatted : prev));
     }
     if (Number.isFinite(extraPer100g) && !isSavingPrice) {
-      const formattedExtra = extraPer100g.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const formattedExtra = extraPer100g.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
       setExtraCostInput(prev => (prev !== formattedExtra ? formattedExtra : prev));
     }
-  }, [pricePer100g, extraPer100g, isSavingPrice]);
+    // Load accessories from settings
+    const settingsAccessories = pricingSettings?.accessories?.items ?? [];
+    setAccessories(
+      settingsAccessories.map(item => ({
+        productId: item.productId,
+        defaultQtyPerPortion: item.defaultQtyPerPortion,
+      })),
+    );
+  }, [pricePer100g, extraPer100g, isSavingPrice, pricingSettings?.accessories]);
 
   const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 }),
+    () =>
+      new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        maximumFractionDigits: 2,
+      }),
     [],
   );
-  const formatCurrency = useCallback((value: number | null | undefined) => currencyFormatter.format(value ?? 0), [currencyFormatter]);
-
+  const formatCurrency = useCallback(
+    (value: number | null | undefined) => currencyFormatter.format(value ?? 0),
+    [currencyFormatter],
+  );
 
   // Helper: compute revenue for grams
   const computeRevenue = useCallback(
@@ -386,6 +431,72 @@ export default function StockReportScreen() {
       return (quantity / 100) * sellingPrice.per100g;
     },
     [sellingPrice.per100g],
+  );
+
+  // Helpers to compute accessory costs based on stock items and configured default quantities
+  const stockItemsByProductId = useMemo(() => {
+    const map = new Map<string, (typeof stockItems)[number]>();
+    stockItems.forEach(item => {
+      // keep the latest/first occurrence
+      if (!map.has(item.productId)) map.set(item.productId, item);
+    });
+    return map;
+  }, [stockItems]);
+
+  function qtyToGrams(unit: UnitOfMeasure, qty: number): number {
+    switch (unit) {
+      case 'GRAMS':
+        return qty;
+      case 'KILOGRAMS':
+        return qty * 1000;
+      case 'MILLILITERS':
+        // Heuristic: 1 ml ~= 1 g
+        return qty;
+      case 'LITERS':
+        return qty * 1000;
+      default:
+        return qty; // not used for UNITS
+    }
+  }
+
+  const getAccessoriesForRecipe = useCallback(
+    (recipeId?: string | null) => {
+      const overrides =
+        pricingSettings?.accessories?.overridesByRecipeId?.[recipeId ?? ''];
+      return overrides ?? pricingSettings?.accessories?.items ?? [];
+    },
+    [pricingSettings?.accessories],
+  );
+
+  const computeAccessoriesCost = useCallback(
+    (recipeId: string | null | undefined, quantity: number, unit: UnitOfMeasure) => {
+      if (unit !== 'GRAMS' || !quantity || quantity <= 0) return 0;
+      const items = getAccessoriesForRecipe(recipeId);
+      if (!items?.length) return 0;
+      const portions = quantity / 100; // 1 porção = 100 g
+
+      let costPerPortion = 0;
+      for (const item of items) {
+        const product = productsById.get(item.productId);
+        if (!product) continue;
+        const stock = stockItemsByProductId.get(item.productId);
+        const unitCost = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+        if (!Number.isFinite(unitCost) || unitCost <= 0) continue;
+
+        if (product.unitOfMeasure === 'UNITS') {
+          costPerPortion += item.defaultQtyPerPortion * unitCost;
+        } else {
+          const grams = qtyToGrams(
+            product.unitOfMeasure ?? 'GRAMS',
+            item.defaultQtyPerPortion,
+          );
+          costPerPortion += grams * unitCost; // unitCost ~ BRL per gram
+        }
+      }
+
+      return costPerPortion * portions;
+    },
+    [getAccessoriesForRecipe, productsById, stockItemsByProductId],
   );
 
   const productionCostSummary = useMemo(() => {
@@ -451,14 +562,16 @@ export default function StockReportScreen() {
         plan.unitOfMeasure,
       );
       const actualCost = plan.actualProductionCostInBRL ?? null;
-      const extraCostRef = actualRevenue != null && plan.actualQuantityInUnits
-        ? (plan.actualQuantityInUnits / 100) * extraCost.per100g
-        : plan.quantityInUnits
-        ? (plan.quantityInUnits / 100) * extraCost.per100g
-        : 0;
+      const accessoriesCost = computeAccessoriesCost(
+        plan.recipeId,
+        plan.actualQuantityInUnits ?? plan.quantityInUnits,
+        plan.unitOfMeasure,
+      );
       const margin =
         actualRevenue != null && actualCost != null
-          ? actualRevenue - actualCost - (Number.isFinite(extraCostRef) ? extraCostRef : 0)
+          ? actualRevenue -
+            actualCost -
+            (Number.isFinite(accessoriesCost) ? accessoriesCost : 0)
           : null;
       const marginRate =
         margin != null && actualRevenue && actualRevenue > 0
@@ -488,7 +601,13 @@ export default function StockReportScreen() {
       totalCount: filtered.length,
       hasRevenueReference: sellingPricePer100g > 0,
     } as const;
-  }, [completedPlans, reportingFrom, reportingTo, sellingPrice.per100g, extraCost.per100g]);
+  }, [
+    completedPlans,
+    reportingFrom,
+    reportingTo,
+    sellingPrice.per100g,
+    computeAccessoriesCost,
+  ]);
 
   const handleSavePrice = useCallback(async () => {
     if (!canEditPrice) {
@@ -496,7 +615,8 @@ export default function StockReportScreen() {
       return;
     }
 
-    const normalize = (raw: string) => raw.trim().replace(/\s+/g, '').replace(/\./g, '').replace(',', '.');
+    const normalize = (raw: string) =>
+      raw.trim().replace(/\s+/g, '').replace(/\./g, '').replace(',', '.');
     const parsedPrice = Number(normalize(sellingPriceInput) || '0');
     const parsedExtra = Number(normalize(extraCostInput) || '0');
 
@@ -523,6 +643,7 @@ export default function StockReportScreen() {
       await savePricingSettings({
         sellingPricePer100gInBRL: parsedPrice,
         extraCostPer100gInBRL: parsedExtra,
+        accessories: { items: accessories },
         updatedBy: userId,
       });
 
@@ -532,11 +653,22 @@ export default function StockReportScreen() {
         priceFeedbackTimeout.current = null;
       }, 3500);
     } catch (error) {
-      setPriceError(error instanceof Error ? error.message : 'Não foi possível salvar as configurações.');
+      setPriceError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível salvar as configurações.',
+      );
     } finally {
       setIsSavingPrice(false);
     }
-  }, [canEditPrice, savePricingSettings, sellingPriceInput, extraCostInput, userId]);
+  }, [
+    canEditPrice,
+    savePricingSettings,
+    sellingPriceInput,
+    extraCostInput,
+    userId,
+    accessories,
+  ]);
 
   const stockMovementsOptions = useMemo(
     () => ({ limit: 50, enabled: canViewReports }),
@@ -769,7 +901,8 @@ export default function StockReportScreen() {
             <View>
               <Text style={styles.configurationTitle}>Custo adicional por 100 g</Text>
               <Text style={styles.configurationSubtitle}>
-                Itens como copinho, guardanapo e cascão entram aqui. Usado para margem real.
+                Itens como copinho, guardanapo e cascão entram aqui. Usado para margem
+                real.
               </Text>
             </View>
             {isLoadingPricing || isSavingPrice ? (
@@ -806,6 +939,138 @@ export default function StockReportScreen() {
           <Text style={styles.configurationHint}>
             Equivalente a {formatCurrency(extraCost.perKg)} por kg.
           </Text>
+          <View style={styles.accessoriesList}>
+            <Text style={styles.accessoriesTitle}>Acessórios por porção (padrão)</Text>
+            {canEditPrice ? (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable
+                  onPress={() => setIsPickerOpen(true)}
+                  style={({ pressed }) => [
+                    styles.priceSaveButton,
+                    pressed && styles.priceSaveButtonDisabled,
+                  ]}
+                >
+                  <Text style={styles.priceSaveButtonText}>Buscar acessórios…</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    const selectable = products.filter(
+                      p => p.trackInventory === false || p.trackInventory === undefined,
+                    );
+                    const existing = new Set(accessories.map(a => a.productId));
+                    const next =
+                      selectable.find(p => !existing.has(p.id)) ??
+                      products.find(p => !existing.has(p.id));
+                    if (next) {
+                      setAccessories(prev => [
+                        ...prev,
+                        { productId: next.id, defaultQtyPerPortion: 1 },
+                      ]);
+                    }
+                  }}
+                  style={({ pressed }) => [
+                    styles.priceSaveButton,
+                    pressed && styles.priceSaveButtonDisabled,
+                  ]}
+                >
+                  <Text style={styles.priceSaveButtonText}>Adicionar rápido</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {accessories.map((acc, index) => {
+              const product = productsById.get(acc.productId);
+              const unit = product?.unitOfMeasure ?? 'UNITS';
+              const unitLabel =
+                unit === 'UNITS'
+                  ? 'un'
+                  : unit === 'GRAMS'
+                    ? 'g'
+                    : unit === 'MILLILITERS'
+                      ? 'ml'
+                      : unit === 'KILOGRAMS'
+                        ? 'kg'
+                        : 'L';
+              return (
+                <View key={`${acc.productId}-${index}`} style={styles.accessoryRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.accessoryName}>
+                      {product?.name ?? acc.productId}
+                    </Text>
+                    <Text style={styles.configurationHint}>Unidade: {unitLabel}</Text>
+                  </View>
+                  <View style={styles.accessoryQtyField}>
+                    <Text style={styles.accessoryQtyLabel}>Qtd/100g</Text>
+                    <TextInput
+                      style={[
+                        styles.accessoryQtyInput,
+                        !canEditPrice && styles.priceInputDisabled,
+                      ]}
+                      value={String(acc.defaultQtyPerPortion)}
+                      onChangeText={value => {
+                        const parsed = Number(value.replace(',', '.'));
+                        setAccessories(prev =>
+                          prev.map((a, i) =>
+                            i === index
+                              ? {
+                                  ...a,
+                                  defaultQtyPerPortion: Number.isFinite(parsed)
+                                    ? parsed
+                                    : 0,
+                                }
+                              : a,
+                          ),
+                        );
+                      }}
+                      keyboardType="decimal-pad"
+                      editable={canEditPrice && !isSavingPrice}
+                    />
+                  </View>
+                  {canEditPrice ? (
+                    <Pressable
+                      onPress={() =>
+                        setAccessories(prev => prev.filter((_, i) => i !== index))
+                      }
+                      style={({ pressed }) => [
+                        styles.priceSaveButton,
+                        pressed && styles.priceSaveButtonDisabled,
+                      ]}
+                    >
+                      <Text style={styles.priceSaveButtonText}>Remover</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              );
+            })}
+            {canEditPrice ? <></> : null}
+            {canEditPrice ? (
+              <View style={styles.filterChipRow}>
+                {(products || [])
+                  .filter(p => !accessories.some(a => a.productId === p.id))
+                  .slice(0, 12)
+                  .map(p => (
+                    <Pressable
+                      key={p.id}
+                      onPress={() =>
+                        setAccessories(prev => [
+                          ...prev,
+                          { productId: p.id, defaultQtyPerPortion: 1 },
+                        ])
+                      }
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        pressed && styles.filterChipPressed,
+                      ]}
+                    >
+                      <Text style={styles.filterChipText}>{p.name}</Text>
+                    </Pressable>
+                  ))}
+              </View>
+            ) : null}
+            <Text style={styles.configurationHint}>
+              Selecione produtos (ex.: copinho, guardanapo, cascão) e a quantidade por
+              porção de 100 g. O custo usa o preço médio no estoque.
+            </Text>
+          </View>
           {priceError ? (
             <Text style={styles.configurationError}>{priceError}</Text>
           ) : null}
@@ -899,6 +1164,32 @@ export default function StockReportScreen() {
           divergenceSummaries={analyticsSummaries.divergenceUsage}
           onRetry={refetchReporting}
           getProductName={getProductName}
+        />
+
+        <ProductPickerModal
+          visible={isPickerOpen}
+          products={products}
+          excludedProductIds={accessories.map(a => a.productId)}
+          multiSelect
+          title="Selecionar acessórios"
+          subtitle="Busque e selecione itens como copinho, guardanapo, cascão"
+          onConfirm={selected => {
+            if (!selected?.length) {
+              setIsPickerOpen(false);
+              return;
+            }
+            setAccessories(prev => {
+              const existing = new Set(prev.map(p => p.productId));
+              const toAdd = selected.filter(p => !existing.has(p.id));
+              if (toAdd.length === 0) return prev;
+              return [
+                ...prev,
+                ...toAdd.map(p => ({ productId: p.id, defaultQtyPerPortion: 1 })),
+              ];
+            });
+            setIsPickerOpen(false);
+          }}
+          onClose={() => setIsPickerOpen(false)}
         />
 
         <View style={styles.sectionCard}>
@@ -1106,7 +1397,8 @@ export default function StockReportScreen() {
           ) : (
             movements.slice(0, 10).map(movement => {
               const productName =
-                productsById.get(movement.productId) ?? `Produto ${movement.productId}`;
+                productsById.get(movement.productId)?.name ??
+                `Produto ${movement.productId}`;
               const icon = movementIcon(movement);
 
               return (
@@ -1150,7 +1442,7 @@ export default function StockReportScreen() {
             alerts.slice(0, 10).map(alert => {
               const severityStyle = alertSeverityStyle(alert.severity);
               const productName =
-                productsById.get(alert.productId) ?? `Produto ${alert.productId}`;
+                productsById.get(alert.productId)?.name ?? `Produto ${alert.productId}`;
 
               return (
                 <View key={alert.id} style={styles.alertCard}>
@@ -1374,6 +1666,49 @@ const styles = StyleSheet.create({
   configurationSuccess: {
     fontSize: 13,
     color: '#047857',
+  },
+  accessoriesList: {
+    marginTop: 8,
+    gap: 12,
+  },
+  accessoriesTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  accessoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  accessoryName: {
+    fontSize: 14,
+    color: '#1F2937',
+    fontWeight: '500',
+    flex: 1,
+  },
+  accessoryQtyField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  accessoryQtyLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  accessoryQtyInput: {
+    width: 80,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: '#111827',
+    backgroundColor: '#FFFFFF',
+    textAlign: 'right',
   },
   analyticsFiltersTitle: {
     fontSize: 14,

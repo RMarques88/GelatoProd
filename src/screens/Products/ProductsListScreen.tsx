@@ -140,6 +140,16 @@ export default function ProductsListScreen({ navigation }: Props) {
     ({ item }: { item: (typeof products)[number] }) => {
       const disabled = Boolean(processingId && processingId !== item.id);
       const isProcessing = processingId === item.id;
+      const unitLabel =
+        item.unitOfMeasure === 'GRAMS'
+          ? 'g'
+          : item.unitOfMeasure === 'KILOGRAMS'
+            ? 'kg'
+            : item.unitOfMeasure === 'MILLILITERS'
+              ? 'ml'
+              : item.unitOfMeasure === 'LITERS'
+                ? 'L'
+                : 'un';
 
       return (
         <View style={styles.card}>
@@ -175,6 +185,23 @@ export default function ProductsListScreen({ navigation }: Props) {
             {item.tags.length ? (
               <Text style={styles.metaTags}>Tags: {item.tags.join(', ')}</Text>
             ) : null}
+            <View style={styles.metaChipsRow}>
+              <View style={styles.metaChip}>
+                <Text style={styles.metaChipText}>Unidade: {unitLabel}</Text>
+              </View>
+              <View
+                style={[styles.metaChip, !item.trackInventory && styles.metaChipWarning]}
+              >
+                <Text
+                  style={[
+                    styles.metaChipText,
+                    !item.trackInventory && styles.metaChipTextWarning,
+                  ]}
+                >
+                  {item.trackInventory ? 'Controla estoque' : 'Sem controle de estoque'}
+                </Text>
+              </View>
+            </View>
           </View>
 
           {authorization.canManageProducts ? (
@@ -398,6 +425,28 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
     marginBottom: 12,
+  },
+  metaChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  metaChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#EFF6FF',
+  },
+  metaChipWarning: {
+    backgroundColor: '#FEF3C7',
+  },
+  metaChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1D4ED8',
+  },
+  metaChipTextWarning: {
+    color: '#B45309',
   },
   metaValue: {
     fontSize: 13,

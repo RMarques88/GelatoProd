@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
@@ -15,9 +16,10 @@ import {
 } from 'react-native';
 
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
+import { ProductPickerModal } from '@/components/inputs/ProductPickerModal';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Product, Recipe, RecipeIngredient } from '@/domain';
-import { useProducts, useRecipes } from '@/hooks/data';
+import { useProducts, useRecipes, usePricingSettings } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { logError } from '@/utils/logger';
@@ -52,6 +54,9 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
     includeInactive: true,
   });
   const { products } = useProducts({ includeInactive: true });
+  const { settings: pricingSettings, update: updatePricingSettings } = usePricingSettings(
+    { enabled: true },
+  );
 
   const editingRecipe = useMemo(
     () => recipes.find(recipe => recipe.id === recipeId) ?? null,
@@ -66,12 +71,61 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
   const [ingredients, setIngredients] = useState<IngredientFormValue[]>([
     { type: 'product', referenceId: '', quantity: '' },
   ]);
+  const totalIngredientsInGrams = useMemo(() => {
+    return ingredients.reduce((sum, ing) => {
+      const qty = Number(ing.quantity.replace(',', '.'));
+      return sum + (Number.isFinite(qty) ? qty : 0);
+    }, 0);
+  }, [ingredients]);
+  const yieldHeuristicWarning = useMemo(() => {
+    const yieldValue = Number(yieldInGrams.replace(',', '.'));
+    if (!Number.isFinite(yieldValue) || yieldValue <= 0) return null;
+    if (totalIngredientsInGrams <= 0) return null;
+    const diff = Math.abs(yieldValue - totalIngredientsInGrams);
+    const tolerance = Math.max(100, totalIngredientsInGrams * 0.05); // 5% or 100g
+    if (diff > tolerance) {
+      return 'Atenção: O rendimento em gramas difere significativamente da soma dos ingredientes (heurística 1L≈1Kg). Revise as quantidades.';
+    }
+    return null;
+  }, [totalIngredientsInGrams, yieldInGrams]);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [pickerState, setPickerState] = useState<PickerState | null>(null);
+  const [accessoryOverrides, setAccessoryOverrides] = useState<
+    Array<{ productId: string; defaultQtyPerPortion: number }>
+  >([]);
+  const [isAccessoryModalOpen, setIsAccessoryModalOpen] = useState(false);
+  const existingOverrides =
+    pricingSettings?.accessories?.overridesByRecipeId?.[recipeId ?? ''];
+
+  useEffect(() => {
+    if (recipeId && existingOverrides) {
+      setAccessoryOverrides(existingOverrides.map(i => ({ ...i })));
+    } else if (!recipeId) {
+      setAccessoryOverrides([]);
+    }
+  }, [recipeId, existingOverrides]);
+
+  const saveAccessoryOverrides = useCallback(async () => {
+    if (!recipeId) return;
+    const current = pricingSettings?.accessories ?? {
+      items: [],
+      overridesByRecipeId: {},
+    };
+    await updatePricingSettings({
+      accessories: {
+        items: current.items ?? [],
+        overridesByRecipeId: {
+          ...(current.overridesByRecipeId ?? {}),
+          [recipeId]: accessoryOverrides,
+        },
+      },
+    });
+    Alert.alert('Overrides salvos', 'Acessórios específicos desta receita foram salvos.');
+  }, [accessoryOverrides, pricingSettings?.accessories, recipeId, updatePricingSettings]);
 
   const canManage = authorization.canManageProducts;
   const title = recipeId ? 'Editar receita' : 'Nova receita';
@@ -412,6 +466,9 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                 keyboardType="numeric"
                 editable={canManage}
               />
+              {yieldHeuristicWarning ? (
+                <Text style={styles.hintText}>{yieldHeuristicWarning}</Text>
+              ) : null}
             </View>
             <View style={[styles.inlineHalf, styles.switchContainer]}>
               <Text style={styles.label}>Receita ativa</Text>
@@ -553,6 +610,91 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
             <Text style={styles.secondaryButtonText}>Adicionar ingrediente</Text>
           </Pressable>
 
+          {recipeId ? (
+            <View style={styles.accessoryCard}>
+              <View style={styles.accessoryHeaderRow}>
+                <Text style={styles.accessorySectionTitle}>
+                  Overrides de acessórios (Qtd por 100 g)
+                </Text>
+                <Pressable
+                  onPress={() => setIsAccessoryModalOpen(true)}
+                  style={({ pressed }) => [
+                    styles.accessoryAddBtn,
+                    pressed && styles.accessoryAddBtnPressed,
+                  ]}
+                >
+                  <Text style={styles.accessoryAddBtnText}>Adicionar</Text>
+                </Pressable>
+              </View>
+              {accessoryOverrides.length === 0 ? (
+                <Text style={styles.accessoryHelperText}>
+                  Sem overrides específicos. Serão usados os acessórios globais
+                  configurados em Preço de venda.
+                </Text>
+              ) : (
+                accessoryOverrides.map((item, idx) => {
+                  const product = products.find(p => p.id === item.productId);
+                  const unit =
+                    (product?.unitOfMeasure ?? 'UNITS') === 'UNITS'
+                      ? 'un'
+                      : (product?.unitOfMeasure ?? 'GRAMS').toLowerCase();
+                  return (
+                    <View key={`${item.productId}-${idx}`} style={styles.accessoryRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.accessoryName} numberOfLines={1}>
+                          {product?.name ?? item.productId}
+                        </Text>
+                        <Text style={styles.accessoryMeta}>Unidade: {unit}</Text>
+                      </View>
+                      <TextInput
+                        style={styles.accessoryQtyInput}
+                        keyboardType="decimal-pad"
+                        value={String(item.defaultQtyPerPortion)}
+                        onChangeText={value => {
+                          const parsed = Number(value.replace(',', '.'));
+                          setAccessoryOverrides(prev =>
+                            prev.map((o, i) =>
+                              i === idx
+                                ? {
+                                    ...o,
+                                    defaultQtyPerPortion: Number.isFinite(parsed)
+                                      ? parsed
+                                      : 0,
+                                  }
+                                : o,
+                            ),
+                          );
+                        }}
+                      />
+                      <Pressable
+                        onPress={() =>
+                          setAccessoryOverrides(prev => prev.filter((_, i) => i !== idx))
+                        }
+                        style={({ pressed }) => [
+                          styles.accessoryRemoveBtn,
+                          pressed && styles.accessoryRemoveBtnPressed,
+                        ]}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#B91C1C" />
+                      </Pressable>
+                    </View>
+                  );
+                })
+              )}
+              {accessoryOverrides.length > 0 ? (
+                <Pressable
+                  onPress={saveAccessoryOverrides}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    pressed && styles.primaryButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.primaryButtonText}>Salvar overrides</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
           <Pressable
             onPress={handleSubmit}
             style={({ pressed }) => [
@@ -646,6 +788,25 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
           recipes={recipeOptions}
         />
       </ScreenContainer>
+      <ProductPickerModal
+        visible={isAccessoryModalOpen}
+        products={products}
+        excludedProductIds={accessoryOverrides.map(a => a.productId)}
+        onConfirm={selected => {
+          if (!selected.length) {
+            setIsAccessoryModalOpen(false);
+            return;
+          }
+          setAccessoryOverrides(prev => [
+            ...prev,
+            ...selected.map(s => ({ productId: s.id, defaultQtyPerPortion: 1 })),
+          ]);
+          setIsAccessoryModalOpen(false);
+        }}
+        onClose={() => setIsAccessoryModalOpen(false)}
+        title="Selecionar acessórios (override)"
+        subtitle="Itens específicos desta receita substituem os globais"
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -835,6 +996,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#111827',
     backgroundColor: '#FFFFFF',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#B45309',
+    marginTop: 6,
   },
   multilineInput: {
     minHeight: 120,
@@ -1142,4 +1308,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingVertical: 24,
   },
+  accessoryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 12,
+  },
+  accessoryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  accessorySectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+    paddingRight: 12,
+  },
+  accessoryAddBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#111827',
+  },
+  accessoryAddBtnPressed: { opacity: 0.85 },
+  accessoryAddBtnText: { color: '#FFFFFF', fontWeight: '600', fontSize: 13 },
+  accessoryHelperText: { fontSize: 12, color: '#6B7280' },
+  accessoryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  accessoryName: { fontSize: 14, fontWeight: '500', color: '#1F2937' },
+  accessoryMeta: { fontSize: 11, color: '#6B7280', marginTop: 2 },
+  accessoryQtyInput: {
+    width: 70,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    textAlign: 'right',
+    fontSize: 14,
+    color: '#111827',
+    backgroundColor: '#FFFFFF',
+  },
+  accessoryRemoveBtn: { padding: 6, borderRadius: 8, backgroundColor: '#FEE2E2' },
+  accessoryRemoveBtnPressed: { opacity: 0.8 },
 });

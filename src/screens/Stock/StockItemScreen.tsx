@@ -66,6 +66,18 @@ export default function StockItemScreen({ navigation, route }: Props) {
         : null,
     [products, stockItem],
   );
+  const unitLabel = useMemo(() => {
+    const unit = product?.unitOfMeasure;
+    return unit === 'GRAMS'
+      ? 'g'
+      : unit === 'KILOGRAMS'
+        ? 'kg'
+        : unit === 'MILLILITERS'
+          ? 'ml'
+          : unit === 'LITERS'
+            ? 'L'
+            : 'un';
+  }, [product?.unitOfMeasure]);
 
   const alert = useMemo(
     () => alerts.find(entry => entry.stockItemId === stockItemId) ?? null,
@@ -283,6 +295,11 @@ export default function StockItemScreen({ navigation, route }: Props) {
             <View style={styles.headerInfo}>
               <Text style={styles.title}>{product?.name ?? stockItem.productId}</Text>
               <Text style={styles.subtitle}>Item de estoque #{stockItem.id}</Text>
+              {product?.unitOfMeasure ? (
+                <View style={styles.unitBadge}>
+                  <Text style={styles.unitBadgeText}>Unidade padrão: {unitLabel}</Text>
+                </View>
+              ) : null}
             </View>
             <View style={styles.quantityBadge}>
               <Text style={styles.quantityText}>
@@ -493,6 +510,19 @@ const styles = StyleSheet.create({
   quantitySubtext: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  unitBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#EFF6FF',
+    marginTop: 8,
+  },
+  unitBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1D4ED8',
   },
   progressContainer: {
     gap: 8,

@@ -103,6 +103,10 @@ export function AdjustStockModal({
               keyboardType="numeric"
               editable={!disabled}
             />
+            <Text style={styles.modalHintText}>
+              As movimentações são registradas em gramas, independente da unidade padrão
+              do produto.
+            </Text>
 
             {shouldCaptureCost ? (
               <View style={styles.modalFieldGroup}>
@@ -238,6 +242,10 @@ const styles = StyleSheet.create({
   modalInputMultiline: {
     minHeight: 96,
     textAlignVertical: 'top',
+  },
+  modalHintText: {
+    fontSize: 12,
+    color: '#6B7280',
   },
   modalPrimaryButton: {
     alignItems: 'center',

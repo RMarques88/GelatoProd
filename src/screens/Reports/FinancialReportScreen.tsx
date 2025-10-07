@@ -8,7 +8,8 @@ import {
   useProducts,
   useStockItems,
 } from '@/hooks/data';
-import type { UnitOfMeasure } from '@/domain';
+import { computeFinancialSummary } from '@/utils/financial';
+// (UnitOfMeasure no longer needed directly after refactor)
 
 function SummaryCard({
   iconName,
@@ -37,21 +38,6 @@ function SummaryCard({
   );
 }
 
-function qtyToGrams(unit: UnitOfMeasure | undefined, qty: number): number {
-  switch (unit) {
-    case 'GRAMS':
-      return qty;
-    case 'KILOGRAMS':
-      return qty * 1000;
-    case 'MILLILITERS':
-      return qty; // heuristic 1ml ≈ 1g
-    case 'LITERS':
-      return qty * 1000;
-    default:
-      return qty;
-  }
-}
-
 export default function FinancialReportScreen() {
   const { settings, isLoading: isLoadingPricing } = usePricingSettings();
   const { plans, isLoading: isLoadingPlans } = useProductionPlans({
@@ -67,90 +53,39 @@ export default function FinancialReportScreen() {
     [],
   );
 
-  const { from, to } = useMemo(() => {
-    const to = new Date();
-    const from = new Date();
-    from.setDate(to.getDate() - 30);
-    return { from, to };
+  const { rangeFrom, rangeTo } = useMemo(() => {
+    const _to = new Date();
+    const _from = new Date();
+    _from.setDate(_to.getDate() - 30);
+    return { rangeFrom: _from, rangeTo: _to };
   }, []);
 
-  const summary = useMemo(() => {
-    const productsById = new Map(products.map(p => [p.id, p] as const));
-    const stockByProductId = new Map(stockItems.map(s => [s.productId, s] as const));
-    const accessoriesSettings = settings?.accessories;
-
-    const filtered = plans.filter(plan => {
-      const ref = plan.completedAt ?? plan.scheduledFor;
-      return ref >= from && ref <= to;
-    });
-    const pricePer100g = settings?.sellingPricePer100gInBRL ?? 0;
-    const extraPer100g = settings?.extraCostPer100gInBRL ?? 0;
-
-    const totals = filtered.reduce(
-      (acc, plan) => {
-        const qty = plan.actualQuantityInUnits ?? plan.quantityInUnits;
-        const revenue = plan.unitOfMeasure === 'GRAMS' ? (qty / 100) * pricePer100g : 0;
-        const extraCostLegacy =
-          plan.unitOfMeasure === 'GRAMS' ? (qty / 100) * extraPer100g : 0;
-
-        let accessoriesCost = 0;
-        if (plan.unitOfMeasure === 'GRAMS' && accessoriesSettings) {
-          const recipeSpecific = accessoriesSettings.overridesByRecipeId?.[plan.recipeId];
-          const sourceItems =
-            recipeSpecific && recipeSpecific.length > 0
-              ? recipeSpecific
-              : (accessoriesSettings.items ?? []);
-          if (sourceItems.length) {
-            const portions = qty / 100;
-            for (const item of sourceItems) {
-              const product = productsById.get(item.productId);
-              if (!product) continue;
-              const stock = stockByProductId.get(item.productId);
-              const unitCost =
-                stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
-              if (!Number.isFinite(unitCost) || unitCost <= 0) continue;
-              if ((product.unitOfMeasure ?? 'UNITS') === 'UNITS') {
-                accessoriesCost += item.defaultQtyPerPortion * unitCost * portions;
-              } else {
-                const grams = qtyToGrams(
-                  product.unitOfMeasure ?? 'GRAMS',
-                  item.defaultQtyPerPortion,
-                );
-                accessoriesCost += grams * unitCost * portions;
-              }
-            }
-          }
-        }
-        acc.revenue += Number.isFinite(revenue) ? revenue : 0;
-        const cost = plan.actualProductionCostInBRL ?? 0;
-        acc.cost += Number.isFinite(cost) ? cost : 0;
-        acc.margin += Math.max(0, revenue - cost - extraCostLegacy - accessoriesCost);
-        return acc;
-      },
-      { revenue: 0, cost: 0, margin: 0 },
-    );
-    return totals;
-  }, [
-    from,
-    plans,
-    products,
-    settings?.sellingPricePer100gInBRL,
-    settings?.extraCostPer100gInBRL,
-    settings?.accessories,
-    stockItems,
-    to,
-  ]);
+  const summary = useMemo(
+    () =>
+      computeFinancialSummary(
+        plans,
+        products,
+        stockItems,
+        settings ?? undefined,
+        rangeFrom,
+        rangeTo,
+      ),
+    [plans, products, stockItems, settings, rangeFrom, rangeTo],
+  );
 
   const isLoading = isLoadingPricing || isLoadingPlans;
 
   const projection = useMemo(() => {
-    const days = Math.max(1, (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+    const days = Math.max(
+      1,
+      (rangeTo.getTime() - rangeFrom.getTime()) / (1000 * 60 * 60 * 24),
+    );
     return {
       revenue: (summary.revenue / days) * 15,
       cost: (summary.cost / days) * 15,
       margin: (summary.margin / days) * 15,
     };
-  }, [from, to, summary]);
+  }, [rangeFrom, rangeTo, summary]);
 
   return (
     <ScreenContainer>

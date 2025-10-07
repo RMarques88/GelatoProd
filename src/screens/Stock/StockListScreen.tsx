@@ -463,7 +463,24 @@ export default function StockListScreen({ navigation }: Props) {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View>
-              <Text style={styles.productName}>{product?.name ?? item.productId}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.productName}>{product?.name ?? item.productId}</Text>
+                {product?.unitOfMeasure ? (
+                  <View style={styles.unitBadge}>
+                    <Text style={styles.unitBadgeText}>
+                      {product.unitOfMeasure === 'GRAMS'
+                        ? 'g'
+                        : product.unitOfMeasure === 'KILOGRAMS'
+                          ? 'kg'
+                          : product.unitOfMeasure === 'MILLILITERS'
+                            ? 'ml'
+                            : product.unitOfMeasure === 'LITERS'
+                              ? 'L'
+                              : 'un'}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               <Text style={styles.productMeta}>ID produto: {item.productId}</Text>
             </View>
             <View style={styles.cardHeaderRight}>
@@ -845,6 +862,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#1A1B1E',
+  },
+  unitBadge: {
+    backgroundColor: '#E5E7EB',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  unitBadgeText: {
+    fontSize: 11,
+    color: '#374151',
+    fontWeight: '600',
   },
   productMeta: {
     fontSize: 13,

@@ -18,6 +18,7 @@ import { useProducts } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { logError } from '@/utils/logger';
+import type { UnitOfMeasure } from '@/domain';
 import type { AppStackParamList } from '@/navigation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -41,6 +42,8 @@ export default function ProductFormScreen({ navigation, route }: Props) {
   const [category, setCategory] = useState('');
   const [barcode, setBarcode] = useState('');
   const [tagsText, setTagsText] = useState('');
+  const [unitOfMeasure, setUnitOfMeasure] = useState<UnitOfMeasure>('GRAMS');
+  const [trackInventory, setTrackInventory] = useState<boolean>(true);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
@@ -54,6 +57,8 @@ export default function ProductFormScreen({ navigation, route }: Props) {
       setCategory('');
       setBarcode('');
       setTagsText('');
+      setUnitOfMeasure('GRAMS');
+      setTrackInventory(true);
       return;
     }
 
@@ -63,6 +68,8 @@ export default function ProductFormScreen({ navigation, route }: Props) {
       setCategory(editingProduct.category ?? '');
       setBarcode(editingProduct.barcode ?? '');
       setTagsText(editingProduct.tags.join(', '));
+      setUnitOfMeasure(editingProduct.unitOfMeasure ?? 'GRAMS');
+      setTrackInventory(editingProduct.trackInventory ?? true);
     }
   }, [editingProduct, productId]);
 
@@ -104,6 +111,8 @@ export default function ProductFormScreen({ navigation, route }: Props) {
           category: category.trim() || undefined,
           barcode: trimmedBarcode ? trimmedBarcode : null,
           tags,
+          unitOfMeasure,
+          trackInventory,
         });
         Alert.alert('Produto atualizado', 'As informações foram salvas com sucesso.', [
           {
@@ -118,6 +127,8 @@ export default function ProductFormScreen({ navigation, route }: Props) {
           category: category.trim() || undefined,
           barcode: trimmedBarcode ? trimmedBarcode : null,
           tags,
+          unitOfMeasure,
+          trackInventory,
         });
         Alert.alert('Produto criado', 'Cadastro realizado com sucesso.', [
           {
@@ -334,6 +345,70 @@ export default function ProductFormScreen({ navigation, route }: Props) {
             />
           </View>
 
+          <View style={[styles.formGroup]}>
+            <Text style={styles.label}>Unidade padrão</Text>
+            <View style={styles.chipsRow}>
+              {(
+                [
+                  'GRAMS',
+                  'KILOGRAMS',
+                  'MILLILITERS',
+                  'LITERS',
+                  'UNITS',
+                ] as UnitOfMeasure[]
+              ).map(unit => {
+                const isSelected = unitOfMeasure === unit;
+                return (
+                  <Pressable
+                    key={unit}
+                    onPress={() => setUnitOfMeasure(unit)}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      isSelected && styles.chipSelected,
+                      pressed && styles.chipPressed,
+                    ]}
+                    disabled={!canManage}
+                  >
+                    <Text
+                      style={[styles.chipText, isSelected && styles.chipTextSelected]}
+                    >
+                      {unit === 'GRAMS'
+                        ? 'g'
+                        : unit === 'KILOGRAMS'
+                          ? 'kg'
+                          : unit === 'MILLILITERS'
+                            ? 'ml'
+                            : unit === 'LITERS'
+                              ? 'L'
+                              : 'un'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.hintText}>
+              Essa unidade é usada como referência nas telas e relatórios. Movimentações
+              continuam registradas em gramas.
+            </Text>
+          </View>
+
+          <View style={[styles.formGroup, styles.switchRow]}>
+            <Text style={styles.label}>Controlar estoque</Text>
+            <Pressable
+              onPress={() => setTrackInventory(prev => !prev)}
+              style={({ pressed }) => [
+                styles.switchChip,
+                pressed && styles.switchChipPressed,
+              ]}
+              disabled={!canManage}
+            >
+              <Text style={styles.switchChipText}>{trackInventory ? 'Sim' : 'Não'}</Text>
+            </Pressable>
+            <Text style={styles.hintText}>
+              Desative para itens de venda como copo/guardanapo/cascão.
+            </Text>
+          </View>
+
           <Pressable
             onPress={handleSubmit}
             style={({ pressed }) => [
@@ -459,6 +534,59 @@ const styles = StyleSheet.create({
   inlineRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  chipSelected: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#2563EB',
+  },
+  chipPressed: {
+    opacity: 0.85,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  chipTextSelected: {
+    color: '#1D4ED8',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 6,
+  },
+  switchRow: {
+    gap: 6,
+  },
+  switchChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+  },
+  switchChipPressed: {
+    opacity: 0.85,
+  },
+  switchChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
   },
   inlineHalf: {
     flex: 1,

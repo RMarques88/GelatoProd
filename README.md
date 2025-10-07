@@ -62,6 +62,62 @@ O app é pensado para tablets na loja. Ele dá conta de:
 - Hooks de dados ganharam memoização extra para impedir loops de renderização; lint e formatação foram alinhados no projeto inteiro.
 - Scripts `npm run lint`, `npm run typecheck`, `npm test` e `npm run test:e2e` compõem o checklist obrigatório antes de publicar.
 
+### 🧩 Acessórios & Overrides por Receita (Novo)
+
+Implementado sistema de acessórios (copinhos, colheres, toppings rápidos, embalagens auxiliares) com opção de overrides específicos por receita para cálculo de margem nos relatórios e na Home.
+
+Estrutura em `appSettings/pricing` (campo `accessories`):
+
+```ts
+type AccessoriesConfig = {
+   items?: Array<{
+      productId: string;           // referência a products/{id}
+      defaultQtyPerPortion: number; // quantidade padrão por porção base (100 g)
+   }>;
+   overridesByRecipeId?: Record<string, Array<{
+      productId: string;
+      defaultQtyPerPortion: number;
+   }> | undefined>;
+};
+```
+
+Regras de precedência:
+1. Se existir `overridesByRecipeId[recipeId]` com pelo menos 1 item → usa somente essa lista
+2. Caso contrário → usa `items` globais
+3. Ausência de ambos → custo de acessórios = 0
+
+Conversão de custo (executada em `computeFinancialSummary` e equivalente no relatório de estoque):
+
+```
+porções = quantidade_produzida_em_gramas / 100
+Para cada acessório selecionado:
+   custo_unitário = averageUnitCostInBRL || highestUnitCostInBRL || 0 (do estoque)
+   Se unidade do produto = UNITS:
+      custo += defaultQtyPerPortion * custo_unitário * porções
+   Senão (GRAMS / MILLILITERS ≈ 1g / KILOGRAMS / LITERS convertidos para g):
+      grams = converterParaGramas(defaultQtyPerPortion)
+      custo += grams * custo_unitário * porções
+```
+
+Heurística: 1 ml ≈ 1 g (aceita para simplificação operacional de embalagens/toppings líquidos de baixa densidade).
+
+Semântica para “limpar” um override: remover todos os itens de uma receita pode ser interpretado como “sem acessórios para esta receita” — mantemos a chave com lista vazia? Atualmente: uma lista vazia **anula** o custo (não cai para globais). Documentar decisão ao usuário (UI futura pode oferecer botão “Reverter para globais”).
+
+Impacto nas Telas:
+- `RecipeFormScreen`: seção para editar overrides por receita.
+- `FinancialReportScreen` e `Home` reutilizam util `computeFinancialSummary` garantindo consistência.
+- `StockReportScreen`: já possuía cálculo alinhado; overrides respeitados.
+
+Testes adicionados:
+- `financialSummary.test.ts`: valida globais vs override e janela de datas.
+
+Próximos incrementos sugeridos:
+- Botão “Reverter para padrão” removendo entry do `overridesByRecipeId`.
+- Indicador visual na UI quando uma receita está usando override (badge).
+- Relatório detalhado de custo de acessórios por receita.
+
+Índices Firestore: sem novos requisitos — consultas continuam baseadas em `productionPlans` por intervalo/status. Nenhum filtro adicional criado sobre o mapa de overrides (lido como documento único).
+
 ## 🛠️ Stack Tecnológica
 
 - **Expo 54 / React Native 0.81** com TypeScript e alias `@/`.

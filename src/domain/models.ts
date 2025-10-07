@@ -2,12 +2,7 @@ export type DocumentId = string;
 
 // Measurement units used across the app for quantities.
 // Extended to include kilograms and liters to better match business inputs.
-export type UnitOfMeasure =
-  | 'GRAMS'
-  | 'KILOGRAMS'
-  | 'MILLILITERS'
-  | 'LITERS'
-  | 'UNITS';
+export type UnitOfMeasure = 'GRAMS' | 'KILOGRAMS' | 'MILLILITERS' | 'LITERS' | 'UNITS';
 
 export type UserRole = 'gelatie' | 'estoquista' | 'produtor';
 
@@ -393,9 +388,27 @@ export interface PricingSettings extends EntityTimestamps {
   // Used when calculating effective margin (revenue - production cost - extra costs)
   extraCostPer100gInBRL?: number;
   extraCostPerKilogramInBRL?: number;
+  // Optional list of accessory items and overrides stored in settings
+  accessories?: AccessorySettings;
   updatedBy?: DocumentId | null;
 }
 
 export type PricingSettingsUpdateInput = Partial<
   Omit<PricingSettings, 'id' | 'createdAt' | 'updatedAt'>
 >;
+
+// Accessories (packaging and other non-ingredient items) configuration
+// Stored under appSettings/pricing to be applied globally, with the option of per-recipe overrides.
+export type AccessoryItem = {
+  productId: DocumentId;
+  // Default quantity used per portion (1 porção = 100 g)
+  // For items measured in UNITS, this is a simple count per portion.
+  // For items measured in GRAMS/ML, this represents the grams/ml per portion.
+  defaultQtyPerPortion: number;
+};
+
+export interface AccessorySettings {
+  items: AccessoryItem[];
+  // Optional overrides for specific recipes
+  overridesByRecipeId?: Record<DocumentId, AccessoryItem[]>;
+}

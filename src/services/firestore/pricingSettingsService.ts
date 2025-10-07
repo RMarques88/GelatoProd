@@ -16,7 +16,11 @@ import {
   normalizeFirestoreError,
   timestampToDate,
 } from './utils';
-import type { PricingSettings, PricingSettingsUpdateInput } from '@/domain';
+import type {
+  AccessorySettings,
+  PricingSettings,
+  PricingSettingsUpdateInput,
+} from '@/domain';
 
 const APP_SETTINGS_COLLECTION = 'appSettings';
 const PRICING_SETTINGS_DOCUMENT_ID = 'pricing';
@@ -26,6 +30,7 @@ type PricingSettingsDocument = DocumentData & {
   sellingPricePerKilogramInBRL: number;
   extraCostPer100gInBRL?: number;
   extraCostPerKilogramInBRL?: number;
+  accessories?: AccessorySettings;
   updatedBy?: string | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -55,6 +60,7 @@ function mapPricingSettings(
     sellingPricePerKilogramInBRL: data.sellingPricePerKilogramInBRL ?? 0,
     extraCostPer100gInBRL: data.extraCostPer100gInBRL ?? 0,
     extraCostPerKilogramInBRL: data.extraCostPerKilogramInBRL ?? 0,
+    accessories: data.accessories ?? { items: [] },
     updatedBy: data.updatedBy ?? null,
     createdAt: timestampToDate(data.createdAt) ?? new Date(),
     updatedAt: timestampToDate(data.updatedAt) ?? new Date(),
@@ -75,6 +81,7 @@ async function ensurePricingSettingsDocument() {
     sellingPricePerKilogramInBRL: 0,
     extraCostPer100gInBRL: 0,
     extraCostPerKilogramInBRL: 0,
+    accessories: { items: [] },
     updatedBy: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -142,6 +149,11 @@ export async function updatePricingSettings(
 
   if (input.updatedBy !== undefined) {
     payload.updatedBy = input.updatedBy ?? null;
+  }
+
+  if (input.accessories !== undefined) {
+    // Persist the full accessories object; callers should send the full list to keep.
+    payload.accessories = (input.accessories ?? { items: [] }) as AccessorySettings;
   }
 
   await updateDoc(docRef, payload);
