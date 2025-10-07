@@ -126,7 +126,7 @@ export default function FinancialReportScreen() {
             label="Custo real"
             value={currency.format(summary.cost)}
           />
-          <View style={{ flexBasis: '32%', flexGrow: 1 }}>
+          <View style={styles.metricColWrapper}>
             <SummaryCard
               iconName="trending-up-outline"
               iconBackground="#DBEAFE"
@@ -163,7 +163,7 @@ export default function FinancialReportScreen() {
               label="Custo (proj.)"
               value={currency.format(projection.cost)}
             />
-            <View style={{ flexBasis: '32%', flexGrow: 1 }}>
+            <View style={styles.metricColWrapper}>
               <SummaryCard
                 iconName="trending-up-outline"
                 iconBackground="#E0F2FE"
@@ -195,6 +195,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#4B5563',
     marginBottom: 24,
+  },
+  metricColWrapper: {
+    flexBasis: '32%',
+    flexGrow: 1,
   },
   summaryRow: {
     flexDirection: 'row',

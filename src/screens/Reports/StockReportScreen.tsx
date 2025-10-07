@@ -943,7 +943,7 @@ export default function StockReportScreen() {
           <View style={styles.accessoriesList}>
             <Text style={styles.accessoriesTitle}>Acessórios por porção (padrão)</Text>
             {canEditPrice ? (
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={styles.inlineRowGap8}>
                 <Pressable
                   onPress={() => setIsPickerOpen(true)}
                   style={({ pressed }) => [
@@ -993,7 +993,7 @@ export default function StockReportScreen() {
                         : 'L';
               return (
                 <View key={`${acc.productId}-${index}`} style={styles.accessoryRow}>
-                  <View style={{ flex: 1 }}>
+                  <View style={styles.flex1}>
                     <Text style={styles.accessoryName}>
                       {product?.name ?? acc.productId}
                     </Text>
@@ -1678,6 +1678,11 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 4,
   },
+  inlineRowGap8: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  flex1: { flex: 1 },
   accessoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
