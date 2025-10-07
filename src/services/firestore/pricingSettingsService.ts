@@ -24,6 +24,8 @@ const PRICING_SETTINGS_DOCUMENT_ID = 'pricing';
 type PricingSettingsDocument = DocumentData & {
   sellingPricePer100gInBRL: number;
   sellingPricePerKilogramInBRL: number;
+  extraCostPer100gInBRL?: number;
+  extraCostPerKilogramInBRL?: number;
   updatedBy?: string | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -39,6 +41,8 @@ function mapPricingSettings(
       id: snapshot.id,
       sellingPricePer100gInBRL: 0,
       sellingPricePerKilogramInBRL: 0,
+      extraCostPer100gInBRL: 0,
+      extraCostPerKilogramInBRL: 0,
       updatedBy: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -49,6 +53,8 @@ function mapPricingSettings(
     id: snapshot.id,
     sellingPricePer100gInBRL: data.sellingPricePer100gInBRL ?? 0,
     sellingPricePerKilogramInBRL: data.sellingPricePerKilogramInBRL ?? 0,
+    extraCostPer100gInBRL: data.extraCostPer100gInBRL ?? 0,
+    extraCostPerKilogramInBRL: data.extraCostPerKilogramInBRL ?? 0,
     updatedBy: data.updatedBy ?? null,
     createdAt: timestampToDate(data.createdAt) ?? new Date(),
     updatedAt: timestampToDate(data.updatedAt) ?? new Date(),
@@ -67,6 +73,8 @@ async function ensurePricingSettingsDocument() {
   await setDoc(docRef, {
     sellingPricePer100gInBRL: 0,
     sellingPricePerKilogramInBRL: 0,
+    extraCostPer100gInBRL: 0,
+    extraCostPerKilogramInBRL: 0,
     updatedBy: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -99,6 +107,18 @@ export async function updatePricingSettings(
       ? input.sellingPricePer100gInBRL * 10
       : undefined);
 
+  const extraPer100g =
+    input.extraCostPer100gInBRL ??
+    (input.extraCostPerKilogramInBRL !== undefined
+      ? input.extraCostPerKilogramInBRL / 10
+      : undefined);
+
+  const extraPerKilogram =
+    input.extraCostPerKilogramInBRL ??
+    (input.extraCostPer100gInBRL !== undefined
+      ? input.extraCostPer100gInBRL * 10
+      : undefined);
+
   const payload: Record<string, unknown> = {
     updatedAt: serverTimestamp(),
     createdAt: currentData?.createdAt ?? serverTimestamp(),
@@ -110,6 +130,14 @@ export async function updatePricingSettings(
 
   if (pricePerKilogram !== undefined) {
     payload.sellingPricePerKilogramInBRL = Number(pricePerKilogram);
+  }
+
+  if (extraPer100g !== undefined) {
+    payload.extraCostPer100gInBRL = Number(extraPer100g);
+  }
+
+  if (extraPerKilogram !== undefined) {
+    payload.extraCostPerKilogramInBRL = Number(extraPerKilogram);
   }
 
   if (input.updatedBy !== undefined) {

@@ -224,6 +224,8 @@ export function HomeScreen() {
 
   const [newProductName, setNewProductName] = useState('');
   const [newProductBarcode, setNewProductBarcode] = useState('');
+  const [newProductUnit, setNewProductUnit] = useState<UnitOfMeasure>('GRAMS');
+  const [newProductTrackInventory, setNewProductTrackInventory] = useState<boolean>(true);
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -430,9 +432,13 @@ export function HomeScreen() {
         name: newProductName.trim(),
         barcode: newProductBarcode.trim() ? newProductBarcode.trim() : null,
         tags: [],
+        unitOfMeasure: newProductUnit,
+        trackInventory: newProductTrackInventory,
       });
       setNewProductName('');
       setNewProductBarcode('');
+      setNewProductUnit('GRAMS');
+      setNewProductTrackInventory(true);
     } catch (creationError) {
       setFormError(
         creationError instanceof Error
@@ -1332,6 +1338,47 @@ export function HomeScreen() {
                       onChangeText={setNewProductBarcode}
                       editable={!isSubmittingProduct}
                     />
+                  </View>
+                  <View style={styles.formRow}>
+                    <View style={[styles.input, styles.inputHalf, { paddingVertical: 0, paddingHorizontal: 0, backgroundColor: 'transparent', borderWidth: 0 }]}> 
+                      <Text style={styles.inputLabel}>Unidade</Text>
+                      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                        {(['GRAMS','KILOGRAMS','MILLILITERS','LITERS','UNITS'] as UnitOfMeasure[]).map(unit => (
+                          <Pressable
+                            key={unit}
+                            onPress={() => setNewProductUnit(unit)}
+                            style={({ pressed }) => [
+                              styles.filterChip,
+                              newProductUnit === unit && styles.filterChipSelected,
+                              pressed && styles.filterChipPressed,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.filterChipText,
+                                newProductUnit === unit && styles.filterChipTextSelected,
+                              ]}
+                            >
+                              {unit === 'GRAMS' ? 'g' : unit === 'KILOGRAMS' ? 'kg' : unit === 'MILLILITERS' ? 'ml' : unit === 'LITERS' ? 'L' : 'un'}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                    <View style={[styles.input, styles.inputHalf, { paddingVertical: 12 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={styles.inputLabel}>Controlar estoque</Text>
+                        <Pressable
+                          onPress={() => setNewProductTrackInventory(prev => !prev)}
+                          style={({ pressed }) => [styles.switchChip, pressed && styles.switchChipPressed]}
+                        >
+                          <Text style={styles.switchChipText}>
+                            {newProductTrackInventory ? 'Sim' : 'Não'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                      <Text style={styles.formHint}>Desative para itens de venda como copo/guardanapo/cascão.</Text>
+                    </View>
                   </View>
                   {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
                   <Pressable
@@ -2400,6 +2447,49 @@ const styles = StyleSheet.create({
   },
   dayTabTextActive: {
     color: '#FFFFFF',
+  },
+  // New styles for quick-create product unit chips and toggle
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterChipSelected: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#2563EB',
+  },
+  filterChipPressed: {
+    opacity: 0.85,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  filterChipTextSelected: {
+    color: '#1D4ED8',
+  },
+  switchChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+  },
+  switchChipPressed: {
+    opacity: 0.85,
+  },
+  switchChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  formHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 6,
   },
 });
 

@@ -38,6 +38,8 @@ type ProductDocument = DocumentData & {
   tags: string[];
   barcode?: string | null;
   isActive: boolean;
+  trackInventory?: boolean;
+  unitOfMeasure?: 'GRAMS' | 'KILOGRAMS' | 'MILLILITERS' | 'LITERS' | 'UNITS';
   createdAt: Timestamp;
   updatedAt: Timestamp;
   archivedAt?: Timestamp | null;
@@ -62,6 +64,8 @@ function mapProduct(snapshot: ProductDocSnapshot): Product {
     tags: data.tags ?? [],
     barcode: data.barcode ?? null,
     isActive: data.isActive ?? true,
+    trackInventory: data.trackInventory,
+    unitOfMeasure: data.unitOfMeasure,
     createdAt: timestampToDate(data.createdAt) ?? new Date(),
     updatedAt: timestampToDate(data.updatedAt) ?? new Date(),
     archivedAt: timestampToDate(data.archivedAt),
@@ -109,6 +113,8 @@ export async function createProduct(input: ProductCreateInput): Promise<Product>
     tags: input.tags ?? [],
     barcode: input.barcode ?? null,
     isActive: input.isActive ?? true,
+    trackInventory: input.trackInventory ?? true,
+    unitOfMeasure: input.unitOfMeasure ?? 'GRAMS',
     archivedAt: serializeDateOrNull(input.archivedAt),
     createdAt: now,
     updatedAt: now,

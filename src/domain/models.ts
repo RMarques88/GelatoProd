@@ -1,6 +1,13 @@
 export type DocumentId = string;
 
-export type UnitOfMeasure = 'GRAMS' | 'MILLILITERS' | 'UNITS';
+// Measurement units used across the app for quantities.
+// Extended to include kilograms and liters to better match business inputs.
+export type UnitOfMeasure =
+  | 'GRAMS'
+  | 'KILOGRAMS'
+  | 'MILLILITERS'
+  | 'LITERS'
+  | 'UNITS';
 
 export type UserRole = 'gelatie' | 'estoquista' | 'produtor';
 
@@ -38,6 +45,11 @@ export interface Product extends EntityTimestamps {
   tags: string[];
   barcode?: string | null;
   isActive: boolean;
+  // Whether this product is tracked in stock.
+  // Items like copo/guardanapo/cascão may set this to false (itens de venda sem controle de estoque)
+  trackInventory?: boolean;
+  // Default unit used when creating stock entries or using this product in forms
+  unitOfMeasure?: UnitOfMeasure;
 }
 
 export type ProductCreateInput = {
@@ -47,6 +59,8 @@ export type ProductCreateInput = {
   tags?: string[];
   barcode?: string | null;
   isActive?: boolean;
+  trackInventory?: boolean;
+  unitOfMeasure?: UnitOfMeasure;
   archivedAt?: Date | null;
 };
 
@@ -375,6 +389,10 @@ export interface PricingSettings extends EntityTimestamps {
   id: DocumentId;
   sellingPricePer100gInBRL: number;
   sellingPricePerKilogramInBRL: number;
+  // Additional cost per 100 g for itens de venda (copinho, guardanapo, etc.)
+  // Used when calculating effective margin (revenue - production cost - extra costs)
+  extraCostPer100gInBRL?: number;
+  extraCostPerKilogramInBRL?: number;
   updatedBy?: DocumentId | null;
 }
 

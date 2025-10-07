@@ -15,13 +15,13 @@ import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { ReportingAnalyticsPanel } from '@/components/stock/ReportingAnalyticsPanel';
 import {
   usePricingSettings,
-  useProducts,
-  useProductionAvailabilityRecords,
-  useProductionDivergences,
   useProductionPlans,
+  useProducts,
   useReportingSummaries,
+  useProductionAvailabilityRecords,
   useStockAlerts,
   useStockMovements,
+  useProductionDivergences,
 } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
@@ -145,8 +145,12 @@ function formatUnitQuantity(value: number, unit: UnitOfMeasure) {
   switch (unit) {
     case 'GRAMS':
       return `${formatted} g`;
+    case 'KILOGRAMS':
+      return `${formatted} kg`;
     case 'MILLILITERS':
       return `${formatted} ml`;
+    case 'LITERS':
+      return `${formatted} L`;
     case 'UNITS':
     default:
       return `${formatted} un`;
@@ -274,6 +278,7 @@ export default function StockReportScreen() {
     to: initialTo,
   }));
   const [sellingPriceInput, setSellingPriceInput] = useState('');
+  const [extraCostInput, setExtraCostInput] = useState('');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [priceSuccess, setPriceSuccess] = useState<string | null>(null);
@@ -296,6 +301,11 @@ export default function StockReportScreen() {
     return map;
   }, [products]);
 
+  const getProductName = useCallback(
+    (productId: string) => productsById.get(productId) ?? 'Produto sem nome',
+    [productsById],
+  );
+
   const {
     settings: pricingSettings,
     isLoading: isLoadingPricing,
@@ -316,118 +326,70 @@ export default function StockReportScreen() {
     enabled: canViewReports,
   });
 
-  const pricingValue = pricingSettings?.sellingPricePer100gInBRL;
-
-  useEffect(() => {
-    if (!pricingValue || isSavingPrice) {
-      return;
-    }
-
-    const formatted = pricingValue.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-    setSellingPriceInput(prev => {
-      if (prev !== formatted) {
-        return formatted;
-      }
-      return prev;
-    });
-
-    setPriceError(prev => {
-      if (prev !== null) {
-        return null;
-      }
-      return prev;
-    });
-  }, [pricingValue, isSavingPrice]);
-
-  const getProductName = useCallback(
-    (productId: string) => productsById.get(productId) ?? 'Produto sem nome',
-    [productsById],
-  );
-
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-        maximumFractionDigits: 2,
-      }),
-    [],
-  );
-
-  const formatCurrency = useCallback(
-    (value: number | null | undefined) => currencyFormatter.format(value ?? 0),
-    [currencyFormatter],
-  );
-
-  const pricePer100g = pricingSettings?.sellingPricePer100gInBRL ?? 0;
-  const pricePerKg =
-    pricingSettings?.sellingPricePerKilogramInBRL ??
-    (pricePer100g ? pricePer100g * 10 : 0);
-
-  const sellingPrice = useMemo(() => {
-    return {
-      per100g: pricePer100g,
-      perKg: pricePerKg,
-    };
-  }, [pricePer100g, pricePerKg]);
-
+  // Reporting summaries (from/to and analytics panel)
   const reportingRangeSelection = useMemo(() => {
     if (selectedRangePreset === 'custom' && customRange.from && customRange.to) {
-      return {
-        from: customRange.from,
-        to: customRange.to,
-      } as const;
+      return { from: customRange.from, to: customRange.to } as const;
     }
-
     const defaultPreset = REPORTING_RANGE_PRESETS[1];
-    const preset =
-      REPORTING_RANGE_PRESETS.find(item => item.id === selectedRangePreset) ??
-      defaultPreset;
-
-    return {
-      rangeInDays: preset.days,
-    } as const;
+    const preset = REPORTING_RANGE_PRESETS.find(item => item.id === selectedRangePreset) ?? defaultPreset;
+    return { rangeInDays: preset.days } as const;
   }, [customRange.from, customRange.to, selectedRangePreset]);
 
   const {
     summaries: analyticsSummaries,
     isLoading: isLoadingReporting,
     error: reportingError,
-    refetch: refetchReporting,
     from: reportingFrom,
     to: reportingTo,
-  } = useReportingSummaries({
-    granularity,
-    enabled: canViewReports,
-    ...reportingRangeSelection,
-  });
+    refetch: refetchReporting,
+  } = useReportingSummaries({ granularity, enabled: canViewReports, ...reportingRangeSelection });
 
   const reportingRangeLabel = useMemo(
     () => formatDateRangeLabel(reportingFrom, reportingTo),
     [reportingFrom, reportingTo],
   );
 
+  const pricePer100g = pricingSettings?.sellingPricePer100gInBRL ?? 0;
+  const pricePerKg =
+    pricingSettings?.sellingPricePerKilogramInBRL ??
+    (pricePer100g ? pricePer100g * 10 : 0);
+  const extraPer100g = pricingSettings?.extraCostPer100gInBRL ?? 0;
+  const extraPerKg = pricingSettings?.extraCostPerKilogramInBRL ?? (extraPer100g ? extraPer100g * 10 : 0);
+
+  const sellingPrice = useMemo(() => ({ per100g: pricePer100g, perKg: pricePerKg }), [pricePer100g, pricePerKg]);
+  const extraCost = useMemo(() => ({ per100g: extraPer100g, perKg: extraPerKg }), [extraPer100g, extraPerKg]);
+
+  useEffect(() => {
+    if (Number.isFinite(pricePer100g) && !isSavingPrice) {
+      const formatted = pricePer100g.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      setSellingPriceInput(prev => (prev !== formatted ? formatted : prev));
+    }
+    if (Number.isFinite(extraPer100g) && !isSavingPrice) {
+      const formattedExtra = extraPer100g.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      setExtraCostInput(prev => (prev !== formattedExtra ? formattedExtra : prev));
+    }
+  }, [pricePer100g, extraPer100g, isSavingPrice]);
+
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 }),
+    [],
+  );
+  const formatCurrency = useCallback((value: number | null | undefined) => currencyFormatter.format(value ?? 0), [currencyFormatter]);
+
+
+  // Helper: compute revenue for grams
+  const computeRevenue = useCallback(
+    (quantity: number | null | undefined, unit: UnitOfMeasure): number | null => {
+      if (!quantity || !Number.isFinite(quantity) || quantity <= 0) return null;
+      if (unit !== 'GRAMS' || sellingPrice.per100g <= 0) return null;
+      return (quantity / 100) * sellingPrice.per100g;
+    },
+    [sellingPrice.per100g],
+  );
+
   const productionCostSummary = useMemo(() => {
     const sellingPricePer100g = sellingPrice.per100g;
-
-    const computeRevenue = (
-      quantity: number | null | undefined,
-      unit: UnitOfMeasure,
-    ): number | null => {
-      if (!quantity || !Number.isFinite(quantity) || quantity <= 0) {
-        return null;
-      }
-
-      if (unit !== 'GRAMS' || sellingPricePer100g <= 0) {
-        return null;
-      }
-
-      return (quantity / 100) * sellingPricePer100g;
-    };
 
     const filtered = completedPlans.filter(plan => {
       const reference = plan.completedAt ?? plan.scheduledFor;
@@ -489,8 +451,15 @@ export default function StockReportScreen() {
         plan.unitOfMeasure,
       );
       const actualCost = plan.actualProductionCostInBRL ?? null;
+      const extraCostRef = actualRevenue != null && plan.actualQuantityInUnits
+        ? (plan.actualQuantityInUnits / 100) * extraCost.per100g
+        : plan.quantityInUnits
+        ? (plan.quantityInUnits / 100) * extraCost.per100g
+        : 0;
       const margin =
-        actualRevenue != null && actualCost != null ? actualRevenue - actualCost : null;
+        actualRevenue != null && actualCost != null
+          ? actualRevenue - actualCost - (Number.isFinite(extraCostRef) ? extraCostRef : 0)
+          : null;
       const marginRate =
         margin != null && actualRevenue && actualRevenue > 0
           ? margin / actualRevenue
@@ -519,7 +488,7 @@ export default function StockReportScreen() {
       totalCount: filtered.length,
       hasRevenueReference: sellingPricePer100g > 0,
     } as const;
-  }, [completedPlans, reportingFrom, reportingTo, sellingPrice.per100g]);
+  }, [completedPlans, reportingFrom, reportingTo, sellingPrice.per100g, extraCost.per100g]);
 
   const handleSavePrice = useCallback(async () => {
     if (!canEditPrice) {
@@ -527,16 +496,17 @@ export default function StockReportScreen() {
       return;
     }
 
-    const normalizedValue = sellingPriceInput
-      .trim()
-      .replace(/\s+/g, '')
-      .replace(/\./g, '')
-      .replace(',', '.');
+    const normalize = (raw: string) => raw.trim().replace(/\s+/g, '').replace(/\./g, '').replace(',', '.');
+    const parsedPrice = Number(normalize(sellingPriceInput) || '0');
+    const parsedExtra = Number(normalize(extraCostInput) || '0');
 
-    const parsedValue = Number(normalizedValue || '0');
-
-    if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
       setPriceError('Informe um valor válido em reais por 100 g.');
+      setPriceSuccess(null);
+      return;
+    }
+    if (!Number.isFinite(parsedExtra) || parsedExtra < 0) {
+      setPriceError('Informe um custo adicional válido em reais por 100 g.');
       setPriceSuccess(null);
       return;
     }
@@ -545,32 +515,28 @@ export default function StockReportScreen() {
       setIsSavingPrice(true);
       setPriceError(null);
       setPriceSuccess(null);
-
       if (priceFeedbackTimeout.current) {
         clearTimeout(priceFeedbackTimeout.current);
         priceFeedbackTimeout.current = null;
       }
 
       await savePricingSettings({
-        sellingPricePer100gInBRL: parsedValue,
+        sellingPricePer100gInBRL: parsedPrice,
+        extraCostPer100gInBRL: parsedExtra,
         updatedBy: userId,
       });
 
-      setPriceSuccess('Configuração de preço salva com sucesso.');
+      setPriceSuccess('Configuração de preço e custo adicional salvas com sucesso.');
       priceFeedbackTimeout.current = setTimeout(() => {
         setPriceSuccess(null);
         priceFeedbackTimeout.current = null;
       }, 3500);
     } catch (error) {
-      setPriceError(
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível salvar o preço de venda.',
-      );
+      setPriceError(error instanceof Error ? error.message : 'Não foi possível salvar as configurações.');
     } finally {
       setIsSavingPrice(false);
     }
-  }, [canEditPrice, savePricingSettings, sellingPriceInput, userId]);
+  }, [canEditPrice, savePricingSettings, sellingPriceInput, extraCostInput, userId]);
 
   const stockMovementsOptions = useMemo(
     () => ({ limit: 50, enabled: canViewReports }),
@@ -789,6 +755,56 @@ export default function StockReportScreen() {
           </View>
           <Text style={styles.configurationHint}>
             Equivalente a {formatCurrency(sellingPrice.perKg)} por kg.
+          </Text>
+          {priceError ? (
+            <Text style={styles.configurationError}>{priceError}</Text>
+          ) : null}
+          {priceSuccess ? (
+            <Text style={styles.configurationSuccess}>{priceSuccess}</Text>
+          ) : null}
+        </View>
+
+        <View style={styles.configurationCard}>
+          <View style={styles.configurationHeader}>
+            <View>
+              <Text style={styles.configurationTitle}>Custo adicional por 100 g</Text>
+              <Text style={styles.configurationSubtitle}>
+                Itens como copinho, guardanapo e cascão entram aqui. Usado para margem real.
+              </Text>
+            </View>
+            {isLoadingPricing || isSavingPrice ? (
+              <ActivityIndicator color="#2563EB" />
+            ) : null}
+          </View>
+          <View style={styles.priceInputRow}>
+            <TextInput
+              style={[styles.priceInput, !canEditPrice && styles.priceInputDisabled]}
+              value={extraCostInput}
+              onChangeText={value => {
+                setExtraCostInput(value);
+                setPriceError(null);
+              }}
+              editable={canEditPrice && !isSavingPrice}
+              keyboardType="decimal-pad"
+              placeholder="0,00"
+            />
+            {canEditPrice ? (
+              <Pressable
+                onPress={handleSavePrice}
+                disabled={isSavingPrice}
+                style={({ pressed }) => [
+                  styles.priceSaveButton,
+                  (isSavingPrice || pressed) && styles.priceSaveButtonDisabled,
+                ]}
+              >
+                <Text style={styles.priceSaveButtonText}>
+                  {isSavingPrice ? 'Salvando…' : 'Salvar'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <Text style={styles.configurationHint}>
+            Equivalente a {formatCurrency(extraCost.perKg)} por kg.
           </Text>
           {priceError ? (
             <Text style={styles.configurationError}>{priceError}</Text>
