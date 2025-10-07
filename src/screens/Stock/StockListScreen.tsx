@@ -300,6 +300,13 @@ export default function StockListScreen({ navigation }: Props) {
     () => [styles.filterRow, isCompactLayout && styles.filterRowCompact],
     [isCompactLayout],
   );
+  const filterScannerFieldStyle = useMemo(
+    () => [
+      styles.filterScannerField,
+      isCompactLayout ? styles.filterScannerFieldCompact : styles.filterScannerFieldWide,
+    ],
+    [isCompactLayout],
+  );
 
   const handleConfirmAdjust = useCallback(() => {
     if (!adjustState.itemId) {
@@ -617,7 +624,7 @@ export default function StockListScreen({ navigation }: Props) {
           placeholder="Buscar por nome, código de barras ou ID"
           placeholderTextColor="#9CA3AF"
           accessibilityLabel="Buscar no estoque"
-          containerStyle={styles.filterScannerField}
+          containerStyle={filterScannerFieldStyle}
           inputStyle={styles.filterInput}
           editable
         />
@@ -742,6 +749,15 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     maxWidth: '100%',
+  },
+  filterScannerFieldCompact: {
+    width: '100%',
+    flexGrow: 1,
+  },
+  filterScannerFieldWide: {
+    flexGrow: 1,
+    flexShrink: 0,
+    minWidth: 360,
   },
   filterInput: {
     fontSize: 15,
