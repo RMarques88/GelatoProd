@@ -91,7 +91,8 @@ export function HomeScreen() {
   const { user, signOut, isLoading } = useAuth();
   const authorization = useAuthorization(user);
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const orientation = height >= width ? 'portrait' : 'landscape';
   const isGelatie = authorization.hasRole('gelatie');
   const isProdutor = authorization.hasRole('produtor');
   const isEstoquista = authorization.hasRole('estoquista');
@@ -117,6 +118,10 @@ export function HomeScreen() {
   const metricCardStyle = useMemo<StyleProp<ViewStyle>>(
     () => (isCompactMetricsLayout ? styles.metricCardCompact : undefined),
     [isCompactMetricsLayout],
+  );
+  const metricsRowKey = useMemo(
+    () => `metrics-${orientation}-${isCompactMetricsLayout ? 'compact' : 'wide'}`,
+    [orientation, isCompactMetricsLayout],
   );
   const isCompactHeaderLayout = width < 640;
   const headerRowStyle = useMemo<StyleProp<ViewStyle>>(
@@ -828,7 +833,7 @@ export function HomeScreen() {
         </View>
 
         {shouldShowMetrics && (
-          <View style={metricsRowStyle}>
+          <View style={metricsRowStyle} key={metricsRowKey}>
             <MetricCard
               label="Produtos ativos"
               iconName="ice-cream-outline"
@@ -1908,6 +1913,7 @@ const styles = StyleSheet.create({
   },
   metricsRowCompact: {
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   metricCard: {
     flex: 1,
@@ -1920,9 +1926,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   metricCardCompact: {
+    // Override base flex to avoid shrinking after orientation changes
+    flex: 0,
+    flexGrow: 0,
+    flexShrink: 0,
     width: '48%',
     flexBasis: '48%',
-    flexGrow: 1,
+    // Keep two columns with stable widths on wrap
     marginBottom: 12,
   },
   metricHeader: {

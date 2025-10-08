@@ -198,6 +198,7 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 8,
     paddingVertical: 4,
+    minHeight: 44,
   },
   fieldLarge: {
     paddingVertical: 8,
@@ -211,10 +212,14 @@ const styles = StyleSheet.create({
     color: '#111827',
     paddingVertical: 8,
     paddingRight: 8,
+    minHeight: 36,
+    lineHeight: 18,
   },
   inputLarge: {
     fontSize: 17,
     paddingVertical: 10,
+    minHeight: 40,
+    lineHeight: 20,
   },
   scanButton: {
     marginLeft: 8,

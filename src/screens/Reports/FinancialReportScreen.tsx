@@ -1,6 +1,13 @@
 import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
   usePricingSettings,
@@ -39,6 +46,8 @@ function SummaryCard({
 }
 
 export default function FinancialReportScreen() {
+  const { width, height } = useWindowDimensions();
+  const orientation = height >= width ? 'portrait' : 'landscape';
   const { settings, isLoading: isLoadingPricing } = usePricingSettings();
   const { plans, isLoading: isLoadingPlans } = useProductionPlans({
     status: ['completed'],
@@ -103,73 +112,43 @@ export default function FinancialReportScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.heading}>Relatórios financeiros</Text>
-      <Text style={styles.subheading}>
-        Resumo de receita, custo e margens (últimos 30 dias)
-      </Text>
+      <ScrollView
+        key={orientation}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.heading}>Relatórios financeiros</Text>
+        <Text style={styles.subheading}>
+          Resumo de receita, custo e margens (últimos 30 dias)
+        </Text>
 
-      {isLoading ? (
-        <ActivityIndicator color="#2563EB" />
-      ) : (
-        <View style={styles.summaryRow}>
-          <SummaryCard
-            iconName="cash-outline"
-            iconBackground="#DCFCE7"
-            iconColor="#047857"
-            label="Receita estimada"
-            value={currency.format(summary.revenue)}
-          />
-          <SummaryCard
-            iconName="pricetag-outline"
-            iconBackground="#E0E7FF"
-            iconColor="#3730A3"
-            label="Custo real"
-            value={currency.format(summary.cost)}
-          />
-          <View style={styles.metricColWrapper}>
-            <SummaryCard
-              iconName="trending-up-outline"
-              iconBackground="#DBEAFE"
-              iconColor="#1D4ED8"
-              label="Margem (estimada)"
-              value={currency.format(summary.margin)}
-            />
-            {hasAnyOverride ? (
-              <View style={styles.badgeRow}>
-                <Text style={styles.overrideBadge}>Overrides ativos</Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-      )}
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Projeção (15 dias)</Text>
         {isLoading ? (
           <ActivityIndicator color="#2563EB" />
         ) : (
           <View style={styles.summaryRow}>
             <SummaryCard
-              iconName="calendar-outline"
-              iconBackground="#FEF9C3"
-              iconColor="#B45309"
-              label="Receita (proj.)"
-              value={currency.format(projection.revenue)}
+              iconName="cash-outline"
+              iconBackground="#DCFCE7"
+              iconColor="#047857"
+              label="Receita estimada"
+              value={currency.format(summary.revenue)}
             />
             <SummaryCard
-              iconName="stats-chart-outline"
-              iconBackground="#FEE2E2"
-              iconColor="#B91C1C"
-              label="Custo (proj.)"
-              value={currency.format(projection.cost)}
+              iconName="pricetag-outline"
+              iconBackground="#E0E7FF"
+              iconColor="#3730A3"
+              label="Custo real"
+              value={currency.format(summary.cost)}
             />
             <View style={styles.metricColWrapper}>
               <SummaryCard
                 iconName="trending-up-outline"
-                iconBackground="#E0F2FE"
-                iconColor="#0369A1"
-                label="Margem (proj.)"
-                value={currency.format(projection.margin)}
+                iconBackground="#DBEAFE"
+                iconColor="#1D4ED8"
+                label="Margem (estimada)"
+                value={currency.format(summary.margin)}
               />
               {hasAnyOverride ? (
                 <View style={styles.badgeRow}>
@@ -179,12 +158,52 @@ export default function FinancialReportScreen() {
             </View>
           </View>
         )}
-      </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Projeção (15 dias)</Text>
+          {isLoading ? (
+            <ActivityIndicator color="#2563EB" />
+          ) : (
+            <View style={styles.summaryRow}>
+              <SummaryCard
+                iconName="calendar-outline"
+                iconBackground="#FEF9C3"
+                iconColor="#B45309"
+                label="Receita (proj.)"
+                value={currency.format(projection.revenue)}
+              />
+              <SummaryCard
+                iconName="stats-chart-outline"
+                iconBackground="#FEE2E2"
+                iconColor="#B91C1C"
+                label="Custo (proj.)"
+                value={currency.format(projection.cost)}
+              />
+              <View style={styles.metricColWrapper}>
+                <SummaryCard
+                  iconName="trending-up-outline"
+                  iconBackground="#E0F2FE"
+                  iconColor="#0369A1"
+                  label="Margem (proj.)"
+                  value={currency.format(projection.margin)}
+                />
+                {hasAnyOverride ? (
+                  <View style={styles.badgeRow}>
+                    <Text style={styles.overrideBadge}>Overrides ativos</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          )}
+        </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 32 },
   heading: {
     fontSize: 26,
     fontWeight: '700',

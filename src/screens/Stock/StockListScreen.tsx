@@ -11,8 +11,10 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import type { StockAlertStatus, StockMovementType } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
-
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
   AdjustStockModal,
@@ -32,9 +34,6 @@ import {
 } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
-import type { StockAlertStatus, StockMovementType } from '@/domain';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Stock'>;
 
@@ -45,7 +44,8 @@ type AdjustModalState = AdjustStockModalState & {
 export default function StockListScreen({ navigation }: Props) {
   const { user } = useAuth();
   const authorization = useAuthorization(user);
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const orientation = height >= width ? 'portrait' : 'landscape';
   const isCompactLayout = width < 768;
   const [includeArchived, setIncludeArchived] = useState(false);
   const [adjustState, setAdjustState] = useState<AdjustModalState>({
@@ -635,6 +635,7 @@ export default function StockListScreen({ navigation }: Props) {
 
       <View style={filterRowStyle}>
         <BarcodeScannerField
+          key={`filter-${orientation}-${isCompactLayout ? 'compact' : 'wide'}`}
           value={filterText}
           onChangeText={setFilterText}
           placeholder="Buscar por nome, código de barras ou ID"
