@@ -21,6 +21,11 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# Keystores
+*.keystore
+*.keystore.*
+*.keystore-*
+
 # debug
 npm-debug.*
 yarn-debug.*
