@@ -9,15 +9,16 @@ import {
   Text,
   View,
   Pressable,
+  TextInput,
 } from 'react-native';
 
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useProducts } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { logError } from '@/utils/logger';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Products'>;
 
@@ -26,18 +27,32 @@ export default function ProductsListScreen({ navigation }: Props) {
   const authorization = useAuthorization(user);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const userId = user?.id ?? null;
 
   const { products, isLoading, error, archive, restore, remove, retry } = useProducts({
     includeInactive,
   });
 
+  const normalizedQuery = useMemo(() => query.trim().toLowerCase(), [query]);
+
+  const filteredProducts = useMemo(() => {
+    if (!normalizedQuery) return products;
+    return products.filter(p => {
+      const inName = p.name?.toLowerCase().includes(normalizedQuery);
+      const inBarcode = (p.barcode ?? '').toLowerCase().includes(normalizedQuery);
+      const inTags = (p.tags ?? []).some(t => t.toLowerCase().includes(normalizedQuery));
+      const inCategory = (p.category ?? '').toLowerCase().includes(normalizedQuery);
+      return inName || inBarcode || inTags || inCategory;
+    });
+  }, [normalizedQuery, products]);
+
   const sortedProducts = useMemo(
     () =>
-      [...products].sort((first, second) =>
+      [...filteredProducts].sort((first, second) =>
         first.name.localeCompare(second.name, 'pt-BR', { sensitivity: 'base' }),
       ),
-    [products],
+    [filteredProducts],
   );
 
   const handleRefresh = useCallback(() => {
@@ -318,6 +333,31 @@ export default function ProductsListScreen({ navigation }: Props) {
         ) : null}
       </View>
 
+      <View style={styles.searchRow}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Buscar por nome, código ou tag"
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={styles.searchInput}
+          accessibilityLabel="Buscar produtos"
+        />
+        {query ? (
+          <Pressable
+            onPress={() => setQuery('')}
+            style={({ pressed }) => [
+              styles.clearButton,
+              pressed && styles.clearButtonPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Limpar busca"
+          >
+            <Text style={styles.clearButtonText}>Limpar</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
       <View style={styles.toggleRow}>
         <Text style={styles.toggleLabel}>Incluir inativos</Text>
         <Switch value={includeInactive} onValueChange={setIncludeInactive} />
@@ -355,6 +395,40 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#5E5F61',
     marginTop: 4,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    paddingVertical: 6,
+  },
+  clearButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  clearButtonPressed: {
+    opacity: 0.85,
+  },
+  clearButtonText: {
+    color: '#1F2937',
+    fontWeight: '600',
+    fontSize: 12,
   },
   primaryButton: {
     backgroundColor: '#4E9F3D',

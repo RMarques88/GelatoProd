@@ -208,13 +208,11 @@ export function HomeScreen() {
     enabled: canViewPlans,
   });
 
-  /* eslint-disable prettier/prettier */
   const unreadNotifications = useMemo(
     () =>
       notifications.filter((n: (typeof notifications)[number]) => n.status === 'unread'),
     [notifications],
   );
-  /* eslint-enable prettier/prettier */
   const roleLabel = useMemo(() => (user ? roleLabels[user.role] : 'Sem acesso'), [user]);
   const userDisplayName = useMemo(() => user?.name ?? 'Gelatiê', [user?.name]);
   const userId = user?.id ?? null;
@@ -431,6 +429,27 @@ export function HomeScreen() {
     try {
       setFormError(null);
       setIsSubmittingProduct(true);
+
+      // Client-side duplicate validations for faster feedback
+      const normalizedName = newProductName.trim().toLocaleLowerCase('pt-BR');
+      const existsByName = products.some(
+        p => p.name.toLocaleLowerCase('pt-BR') === normalizedName,
+      );
+      if (existsByName) {
+        setFormError('Já existe um produto com este nome.');
+        return;
+      }
+
+      const trimmedBarcode = newProductBarcode.trim();
+      if (trimmedBarcode) {
+        const existsByBarcode = products.some(
+          p => (p.barcode ?? '').trim() === trimmedBarcode,
+        );
+        if (existsByBarcode) {
+          setFormError('Já existe um produto com este código de barras.');
+          return;
+        }
+      }
       await createProduct({
         name: newProductName.trim(),
         barcode: newProductBarcode.trim() ? newProductBarcode.trim() : null,
@@ -982,7 +1001,6 @@ export function HomeScreen() {
             ) : unreadNotifications.length === 0 ? (
               <Text style={styles.emptyText}>Nenhuma notificação por aqui.</Text>
             ) : (
-              /* eslint-disable prettier/prettier */
               unreadNotifications
                 .slice(0, 6)
                 .map((notification: (typeof unreadNotifications)[number]) => (
@@ -1005,7 +1023,6 @@ export function HomeScreen() {
                     </Text>
                   </Pressable>
                 ))
-              /* eslint-enable prettier/prettier */
             )}
           </Section>
         )}

@@ -12,15 +12,15 @@ import {
   View,
 } from 'react-native';
 
+import type { UnitOfMeasure } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useProducts } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { logError } from '@/utils/logger';
-import type { UnitOfMeasure } from '@/domain';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'ProductUpsert'>;
 
@@ -101,6 +101,26 @@ export default function ProductFormScreen({ navigation, route }: Props) {
       .split(',')
       .map(tag => tag.trim())
       .filter(Boolean);
+
+    // Client-side duplicate validations to provide faster feedback
+    const normalizedName = trimmedName.toLocaleLowerCase('pt-BR');
+    const duplicateByName = products.some(
+      p => p.id !== productId && p.name.toLocaleLowerCase('pt-BR') === normalizedName,
+    );
+    if (duplicateByName) {
+      setFormError('Já existe um produto com este nome.');
+      return;
+    }
+
+    if (trimmedBarcode) {
+      const duplicateByBarcode = products.some(
+        p => p.id !== productId && (p.barcode ?? '').trim() === trimmedBarcode,
+      );
+      if (duplicateByBarcode) {
+        setFormError('Já existe um produto com este código de barras.');
+        return;
+      }
+    }
 
     try {
       setIsSubmitting(true);

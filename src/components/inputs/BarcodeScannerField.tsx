@@ -12,6 +12,7 @@ import {
   TextInputProps,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import type { TextStyle } from 'react-native';
 
@@ -36,6 +37,8 @@ export function BarcodeScannerField({
   const [scannerVisible, setScannerVisible] = useState(false);
   const [hasScanned, setHasScanned] = useState(false);
   const [helperMessage, setHelperMessage] = useState<string | null>(null);
+  const { width } = useWindowDimensions();
+  const isLarge = width >= 768;
 
   const isDisabled = useMemo(() => editable === false, [editable]);
 
@@ -96,7 +99,13 @@ export function BarcodeScannerField({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <View style={[styles.field, isDisabled && styles.fieldDisabled]}>
+      <View
+        style={[
+          styles.field,
+          isLarge && styles.fieldLarge,
+          isDisabled && styles.fieldDisabled,
+        ]}
+      >
         <TextInput
           {...rest}
           value={value}
@@ -106,18 +115,19 @@ export function BarcodeScannerField({
           keyboardType={keyboardType}
           autoCapitalize="none"
           autoCorrect={false}
-          style={[styles.input, inputStyle]}
+          style={[styles.input, isLarge && styles.inputLarge, inputStyle]}
         />
         <Pressable
           style={({ pressed }) => [
             styles.scanButton,
+            isLarge && styles.scanButtonLarge,
             (pressed || scannerVisible) && !isDisabled ? styles.scanButtonPressed : null,
             isDisabled && styles.scanButtonDisabled,
           ]}
           onPress={handleOpenScanner}
           disabled={isDisabled}
         >
-          <Ionicons name="camera" size={18} color="#FFFFFF" />
+          <Ionicons name="camera" size={isLarge ? 20 : 18} color="#FFFFFF" />
         </Pressable>
       </View>
       {helperMessage ? <Text style={styles.helperText}>{helperMessage}</Text> : null}
@@ -189,6 +199,9 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     paddingVertical: 4,
   },
+  fieldLarge: {
+    paddingVertical: 8,
+  },
   fieldDisabled: {
     opacity: 0.6,
   },
@@ -199,6 +212,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingRight: 8,
   },
+  inputLarge: {
+    fontSize: 17,
+    paddingVertical: 10,
+  },
   scanButton: {
     marginLeft: 8,
     width: 36,
@@ -207,6 +224,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  scanButtonLarge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   scanButtonPressed: {
     opacity: 0.85,

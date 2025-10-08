@@ -17,7 +17,6 @@ import {
   WithFieldValue,
 } from 'firebase/firestore';
 
-import { Product, ProductCreateInput, ProductUpdateInput } from '@/domain';
 import { deleteStockItem, listStockItems, recordStockMovement } from './stockService';
 import {
   FirestoreObserver,
@@ -28,6 +27,7 @@ import {
   serializeDateOrNull,
   timestampToDate,
 } from './utils';
+import { Product, ProductCreateInput, ProductUpdateInput } from '@/domain';
 
 const COLLECTION_NAME = 'products';
 
@@ -104,6 +104,26 @@ export async function createProduct(input: ProductCreateInput): Promise<Product>
   const db = getDb();
   const colRef = getCollection<ProductDocument>(db, COLLECTION_NAME);
 
+  // Basic uniqueness checks (server-side) for name and barcode
+  const trimmedName = input.name.trim();
+  const trimmedBarcode = input.barcode?.trim() ?? null;
+
+  // Check duplicate name (exact match)
+  const nameSnapshot = await getDocs(query(colRef, where('name', '==', trimmedName)));
+  if (!nameSnapshot.empty) {
+    throw new Error('Já existe um produto com este nome.');
+  }
+
+  // Check duplicate barcode (exact match)
+  if (trimmedBarcode) {
+    const barcodeSnapshot = await getDocs(
+      query(colRef, where('barcode', '==', trimmedBarcode)),
+    );
+    if (!barcodeSnapshot.empty) {
+      throw new Error('Já existe um produto com este código de barras.');
+    }
+  }
+
   const now = serverTimestamp();
 
   const basePayload = {
@@ -147,9 +167,13 @@ export async function updateProduct(
 
   const { archivedAt, ...rest } = input;
 
+  // Remove undefined values so Firestore doesn't reject the update
+  const cleanedRest = Object.fromEntries(
+    Object.entries(rest).filter(([, value]) => value !== undefined),
+  );
+
   await updateDoc(docRef, {
-    ...rest,
-    barcode: rest.barcode ?? null,
+    ...cleanedRest,
     ...(archivedAt !== undefined
       ? { archivedAt: serializeDateOrNull(archivedAt) }
       : null),
