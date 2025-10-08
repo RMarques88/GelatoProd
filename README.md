@@ -36,6 +36,7 @@ O app é pensado para tablets na loja. Ele dá conta de:
 
 - **Autenticação com papéis claros:** login individual, recuperação de senha e verificação de permissões em cada fluxo.
 - **Produtos e receitas inteligentes:** cadastros completos, com barcode via câmera, tags, sub-receitas e validações para evitar loops.
+- **Catálogo de produtos com busca e validações:** busca por nome, código de barras, tags e categoria; validação de duplicidade de nome e de código de barras no cadastro/edição.
 - **Estoque em tempo real:** histórico de movimentações, cálculo automático de custo unitário, alertas e notificações push internas.
 - **Produção planejada:** calendário/lista de planos, execução com etapas e registro de divergências que alimentam o estoque.
 - **Análises financeiras da produção:** estimativa de custo por lote, comparação com preço de venda configurável e visão rápida de margem por receita.
@@ -53,6 +54,9 @@ O app é pensado para tablets na loja. Ele dá conta de:
 - **Execução integrada à checagem de disponibilidade:** a tela de execução passa a exibir o histórico de faltas aprovadas, pedir uma confirmação extra antes de iniciar planos com indisponibilidade e conciliar automaticamente a baixa de estoque com o registro de divergências e o log de disponibilidade.
 - **Cobertura completa de testes E2E (28 cenários):** expandimos os testes End-to-End para cobrir todas as funcionalidades principais do sistema - alertas de estoque (4 testes), receitas simples e compostas (6 testes), planejamento e execução de produção (5 testes), notificações (6 testes) e autorização/permissões (7 testes). Infraestrutura completa com Firebase Admin SDK criando dados reais e validando comportamentos automaticamente. Veja [`E2E_TESTING_SETUP.md`](./E2E_TESTING_SETUP.md).
 - Escaneamento de código de barras passou a usar `expo-camera`, com modal dedicado, verificação de permissões e fallback manual.
+- **Validação de duplicados no cadastro de produtos:** impedimos salvar produtos com mesmo nome ou mesmo código de barras (checagem otimista no app e validação nos serviços do Firestore).
+- **Busca no catálogo de produtos:** campo de busca na lista de produtos filtrando por nome, código de barras, tags e categoria, com botão de limpar.
+- **Responsividade e tablets:** campos com scanner foram ajustados para altura/área de toque maiores em telas ≥ 768px; orientação do app configurável (padrão: acompanha rotação do dispositivo).
 - Serviços do Firestore passaram a higienizar payloads (sem `undefined`), garantindo compatibilidade com `addDoc`/`updateDoc` e removendo erros silenciosos.
 - Regras do Firestore agora exigem `serverTimestamp()` para `createdAt`/`updatedAt` e impõem cooldown mínimo por documento, reduzindo o consumo indevido de métricas.
 - Regras do Firestore também normalizam papéis vindos do token/perfil (ex.: `gelatiê`) e documentamos índices necessários para consultas complexas.
@@ -201,7 +205,7 @@ app/
 | Coleção / Documento                                 | Campos principais                                                       | Observações de negócio                                                                                         |
 | --------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `users`                                             | `displayName`, `role`, `phoneNumber`, timestamps                        | Sincronizado com Firebase Auth. Toda ação sensível consulta `useAuthorization` para validar permissões.        |
-| `products`                                          | `name`, `tags`, `barcode`, `isActive`                                   | Base para estoque e receitas. Produtos arquivados permanecem referenciáveis por histórico.                     |
+| `products`                                          | `name`, `tags`, `barcode`, `isActive`, `trackInventory`, `unitOfMeasure` | Base para estoque e receitas. Produtos arquivados permanecem referenciáveis por histórico.                     |
 | `recipes`                                           | `yieldInGrams`, `ingredients[]`, `instructions`, `isActive`             | Ingredientes aceitam referência cruzada (recipe → recipe). Serviço impede ciclos infinitos.                    |
 | `stockItems`                                        | `productId`, `currentQuantityInGrams`, `minimumQuantityInGrams`         | Mantém ponteiros para último movimento e custos médios/maiores. Gera alertas automaticamente abaixo do mínimo. |
 | `stockMovements`                                    | `type`, `quantityInGrams`, `unitCostInBRL`, `performedBy`, `note`       | Histórico imutável; usado em relatórios e conciliação de custo.                                                |
@@ -274,18 +278,41 @@ app/
 
 ## 🧪 Scripts NPM
 
-| Script              | Descrição                                                                          |
-| ------------------- | ---------------------------------------------------------------------------------- |
-| `npm run start`     | Expo no modo interativo.                                                           |
-| `npm run android`   | Build dev para um dispositivo/emulador Android.                                    |
-| `npm run ios`       | Build dev no simulador iOS (necessário macOS).                                     |
-| `npm run web`       | Versão web experimental.                                                           |
-| `npm run lint`      | ESLint com zero tolerância a warnings.                                             |
-| `npm run lint:fix`  | Tenta corrigir violações automaticamente.                                          |
-| `npm run format`    | Prettier nos arquivos JS/TS/JSON/MD.                                               |
-| `npm run typecheck` | `tsc --noEmit` para garantir compatibilidade de tipos.                             |
-| `npm run test`      | Jest + ts-jest com mocks de Firestore (testes unitários).                          |
-| `npm run test:e2e`  | Testes End-to-End com Firebase Admin SDK (requer `firebase-service-account.json`). |
+| Script                   | Descrição                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| `npm run start`          | Expo no modo interativo.                                                           |
+| `npm run android`        | Build dev para um dispositivo/emulador Android.                                    |
+| `npm run ios`            | Build dev no simulador iOS (necessário macOS).                                     |
+| `npm run web`            | Versão web experimental.                                                           |
+| `npm run lint`           | ESLint com zero tolerância a warnings.                                             |
+| `npm run lint:fix`       | Tenta corrigir violações automaticamente.                                          |
+| `npm run format`         | Prettier nos arquivos JS/TS/JSON/MD.                                               |
+| `npm run format:check`   | Verifica formatação sem alterar arquivos.                                          |
+| `npm run typecheck`      | `tsc --noEmit` para garantir compatibilidade de tipos.                             |
+| `npm run test`           | Jest + ts-jest com mocks de Firestore (testes unitários).                          |
+| `npm run test:e2e`       | Testes End-to-End com Firebase Admin SDK (requer `firebase-service-account.json`). |
+| `npm run test:e2e:single`| Executa um cenário E2E único (controlado por `E2E_SINGLE`) para depuração rápida.  |
+| `npm run test:e2e:coverage` | Coleta cobertura dos testes E2E (gera pasta `coverage-e2e`).                   |
+| `npm run db:seed:users`  | Popula usuários de teste no Firebase para cenários de desenvolvimento/E2E.        |
+| `npm run db:wipe`        | Limpa coleções do Firestore usadas nos testes (cautela!).                          |
+
+## 🎛️ Personalização do App (Ícone e Orientação)
+
+Configurações principais ficam em `app/app.json`:
+
+- Ícone do app (todas as plataformas):
+   - `expo.icon`: caminho para o PNG (recomendado 512x512). Ex.: `"./assets/icon.png"`.
+- Android Adaptive Icon:
+   - `expo.android.adaptiveIcon.foregroundImage`: PNG com transparência (logo). Ex.: `"./assets/adaptive-icon.png"`.
+   - `expo.android.adaptiveIcon.backgroundColor`: cor de fundo sólida (hex). Ex.: `"#ffffff"`.
+- Favicon (Web):
+   - `expo.web.favicon`: `"./assets/favicon.png"`.
+- Orientação da tela:
+   - `expo.orientation`: `"default"` para seguir a rotação do dispositivo (recomendado para tablets).
+   - Para travar globalmente, use `"portrait"` ou `"landscape"`.
+   - Travar por tela: opcionalmente, instale `expo-screen-orientation` e chame `ScreenOrientation.lockAsync(...)` na tela desejada.
+
+Após substituir as imagens em `app/assets/`, gere uma nova build para ver o ícone atualizado no dispositivo.
 
 ## 🚀 Distribuição e Builds
 
