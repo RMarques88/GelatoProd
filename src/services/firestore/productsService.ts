@@ -17,6 +17,7 @@ import {
   WithFieldValue,
 } from 'firebase/firestore';
 
+import { Product, ProductCreateInput, ProductUpdateInput } from '@/domain';
 import { deleteStockItem, listStockItems, recordStockMovement } from './stockService';
 import {
   FirestoreObserver,
@@ -27,7 +28,6 @@ import {
   serializeDateOrNull,
   timestampToDate,
 } from './utils';
-import { Product, ProductCreateInput, ProductUpdateInput } from '@/domain';
 
 const COLLECTION_NAME = 'products';
 

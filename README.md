@@ -202,20 +202,20 @@ app/
 
 ## �️ Coleções do Firestore
 
-| Coleção / Documento                                 | Campos principais                                                       | Observações de negócio                                                                                         |
-| --------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `users`                                             | `displayName`, `role`, `phoneNumber`, timestamps                        | Sincronizado com Firebase Auth. Toda ação sensível consulta `useAuthorization` para validar permissões.        |
+| Coleção / Documento                                 | Campos principais                                                        | Observações de negócio                                                                                         |
+| --------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `users`                                             | `displayName`, `role`, `phoneNumber`, timestamps                         | Sincronizado com Firebase Auth. Toda ação sensível consulta `useAuthorization` para validar permissões.        |
 | `products`                                          | `name`, `tags`, `barcode`, `isActive`, `trackInventory`, `unitOfMeasure` | Base para estoque e receitas. Produtos arquivados permanecem referenciáveis por histórico.                     |
-| `recipes`                                           | `yieldInGrams`, `ingredients[]`, `instructions`, `isActive`             | Ingredientes aceitam referência cruzada (recipe → recipe). Serviço impede ciclos infinitos.                    |
-| `stockItems`                                        | `productId`, `currentQuantityInGrams`, `minimumQuantityInGrams`         | Mantém ponteiros para último movimento e custos médios/maiores. Gera alertas automaticamente abaixo do mínimo. |
-| `stockMovements`                                    | `type`, `quantityInGrams`, `unitCostInBRL`, `performedBy`, `note`       | Histórico imutável; usado em relatórios e conciliação de custo.                                                |
-| `stockAlerts`                                       | `status`, `severity`, `lastNotificationAt`                              | Notificações internas partem daqui. Gelatiê consegue reconhecer ou resolver; estoquista apenas reconhece.      |
-| `productionPlans`                                   | `code`, `scheduledFor`, `status`, `estimated/actualProductionCost`      | Sequência automática (`PROD-001`). Integra com disponibilidade, execução e divergências.                       |
-| `productionStages`                                  | `planId`, `sequence`, `status`, `assignedTo`, `timestamps`              | Descreve etapas operacionais. Atualização dispara logs e desbloqueio de ações na Home.                         |
-| `productionDivergences`                             | `planId`, `severity`, `type`, `description`, `resolutionNotes`          | Criadas durante execução quando algo foge do planejado. Alimenta relatórios de performance.                    |
-| `productionAvailability` (`planAvailability`)       | `planId`, `shortages[]`, `status`, `confirmedBy`, custos estimados      | Resultado da checagem de estoque antes da produção. Guarda confirmação manual do Gelatiê quando há falta.      |
-| `notifications`                                     | `title`, `message`, `category`, `status`, `readAt`                      | Alimenta Home + Central. Consulta sempre retorna ordenado por `createdAt` desc. Limpeza automática > 30 dias.  |
-| `appSettings/pricing` (subcoleção em `appSettings`) | `sellingPricePer100gInBRL`, `sellingPricePerKilogramInBRL`, `updatedBy` | Mantém preço de venda global. Permissão exclusiva do Gelatiê; hook `usePricingSettings` provê cache.           |
+| `recipes`                                           | `yieldInGrams`, `ingredients[]`, `instructions`, `isActive`              | Ingredientes aceitam referência cruzada (recipe → recipe). Serviço impede ciclos infinitos.                    |
+| `stockItems`                                        | `productId`, `currentQuantityInGrams`, `minimumQuantityInGrams`          | Mantém ponteiros para último movimento e custos médios/maiores. Gera alertas automaticamente abaixo do mínimo. |
+| `stockMovements`                                    | `type`, `quantityInGrams`, `unitCostInBRL`, `performedBy`, `note`        | Histórico imutável; usado em relatórios e conciliação de custo.                                                |
+| `stockAlerts`                                       | `status`, `severity`, `lastNotificationAt`                               | Notificações internas partem daqui. Gelatiê consegue reconhecer ou resolver; estoquista apenas reconhece.      |
+| `productionPlans`                                   | `code`, `scheduledFor`, `status`, `estimated/actualProductionCost`       | Sequência automática (`PROD-001`). Integra com disponibilidade, execução e divergências.                       |
+| `productionStages`                                  | `planId`, `sequence`, `status`, `assignedTo`, `timestamps`               | Descreve etapas operacionais. Atualização dispara logs e desbloqueio de ações na Home.                         |
+| `productionDivergences`                             | `planId`, `severity`, `type`, `description`, `resolutionNotes`           | Criadas durante execução quando algo foge do planejado. Alimenta relatórios de performance.                    |
+| `productionAvailability` (`planAvailability`)       | `planId`, `shortages[]`, `status`, `confirmedBy`, custos estimados       | Resultado da checagem de estoque antes da produção. Guarda confirmação manual do Gelatiê quando há falta.      |
+| `notifications`                                     | `title`, `message`, `category`, `status`, `readAt`                       | Alimenta Home + Central. Consulta sempre retorna ordenado por `createdAt` desc. Limpeza automática > 30 dias.  |
+| `appSettings/pricing` (subcoleção em `appSettings`) | `sellingPricePer100gInBRL`, `sellingPricePerKilogramInBRL`, `updatedBy`  | Mantém preço de venda global. Permissão exclusiva do Gelatiê; hook `usePricingSettings` provê cache.           |
 
 - Todos os documentos herdam `createdAt`/`updatedAt` (server timestamps). Regras recusam payload sem `serverTimestamp()`.
 - Índices obrigatórios estão listados em [`CRIAR_INDICES_FIRESTORE.md`](./CRIAR_INDICES_FIRESTORE.md) e [`FIRESTORE_INDICES_MANUAL.md`](./FIRESTORE_INDICES_MANUAL.md).
@@ -278,39 +278,39 @@ app/
 
 ## 🧪 Scripts NPM
 
-| Script                   | Descrição                                                                          |
-| ------------------------ | ---------------------------------------------------------------------------------- |
-| `npm run start`          | Expo no modo interativo.                                                           |
-| `npm run android`        | Build dev para um dispositivo/emulador Android.                                    |
-| `npm run ios`            | Build dev no simulador iOS (necessário macOS).                                     |
-| `npm run web`            | Versão web experimental.                                                           |
-| `npm run lint`           | ESLint com zero tolerância a warnings.                                             |
-| `npm run lint:fix`       | Tenta corrigir violações automaticamente.                                          |
-| `npm run format`         | Prettier nos arquivos JS/TS/JSON/MD.                                               |
-| `npm run format:check`   | Verifica formatação sem alterar arquivos.                                          |
-| `npm run typecheck`      | `tsc --noEmit` para garantir compatibilidade de tipos.                             |
-| `npm run test`           | Jest + ts-jest com mocks de Firestore (testes unitários).                          |
-| `npm run test:e2e`       | Testes End-to-End com Firebase Admin SDK (requer `firebase-service-account.json`). |
-| `npm run test:e2e:single`| Executa um cenário E2E único (controlado por `E2E_SINGLE`) para depuração rápida.  |
-| `npm run test:e2e:coverage` | Coleta cobertura dos testes E2E (gera pasta `coverage-e2e`).                   |
-| `npm run db:seed:users`  | Popula usuários de teste no Firebase para cenários de desenvolvimento/E2E.        |
-| `npm run db:wipe`        | Limpa coleções do Firestore usadas nos testes (cautela!).                          |
+| Script                      | Descrição                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `npm run start`             | Expo no modo interativo.                                                           |
+| `npm run android`           | Build dev para um dispositivo/emulador Android.                                    |
+| `npm run ios`               | Build dev no simulador iOS (necessário macOS).                                     |
+| `npm run web`               | Versão web experimental.                                                           |
+| `npm run lint`              | ESLint com zero tolerância a warnings.                                             |
+| `npm run lint:fix`          | Tenta corrigir violações automaticamente.                                          |
+| `npm run format`            | Prettier nos arquivos JS/TS/JSON/MD.                                               |
+| `npm run format:check`      | Verifica formatação sem alterar arquivos.                                          |
+| `npm run typecheck`         | `tsc --noEmit` para garantir compatibilidade de tipos.                             |
+| `npm run test`              | Jest + ts-jest com mocks de Firestore (testes unitários).                          |
+| `npm run test:e2e`          | Testes End-to-End com Firebase Admin SDK (requer `firebase-service-account.json`). |
+| `npm run test:e2e:single`   | Executa um cenário E2E único (controlado por `E2E_SINGLE`) para depuração rápida.  |
+| `npm run test:e2e:coverage` | Coleta cobertura dos testes E2E (gera pasta `coverage-e2e`).                       |
+| `npm run db:seed:users`     | Popula usuários de teste no Firebase para cenários de desenvolvimento/E2E.         |
+| `npm run db:wipe`           | Limpa coleções do Firestore usadas nos testes (cautela!).                          |
 
 ## 🎛️ Personalização do App (Ícone e Orientação)
 
 Configurações principais ficam em `app/app.json`:
 
 - Ícone do app (todas as plataformas):
-   - `expo.icon`: caminho para o PNG (recomendado 512x512). Ex.: `"./assets/icon.png"`.
+  - `expo.icon`: caminho para o PNG (recomendado 512x512). Ex.: `"./assets/icon.png"`.
 - Android Adaptive Icon:
-   - `expo.android.adaptiveIcon.foregroundImage`: PNG com transparência (logo). Ex.: `"./assets/adaptive-icon.png"`.
-   - `expo.android.adaptiveIcon.backgroundColor`: cor de fundo sólida (hex). Ex.: `"#ffffff"`.
+  - `expo.android.adaptiveIcon.foregroundImage`: PNG com transparência (logo). Ex.: `"./assets/adaptive-icon.png"`.
+  - `expo.android.adaptiveIcon.backgroundColor`: cor de fundo sólida (hex). Ex.: `"#ffffff"`.
 - Favicon (Web):
-   - `expo.web.favicon`: `"./assets/favicon.png"`.
+  - `expo.web.favicon`: `"./assets/favicon.png"`.
 - Orientação da tela:
-   - `expo.orientation`: `"default"` para seguir a rotação do dispositivo (recomendado para tablets).
-   - Para travar globalmente, use `"portrait"` ou `"landscape"`.
-   - Travar por tela: opcionalmente, instale `expo-screen-orientation` e chame `ScreenOrientation.lockAsync(...)` na tela desejada.
+  - `expo.orientation`: `"default"` para seguir a rotação do dispositivo (recomendado para tablets).
+  - Para travar globalmente, use `"portrait"` ou `"landscape"`.
+  - Travar por tela: opcionalmente, instale `expo-screen-orientation` e chame `ScreenOrientation.lockAsync(...)` na tela desejada.
 
 Após substituir as imagens em `app/assets/`, gere uma nova build para ver o ícone atualizado no dispositivo.
 

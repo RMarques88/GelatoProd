@@ -12,13 +12,13 @@ import {
   TextInput,
 } from 'react-native';
 
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useProducts } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { logError } from '@/utils/logger';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Products'>;
 
