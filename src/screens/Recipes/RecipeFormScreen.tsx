@@ -7,13 +7,13 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ProductPickerModal } from '@/components/inputs/ProductPickerModal';
@@ -25,6 +25,7 @@ import { useAuthorization } from '@/hooks/useAuthorization';
 import { logError } from '@/utils/logger';
 import type { AppStackParamList } from '@/navigation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+// type imports moved above
 
 type IngredientFormValue = {
   type: RecipeIngredient['type'];
@@ -437,9 +438,11 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
       <ScreenContainer>
-        <ScrollView
+        <KeyboardAwareScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          enableOnAndroid
+          extraScrollHeight={Platform.OS === 'android' ? 20 : 0}
         >
           <View style={styles.titleRow}>
             <Text style={styles.title}>{title}</Text>
@@ -449,7 +452,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
           </View>
           <Text style={styles.subtitle}>
             {recipeId
-              ? 'Atualize as informações da receita selecionada.'
+              ? 'Edite os campos abaixo para alterar a receita.'
               : 'Preencha os campos abaixo para cadastrar uma nova receita.'}
           </Text>
 
@@ -821,7 +824,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
               </View>
             </View>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         <IngredientPickerModal
           visible={Boolean(pickerState)}
@@ -969,9 +972,11 @@ function IngredientPickerModal({
               editable={options.length > 0}
             />
           )}
-          <ScrollView
+          <KeyboardAwareScrollView
             contentContainerStyle={styles.modalList}
             keyboardShouldPersistTaps="handled"
+            enableOnAndroid
+            extraScrollHeight={Platform.OS === 'android' ? 20 : 0}
           >
             {options.length ? (
               filteredOptions.length ? (
@@ -999,7 +1004,7 @@ function IngredientPickerModal({
             ) : (
               <Text style={styles.modalEmpty}>Nenhum item disponível.</Text>
             )}
-          </ScrollView>
+          </KeyboardAwareScrollView>
         </View>
       </View>
     </Modal>

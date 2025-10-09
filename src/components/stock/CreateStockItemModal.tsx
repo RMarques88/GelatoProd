@@ -3,12 +3,12 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 
@@ -105,9 +105,11 @@ export function CreateStockItemModal({
                   inputStyle={styles.searchInput}
                   editable={!disabled && products.length > 0}
                 />
-                <ScrollView
+                <KeyboardAwareScrollView
                   style={styles.productList}
                   keyboardShouldPersistTaps="handled"
+                  enableOnAndroid
+                  extraScrollHeight={20}
                 >
                   {filteredProducts.length === 0 ? (
                     <View style={styles.emptyResultsContainer}>
@@ -142,7 +144,7 @@ export function CreateStockItemModal({
                       );
                     })
                   )}
-                </ScrollView>
+                </KeyboardAwareScrollView>
               </>
             )}
           </View>
@@ -267,14 +269,12 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   searchInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
+    borderWidth: 0,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
     color: '#111827',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   searchInputContainer: {
     marginBottom: 12,

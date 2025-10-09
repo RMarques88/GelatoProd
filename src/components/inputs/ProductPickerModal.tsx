@@ -8,7 +8,10 @@ import {
   Text,
   TextInput,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+// import KeyboardAwareScrollView intentionally omitted; using KeyboardAvoidingView instead
 
 import type { Product, UnitOfMeasure } from '@/domain';
 
@@ -150,17 +153,23 @@ export function ProductPickerModal({
           </Pressable>
         </View>
         <Text style={styles.subtitle}>{subtitle}</Text>
-        <View style={styles.searchRow}>
-          <Ionicons name="search" size={18} color="#6B7280" />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Buscar produtos..."
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={styles.searchInput}
-          />
-        </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.searchRowWrapper}
+        >
+          <View style={styles.searchRow}>
+            <Ionicons name="search" size={18} color="#6B7280" />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Buscar produtos..."
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.searchInput}
+              showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
+            />
+          </View>
+        </KeyboardAvoidingView>
 
         <FlatList
           data={filtered}
@@ -218,6 +227,9 @@ const styles = StyleSheet.create({
   },
   closeBtnPressed: {
     opacity: 0.85,
+  },
+  searchRowWrapper: {
+    marginTop: 12,
   },
   title: {
     fontSize: 18,

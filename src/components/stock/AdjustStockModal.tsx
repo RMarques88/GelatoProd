@@ -2,11 +2,13 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import { StockMovementType } from '@/domain';
 
@@ -52,7 +54,12 @@ export function AdjustStockModal({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+        <KeyboardAwareScrollView
+          contentContainerStyle={styles.modalContent}
+          enableOnAndroid
+          extraScrollHeight={Platform.OS === 'android' ? 20 : 0}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Registrar movimentação</Text>
             <Pressable
@@ -102,6 +109,7 @@ export function AdjustStockModal({
               style={styles.modalInput}
               keyboardType="numeric"
               editable={!disabled}
+              showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
             />
             <Text style={styles.modalHintText}>
               As movimentações são registradas em gramas, independente da unidade padrão
@@ -118,6 +126,7 @@ export function AdjustStockModal({
                   style={styles.modalInput}
                   keyboardType="numeric"
                   editable={!disabled}
+                  showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
                 />
               </View>
             ) : null}
@@ -131,6 +140,7 @@ export function AdjustStockModal({
               multiline
               numberOfLines={3}
               editable={!disabled}
+              showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
             />
           </View>
 
@@ -148,7 +158,7 @@ export function AdjustStockModal({
               <Text style={styles.modalPrimaryButtonText}>Confirmar ajuste</Text>
             )}
           </Pressable>
-        </View>
+        </KeyboardAwareScrollView>
       </View>
     </Modal>
   );
