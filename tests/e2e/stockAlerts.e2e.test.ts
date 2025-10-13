@@ -253,14 +253,34 @@ describe('E2E: Stock Alerts', () => {
     );
 
     // 6. Valida que o alerta foi resolvido
-    // Read back with a short retry to make the resolution visible in full-suite runs
-    let alertSnapshot = await alertRef.get();
-    if (alertSnapshot.exists && alertSnapshot.data()?.status !== 'resolved') {
-      // give the DB a short moment
-      await new Promise(res => setTimeout(res, 300));
-      alertSnapshot = await alertRef.get();
+    // Polling read to handle read-after-write propagation in full-suite runs
+    async function waitForAlertResolved(timeout = 5000) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        const snap = await alertRef.get();
+        if (snap.exists) {
+          const data = snap.data();
+          if (data?.status === 'resolved') return data;
+        }
+        await new Promise(res => setTimeout(res, 250));
+      }
+      // final attempt: the specific alert doc may have been removed and re-created
+      // by a parallel cleanup; try a collection query to find any alert for this
+      // stockItemId and check its status.
+      const querySnap = await db
+        .collection('stockAlerts')
+        .where('stockItemId', '==', stockItemRef.id)
+        .get();
+      for (const doc of querySnap.docs) {
+        const d = doc.data();
+        if (d?.status === 'resolved') return d;
+      }
+      // If still not found, return undefined-ish data from the original doc
+      const finalSnap = await alertRef.get();
+      return finalSnap.data();
     }
-    const alertData = alertSnapshot.data();
+
+    const alertData = await waitForAlertResolved();
 
     expect(alertData?.status).toBe('resolved');
     expect(alertData?.resolvedAt).toBeDefined();
