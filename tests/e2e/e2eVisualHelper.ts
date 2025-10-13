@@ -18,7 +18,7 @@ export function installVisualHooks() {
     console.log('\n[E2E-VISUAL] Starting test:', name, 'at', new Date().toISOString());
     // small initial pause so the user can prepare
     await sleep(500);
-  });
+  }, 30000);
 
   afterEach(async () => {
     const name = expect.getState().currentTestName ?? '<unknown test>';
@@ -68,7 +68,7 @@ export function installVisualHooks() {
 
     console.log('[E2E-VISUAL] Pausing 5s before next test...');
     await sleep(5000);
-  });
+  }, 30000);
 }
 
 export function e2eLog(expected: unknown, actual: unknown, message?: string) {

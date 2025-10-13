@@ -235,8 +235,103 @@ app/
    ```
 
 3. **Configurar variáveis**
-   - Copie `.env.example` para `.env` (arquivo não versionado).
-   - Preencha com as credenciais do projeto Firebase. Valores com prefixo `EXPO_PUBLIC_` ficam disponíveis ao bundle.
+  - Copie `.env.example` para `.env` (arquivo não versionado).
+  - Preencha com as credenciais do projeto Firebase. Valores com prefixo `EXPO_PUBLIC_` ficam disponíveis ao bundle.
+
+
+Principais artefatos e scripts relacionados aos E2E
+
+- `tests/e2e/` — pasta com os testes End-to-End e helpers que usam Firebase Admin SDK. Veja `tests/e2e/setup.ts` para helpers (init Admin, clearCollection, gates de segurança) e instrumentação opcional para modo visual.
+- `tests/e2e/backups/` — pasta local onde os scripts externos escrevem backups JSON (não commitados no repo).
+- `tests/e2e/scanStockItems.js` — utilitário read-only que escaneia `stockItems` e gera uma amostra JSON; use antes de testes destrutivos para inspecionar o estado atual.
+- `scripts/backupFirestore.js` — script Node (Admin SDK) que exporta coleções alvo para JSON em `tests/e2e/backups/`.
+- `scripts/run-e2e-chain.ps1` — runner PowerShell interativo que:
+  1. solicita confirmação do operador;
+  2. executa `scripts/backupFirestore.js` para criar backup local;
+  3. só então define a variável `ALLOW_E2E_ON_PROD=true` e roda o teste destrutivo.
+
+Resumo dos cenários E2E (o que existe hoje)
+
+- `readOnlyPriceCheck.e2e.test.ts` — diagnóstico read-only que calcula custo estimado para amostras [100g, 300g, 650g] e verifica a conversão R$/kg → R$/g. O teste é tolerante a falta de credenciais (não-falha em PERMISSION_DENIED).
+- `seedAndValidateCosts.e2e.test.ts` — fluxo DESTRUTIVO (limpa coleções, semeia dados determinísticos e valida `computeRecipeEstimatedCost`). NUNCA rode sem backup local.
+- `stockAlerts.e2e.test.ts` — alertas de estoque (vários cenários).
+- `recipes.e2e.test.ts` — receitas simples e compostas.
+- `production.e2e.test.ts` / `productionWithStockConsumption.e2e.test.ts` — planejamento, execução e consumo.
+- `notifications.e2e.test.ts` — notificações (criar, ler, limpar).
+- `authorization.e2e.test.ts` — permissões e papéis.
+- `stockReservations.e2e.test.ts` — reservas de estoque.
+- `accessoryOverrides.e2e.test.ts` — acessórios e overrides para cálculo de custo.
+
+Como rodar os E2E (não-destrutivos)
+
+1. Configure `firebase-service-account.json` no diretório `app/` (se você quiser que os testes leiam/escrevam via Admin). Alguns testes read-only podem ser executados sem credenciais e irão pular com aviso.
+2. Instale dependências:
+
+  ```powershell
+  npm install
+  ```
+
+3. Rodar apenas os testes não-destrutivos (ex.: diagnóstico read-only):
+
+  ```powershell
+  npm run test:e2e -- tests/e2e/readOnlyPriceCheck.e2e.test.ts -- --runInBand --detectOpenHandles
+  ```
+
+Fluxo destrutivo seguro (backup obrigatório)
+
+Este projeto separa o backup do teste destrutivo por segurança. Antes de executar `seedAndValidateCosts.e2e.test.ts` você deve criar um backup local e confirmar explicitamente que aceita sobrescrever/limpar coleções.
+
+1. Gerar backup local (PowerShell):
+
+  ```powershell
+  node ./scripts/backupFirestore.js
+  # ou usar o runner interativo abaixo
+  ```
+
+2. Rodar o fluxo interativo (executa backup e pede confirmação):
+
+  ```powershell
+  ./scripts/run-e2e-chain.ps1
+  ```
+
+  O script irá:
+  - pedir confirmação textual para prosseguir;
+  - salvar backup em `tests/e2e/backups/` com timestamp;
+  - definir `ALLOW_E2E_ON_PROD=true` temporariamente e invocar o Jest apenas para o teste destrutivo selecionado.
+
+3. Se preferir rodar manualmente (com backup já criado):
+
+  ```powershell
+  $env:ALLOW_E2E_ON_PROD = 'true'; npm run test:e2e -- tests/e2e/seedAndValidateCosts.e2e.test.ts -- --runInBand --detectOpenHandles
+  ```
+
+Variáveis de ambiente relevantes
+
+- `E2E_VISUAL` (true|false) — ativa o modo visual: hooks Jest adicionam pausas (5s por transição), logs detalhados e tentativas de read-back/compare. Use para demos manuais e inspeção humana.
+- `ALLOW_E2E_ON_PROD` (true|false) — bloqueio de segurança. Se o `serviceAccount` aparentar ser de produção o teste destrutivo exige essa variável explicitamente.
+- `FIREBASE_SERVICE_ACCOUNT` / `firebase-service-account.json` — arquivo de credenciais usado pelos scripts e pelos testes que inicializam o Admin SDK.
+- `FORCE_JEST_EXIT` — (opcional) quando houver handles abertos que impedem o Jest de encerrar; use apenas em último caso.
+
+Modo visual (E2E_VISUAL)
+
+Quando `E2E_VISUAL=true` os testes:
+
+- instalam hooks que pausam ~5 segundos entre passos para permitir inspeção manual;
+- acumulam operações de escrita do Admin SDK e as imprimem ao final do teste (útil para ver o que será apagado/alterado);
+- tentam fazer um read-back best-effort dos documentos modificados e imprimem diferenças (quando permissões permitem).
+
+Backup e restauração
+
+- O `scripts/backupFirestore.js` salva coleções alvo (listadas no script) em `tests/e2e/backups/{timestamp}/` como JSON. Esses arquivos não devem ser committed.
+- Restauração automática NÃO é fornecida por segurança (evita sobrescrita acidental). Para restaurar, use os JSONs com um pequeno script de restore manual ou via Firebase import tools. Se precisar, eu posso adicionar um `scripts/restoreFromBackup.js` com confirmações manuais.
+
+Avisos e boas práticas
+
+- Nunca rode o teste destrutivo sem um backup válido e verificado.
+- Prefira usar o runner interativo `./scripts/run-e2e-chain.ps1` para garantir que o backup foi criado e que um humano confirmou a operação.
+- Revise o backup em `tests/e2e/backups/` antes de restaurar ou manipular dados de produção.
+- Modo visual é para inspeção humana — evita automatizar esse modo em CI.
+
 
 4. **Executar o app**
 
@@ -247,8 +342,12 @@ app/
    Abra o app via Expo Go (QR code) ou use `npm run android` para disparar direto no emulador.
 
 5. **Configurar testes E2E** (opcional, mas recomendado)
-   - Baixe o `firebase-service-account.json` do Firebase Console (veja [`E2E_TESTING_SETUP.md`](./E2E_TESTING_SETUP.md)).
-   - Salve o arquivo na raiz de `/app` (já está no `.gitignore`).
+  - Baixe o `firebase-service-account.json` do Firebase Console (veja [`E2E_TESTING_SETUP.md`](./E2E_TESTING_SETUP.md)).
+  - Salve o arquivo na raiz de `/app` (já está no `.gitignore`).
+
+## 🧪 Testes End-to-End — detalhes, segurança e execução
+
+ATENÇÃO: a suíte E2E contém testes tanto READ-ONLY (diagnósticos não destrutivos) quanto testes DESTRUTIVOS que limpam coleções e semeiam dados de teste. Esses testes foram projetados para rodar em um ambiente de desenvolvimento/qa isolado e podem apagar dados em um projeto real se executados sem as devidas precauções. Leia esta seção com atenção antes de rodar qualquer comando.
 
 6. **Checklist local**
 
