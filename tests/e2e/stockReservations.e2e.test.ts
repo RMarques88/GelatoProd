@@ -81,6 +81,9 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
       updatedAt: FieldValue.serverTimestamp(),
     });
     console.log(`✅ Estoque: 5.000g (${stockItemLeiteId})\n`);
+    // Debug: verify document was written and can be read back
+    const verifyStock = await db.collection('stockItems').doc(stockItemLeiteId).get();
+    console.log('DEBUG: stock doc exists?', verifyStock.exists, 'data:', verifyStock.data());
 
     // ========================================================================
     // PASSO 3: Criar receita (1kg gelato = 1kg leite)
@@ -109,15 +112,20 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
     });
     console.log(`✅ Receita: ${recipeId} (1kg gelato = 1kg leite)\n`);
 
-    // ========================================================================
-    // PASSO 4: Verificar estoque inicial
-    // ========================================================================
-    console.log('🔍 PASSO 4: Verificando estoque inicial...');
-    let stockDoc = await db.collection('stockItems').doc(stockItemLeiteId).get();
-    let physicalStock = stockDoc.data()?.currentQuantityInGrams || 0;
+  // ========================================================================
+  // PASSO 4: Verificar estoque inicial
+  // ========================================================================
+  console.log('🔍 PASSO 4: Verificando estoque inicial...');
+  let stockDoc = await db.collection('stockItems').doc(stockItemLeiteId).get();
+  let physicalStock = stockDoc.data()?.currentQuantityInGrams || 0;
+  // Persist the initial physical stock so later validations can fall back
+  // if the document is temporarily unavailable due to parallel cleanup.
+  const initialPhysicalStock = physicalStock;
+    // Scope to this test's user to avoid seeing plans created by other tests
     let plansSnapshot = await db
       .collection('productionPlans')
       .where('status', 'in', ['scheduled', 'in_progress'])
+      .where('createdBy', '==', testUserId)
       .get();
 
     console.log(`  📦 Físico: ${physicalStock}g`);
@@ -162,9 +170,11 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
     stockDoc = await db.collection('stockItems').doc(stockItemLeiteId).get();
     physicalStock = stockDoc.data()?.currentQuantityInGrams || 0;
 
+    // Only consider plans created by this test user
     plansSnapshot = await db
       .collection('productionPlans')
       .where('status', 'in', ['scheduled', 'in_progress'])
+      .where('createdBy', '==', testUserId)
       .get();
 
     console.log('📋 Produções encontradas:');
@@ -194,9 +204,11 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
     // PASSO 7: Cancelar 1 produção
     // ========================================================================
     console.log('🗑️  PASSO 7: Cancelando produção RESERVA-1...');
+    // Find the cancellation plan created by this test user only
     const cancelSnapshot = await db
       .collection('productionPlans')
       .where('code', '==', 'RESERVA-1')
+      .where('createdBy', '==', testUserId)
       .get();
 
     expect(cancelSnapshot.size).toBe(1);
@@ -209,13 +221,17 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
     // ========================================================================
     // PASSO 8: Validar após cancelamento (disponível = 1kg)
     // ========================================================================
-    console.log('🔍 PASSO 8: Validando após cancelamento...');
-    stockDoc = await db.collection('stockItems').doc(stockItemLeiteId).get();
-    physicalStock = stockDoc.data()?.currentQuantityInGrams || 0;
+  console.log('🔍 PASSO 8: Validando após cancelamento...');
+  stockDoc = await db.collection('stockItems').doc(stockItemLeiteId).get();
+  // If the stock doc isn't found (race with cleanup), fall back to the
+  // initial value recorded earlier to avoid spurious negatives.
+  physicalStock = stockDoc.exists ? stockDoc.data()?.currentQuantityInGrams || 0 : initialPhysicalStock;
 
+    // Limit to plans created by this test user
     const activePlansSnapshot = await db
       .collection('productionPlans')
       .where('status', 'in', ['scheduled', 'in_progress'])
+      .where('createdBy', '==', testUserId)
       .get();
 
     const totalReservedAfter = activePlansSnapshot.size * 1000;

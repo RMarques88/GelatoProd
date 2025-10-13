@@ -2,11 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApps, initializeApp, deleteApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, getReactNativePersistence, initializeAuth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { appEnv } from '@/utils/env';
 import type { Auth } from 'firebase/auth';
 
 // Import Auth component registration for React Native
 // This MUST come before any auth usage to register the component
-import { appEnv } from '@/utils/env';
 
 // Persist across Fast Refresh to avoid re-initialization races in RN/Expo
 const globalScope = globalThis as unknown as Record<string, unknown>;

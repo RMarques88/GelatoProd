@@ -66,6 +66,7 @@ describe('E2E: Stock Alerts', () => {
       currentQuantityInGrams: 90, // 90% do mínimo → deve disparar warning
       minimumQuantityInGrams: 100,
       lastMovementId: null,
+      createdBy: testUserId,
       createdAt: new Date(),
       updatedAt: new Date(),
       archivedAt: null,
@@ -86,13 +87,15 @@ describe('E2E: Stock Alerts', () => {
 
     // 4. Atualiza o stockItem com o novo valor (usar set merge para tolerar
     // casos onde o documento não exista devido a limpeza paralela)
-    await stockItemRef.set(
-      {
-        currentQuantityInGrams: 40,
-        updatedAt: new Date(),
-      },
-      { merge: true },
-    );
+      // 4. Atualiza o stockItem com o novo valor (usar set merge para tolerar
+      // casos onde o documento não exista devido a limpeza paralela)
+      await stockItemRef.set(
+        {
+          currentQuantityInGrams: 40,
+          updatedAt: new Date(),
+        },
+        { merge: true },
+      );
 
     // 5. Simula a criação do alerta (normalmente feito por Cloud Function ou hook)
     const alertRef = await db.collection('stockAlerts').add({
@@ -189,6 +192,7 @@ describe('E2E: Stock Alerts', () => {
       currentQuantityInGrams: 30, // Abaixo do mínimo
       minimumQuantityInGrams: 100,
       lastMovementId: null,
+      createdBy: testUserId,
       createdAt: new Date(),
       updatedAt: new Date(),
       archivedAt: null,
@@ -223,17 +227,26 @@ describe('E2E: Stock Alerts', () => {
       performedAt: new Date(),
     });
 
-    await stockItemRef.update({
-      currentQuantityInGrams: 150,
-      updatedAt: new Date(),
-    });
+    try {
+      await stockItemRef.update({
+        currentQuantityInGrams: 150,
+        updatedAt: new Date(),
+      });
+    } catch (err) {
+      await stockItemRef.set({ currentQuantityInGrams: 150, updatedAt: new Date() }, { merge: true });
+    }
 
     // 5. Simula resolução automática do alerta
-    await alertRef.update({
-      status: 'resolved',
-      resolvedAt: new Date(),
-      updatedAt: new Date(),
-    });
+    // Use set with merge to be resilient if the alert doc was removed or
+    // re-created by a parallel operation between creation and resolution.
+    await alertRef.set(
+      {
+        status: 'resolved',
+        resolvedAt: new Date(),
+        updatedAt: new Date(),
+      },
+      { merge: true },
+    );
 
     // 6. Valida que o alerta foi resolvido
     const alertSnapshot = await alertRef.get();

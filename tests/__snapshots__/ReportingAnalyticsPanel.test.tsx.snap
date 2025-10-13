@@ -7,6 +7,7 @@ exports[`ReportingAnalyticsPanel renders analytics data snapshot 1`] = `
       "backgroundColor": "#FFFFFF",
       "borderRadius": 16,
       "elevation": 3,
+      "marginBottom": 32,
       "marginTop": 24,
       "padding": 20,
       "shadowColor": "#111827",
@@ -229,6 +230,83 @@ exports[`ReportingAnalyticsPanel renders analytics data snapshot 1`] = `
       <View
         style={
           {
+            "flexDirection": "row",
+            "gap": 12,
+          }
+        }
+      >
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "flex": 1,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 16,
+                "fontWeight": "700",
+              }
+            }
+          >
+            R$ 1.310,00
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+                "marginTop": 4,
+              }
+            }
+          >
+            Custo estimado
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "backgroundColor": "#FFFFFF",
+              "borderRadius": 12,
+              "flex": 1,
+              "paddingHorizontal": 12,
+              "paddingVertical": 10,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#111827",
+                "fontSize": 16,
+                "fontWeight": "700",
+              }
+            }
+          >
+            R$ 1.280,00
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#6B7280",
+                "fontSize": 12,
+                "marginTop": 4,
+              }
+            }
+          >
+            Custo real
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
             "backgroundColor": "#E5E7EB",
             "height": 0.5,
           }
@@ -278,6 +356,20 @@ exports[`ReportingAnalyticsPanel renders analytics data snapshot 1`] = `
              
             un reais
           </Text>
+          <Text
+            style={
+              {
+                "color": "#374151",
+                "fontSize": 12,
+                "marginTop": 2,
+              }
+            }
+          >
+            Custo: 
+            R$ 870,00
+             
+            (R$ 890,00 previsto)
+          </Text>
         </View>
         <View
           style={
@@ -315,6 +407,20 @@ exports[`ReportingAnalyticsPanel renders analytics data snapshot 1`] = `
             78
              
             un reais
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#374151",
+                "fontSize": 12,
+                "marginTop": 2,
+              }
+            }
+          >
+            Custo: 
+            R$ 410,00
+             
+            (R$ 420,00 previsto)
           </Text>
         </View>
       </View>
@@ -806,6 +912,7 @@ exports[`ReportingAnalyticsPanel renders error state snapshot 1`] = `
       "backgroundColor": "#FFFFFF",
       "borderRadius": 16,
       "elevation": 3,
+      "marginBottom": 32,
       "marginTop": 24,
       "padding": 20,
       "shadowColor": "#111827",

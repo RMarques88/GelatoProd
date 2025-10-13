@@ -142,29 +142,120 @@ export function createTimestamp(date: Date) {
 }
 
 export function resetFirestoreMocks() {
-  // Use mockReset to clear both call history and any queued mockResolvedValueOnce
-  // behaviors. mockClear only clears call history which allowed leftover
-  // one-time resolves to leak between tests.
-  collection.mockClear();
-  doc.mockClear();
-  addDoc.mockClear();
-  getDoc.mockClear();
-  getDocs.mockClear();
-  updateDoc.mockClear();
-  deleteDoc.mockClear();
-  runTransaction.mockClear();
-  transactionGet.mockClear();
-  transactionUpdate.mockClear();
-  transactionSet.mockClear();
-  onSnapshot.mockClear();
-  query.mockClear();
-  where.mockClear();
-  orderBy.mockClear();
-  limit.mockClear();
-  serverTimestamp.mockClear();
-  Timestamp.fromDate.mockClear();
-  onSnapshotListeners.length = 0;
+  // Reset mocks and clear any queued one-time resolved values so tests are isolated.
+  collection.mockReset();
+  doc.mockReset();
+  addDoc.mockReset();
+  getDoc.mockReset();
+  getDocs.mockReset();
+  updateDoc.mockReset();
+  deleteDoc.mockReset();
+  runTransaction.mockReset();
+  transactionGet.mockReset();
+  transactionUpdate.mockReset();
+  transactionSet.mockReset();
+  onSnapshot.mockReset();
+  query.mockReset();
+  where.mockReset();
+  orderBy.mockReset();
+  limit.mockReset();
+  serverTimestamp.mockReset();
+  Timestamp.fromDate.mockReset();
+
+  // Restore default implementations expected by tests
+  collection.mockImplementation((db: Firestore, path: string) => ({
+    __type: 'collection',
+    db,
+    path,
+  }));
+
   autoDocId = 0;
+  doc.mockImplementation((ref: CollectionLike | Firestore, path?: string) => {
+    if (path) {
+      return {
+        __type: 'doc',
+        parent: ref,
+        path,
+        id: path.split('/').pop() ?? path,
+      };
+    }
+
+    autoDocId += 1;
+    const parentRef = ref as CollectionLike;
+    const basePath = parentRef.path ?? 'collection';
+
+    return {
+      __type: 'doc',
+      parent: ref,
+      path: `${basePath}/mock-doc-${autoDocId}`,
+      id: `mock-doc-${autoDocId}`,
+    };
+  });
+
+  addDoc.mockImplementation(async () => ({ __type: 'docRef' }));
+  getDoc.mockImplementation(async () => createSnapshot('doc-id', undefined));
+  getDocs.mockImplementation(async () => ({ docs: [] as Array<SnapshotData<unknown>>, empty: true }));
+  updateDoc.mockImplementation(async () => {});
+  deleteDoc.mockImplementation(async () => {});
+  runTransaction.mockImplementation(
+    async (
+      _db: Firestore,
+      updateFunction: (transaction: {
+        get: typeof transactionGet;
+        update: typeof transactionUpdate;
+        set: typeof transactionSet;
+      }) => Promise<unknown> | unknown,
+    ) => {
+      return updateFunction({
+        get: transactionGet,
+        update: transactionUpdate,
+        set: transactionSet,
+      });
+    },
+  );
+
+  transactionGet.mockImplementation(() => {});
+  transactionUpdate.mockImplementation(() => {});
+  transactionSet.mockImplementation(() => {});
+
+  onSnapshot.mockImplementation(
+    (ref: unknown, next: (value: unknown) => void, error?: (e: Error) => void) => {
+      const listener = { ref, next, error };
+      onSnapshotListeners.push(listener);
+      return () => {
+        const index = onSnapshotListeners.indexOf(listener);
+        if (index >= 0) {
+          onSnapshotListeners.splice(index, 1);
+        }
+      };
+    },
+  );
+
+  query.mockImplementation((ref: unknown, ...constraints: unknown[]) => ({
+    __type: 'query',
+    ref,
+    constraints,
+  }));
+
+  where.mockImplementation((field: string, op: string, value: unknown) => ({
+    __type: 'where',
+    field,
+    op,
+    value,
+  }));
+
+  orderBy.mockImplementation((field: string, direction: 'asc' | 'desc') => ({
+    __type: 'orderBy',
+    field,
+    direction,
+  }));
+
+  limit.mockImplementation((value: number) => ({ __type: 'limit', value }));
+
+  serverTimestamp.mockImplementation(() => serverTimestampValue);
+  Timestamp.fromDate.mockImplementation((date: Date) => new MockTimestamp(date));
+
+  onSnapshotListeners.length = 0;
 }
 
 module.exports = {
