@@ -24,7 +24,6 @@ export type PriceRegisterProps = {
   onConfirm: () => void;
   isSubmitting?: boolean;
   disabled?: boolean;
-  unitLabel?: string;
 };
 
 export function PriceRegisterModal({
@@ -34,7 +33,6 @@ export function PriceRegisterModal({
   onConfirm,
   isSubmitting = false,
   disabled = false,
-  unitLabel,
 }: PriceRegisterProps) {
   return (
     <Modal
@@ -74,9 +72,10 @@ export function PriceRegisterModal({
               editable={!disabled}
               showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
             />
-            {unitLabel ? (
-              <Text style={styles.modalHintText}>Informe o preço por {unitLabel}.</Text>
-            ) : null}
+            <Text style={styles.modalHintText}>
+              Informe o preço por kg (R$ / kg). O sistema armazena internamente o custo em
+              R$/kg; as conversões para grama/ml são feitas automaticamente nos cálculos.
+            </Text>
 
             <Text style={styles.modalLabel}>Observações (opcional)</Text>
             <TextInput

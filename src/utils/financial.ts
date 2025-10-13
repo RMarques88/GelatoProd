@@ -1,4 +1,4 @@
-import type { UnitOfMeasure } from '@/domain';
+import type { UnitOfMeasure, Product, Recipe as DomainRecipe, StockItem } from '@/domain';
 
 // Minimal shapes extracted for calculation (kept generic for reuse in tests)
 export interface FinancialProductLike {
@@ -10,6 +10,15 @@ export interface FinancialStockItemLike {
   productId: string;
   averageUnitCostInBRL?: number | null;
   highestUnitCostInBRL?: number | null;
+}
+
+// Return unit cost in BRL per gram (or per milliliter using 1ml≈1g heuristic)
+export function unitCostPerGram(stock?: FinancialStockItemLike | null): number {
+  const stored = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+  if (!Number.isFinite(stored) || stored <= 0) return 0;
+  // Stored values are normalized as R$ per kilogram or per liter equivalents in the
+  // stock service. Convert to per-gram / per-ml by dividing by 1000.
+  return stored / 1000;
 }
 
 export interface FinancialPlanLike {
@@ -42,7 +51,7 @@ export interface FinancialSummaryResult {
   margin: number;
 }
 
-function qtyToGrams(unit: UnitOfMeasure | undefined, qty: number): number {
+export function qtyToGrams(unit: UnitOfMeasure | undefined, qty: number): number {
   switch (unit) {
     case 'GRAMS':
       return qty;
@@ -100,11 +109,12 @@ export function computeFinancialSummary(
             const product = productsById.get(item.productId);
             if (!product) continue;
             const stock = stockByProductId.get(item.productId);
-            const unitCost =
-              stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+            const unitCost = unitCostPerGram(stock ?? null);
             if (!Number.isFinite(unitCost) || unitCost <= 0) continue;
             if ((product.unitOfMeasure ?? 'UNITS') === 'UNITS') {
-              accessoriesCost += item.defaultQtyPerPortion * unitCost * portions;
+              // For UNITS, unitCostPerGram isn't meaningful; fallback to raw stored cost
+              const raw = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+              accessoriesCost += item.defaultQtyPerPortion * raw * portions;
             } else {
               const grams = qtyToGrams(
                 product.unitOfMeasure ?? 'GRAMS',
@@ -156,10 +166,11 @@ export function computeAccessoriesCostForPlan(
     const product = productsById.get(item.productId);
     if (!product) continue;
     const stock = stockByProductId.get(item.productId);
-    const unitCost = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+    const unitCost = unitCostPerGram(stock ?? null);
     if (!Number.isFinite(unitCost) || unitCost <= 0) continue;
     if ((product.unitOfMeasure ?? 'UNITS') === 'UNITS') {
-      total += item.defaultQtyPerPortion * unitCost * portions;
+      const raw = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+      total += item.defaultQtyPerPortion * raw * portions;
     } else {
       const grams = qtyToGrams(
         product.unitOfMeasure ?? 'GRAMS',
@@ -169,4 +180,72 @@ export function computeAccessoriesCostForPlan(
     }
   }
   return total;
+}
+
+// Compute estimated total cost for a recipe (pure, does not touch Firestore).
+// - recipe: object with ingredients: { type, referenceId, quantityInGrams }
+// - products: array of FinancialProductLike
+// - stockItems: array of FinancialStockItemLike
+// - recipes: array of recipes for nested lookups (each with id, ingredients, yieldInGrams)
+export function computeRecipeEstimatedCost(
+  recipe: DomainRecipe,
+  products: Product[],
+  stockItems: StockItem[],
+  recipes: DomainRecipe[] = [],
+  depth = 5,
+): number {
+  if (!recipe || !recipe.ingredients || depth <= 0) return 0;
+
+  const productsById = new Map(products.map(p => [p.id, p] as const));
+  const stockByProductId = new Map(stockItems.map(s => [s.productId, s] as const));
+  const recipesById = new Map(recipes.map(r => [r.id, r] as const));
+
+  const computeForRecipe = (rId: string, d = depth): number => {
+    const r = recipesById.get(rId);
+    if (!r || d <= 0) return 0;
+    return r.ingredients.reduce((s, ing) => {
+      if (ing.type === 'product') {
+        const prod = productsById.get(ing.referenceId);
+        const stock = stockByProductId.get(ing.referenceId);
+        const perGram = unitCostPerGram(stock ?? null);
+        if (!prod) return s;
+        if ((prod.unitOfMeasure ?? 'UNITS') === 'UNITS') {
+          const raw = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+          return s + ing.quantityInGrams * raw;
+        }
+        return s + ing.quantityInGrams * perGram;
+      }
+
+      const nested = computeForRecipe(ing.referenceId, d - 1);
+      const nestedRecipe = recipesById.get(ing.referenceId);
+      const perGram =
+        nestedRecipe && nestedRecipe.yieldInGrams > 0
+          ? nested / nestedRecipe.yieldInGrams
+          : 0;
+      return s + perGram * ing.quantityInGrams;
+    }, 0);
+  };
+
+  // compute cost for the provided recipe shape
+  return recipe.ingredients.reduce((s, ing) => {
+    if (ing.type === 'product') {
+      const prod = productsById.get(ing.referenceId);
+      const stock = stockByProductId.get(ing.referenceId);
+      const perGram = unitCostPerGram(stock ?? null);
+      if (!prod) return s;
+      if ((prod.unitOfMeasure ?? 'UNITS') === 'UNITS') {
+        const raw = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+        return s + ing.quantityInGrams * raw;
+      }
+      return s + ing.quantityInGrams * perGram;
+    }
+
+    const nestedTotal = computeForRecipe(ing.referenceId, depth - 1);
+    const nestedRecipe = recipesById.get(ing.referenceId);
+    const perGram =
+      nestedRecipe && nestedRecipe.yieldInGrams > 0
+        ? nestedTotal / nestedRecipe.yieldInGrams
+        : 0;
+    return s + perGram * ing.quantityInGrams;
+  }, 0);
 }

@@ -450,9 +450,12 @@ export async function adjustStockLevel(options: {
     if (options.type === 'increment' || options.type === 'initial') {
       if (shouldTrackCost) {
         movementTotalCost = options.totalCostInBRL ?? null;
-        movementUnitCost = movementTotalCost
+        // movementUnitCost is computed from totalCost / qty (this is R$ per gram)
+        // convert to R$ per kilogram for storage by multiplying by 1000.
+        const unitCostPerGram = movementTotalCost
           ? Number(movementTotalCost / options.quantityInGrams)
           : null;
+        movementUnitCost = unitCostPerGram ? unitCostPerGram * 1000 : null; // R$ / kg
       }
 
       if (movementUnitCost && Number.isFinite(movementUnitCost)) {
@@ -462,19 +465,29 @@ export async function adjustStockLevel(options: {
           movementUnitCost,
         );
 
-        const previousTotalCost = previousAverage ? previousAverage * previous : 0;
-        const incrementCost = movementUnitCost * options.quantityInGrams;
+        // previousAverage and movementUnitCost are stored as R$ / kg.
+        // To compute totals we need R$ amounts, so convert to per-gram when multiplying by grams.
+        const previousTotalCost = previousAverage
+          ? (previousAverage / 1000) * previous
+          : 0; // R$
+        const incrementCost = movementUnitCost
+          ? (movementUnitCost / 1000) * options.quantityInGrams
+          : 0; // R$
+
+        // nextAverage should be stored as R$ / kg. Compute per-gram average and convert back.
         nextAverage =
           resulting > 0
-            ? (previousTotalCost + incrementCost) / resulting
+            ? ((previousTotalCost + incrementCost) / resulting) * 1000
             : movementUnitCost;
       }
     } else if (options.type === 'decrement') {
-      const effectiveUnitCost = previousAverage ?? itemData.highestUnitCostInBRL ?? null;
+      const effectiveUnitCost = previousAverage ?? itemData.highestUnitCostInBRL ?? null; // R$ / kg
 
       if (effectiveUnitCost && Number.isFinite(effectiveUnitCost)) {
+        // movementUnitCost stored as R$ / kg
         movementUnitCost = effectiveUnitCost;
-        movementTotalCost = effectiveUnitCost * options.quantityInGrams;
+        // total cost for the grams removed: per-gram = effectiveUnitCost / 1000
+        movementTotalCost = (effectiveUnitCost / 1000) * options.quantityInGrams;
       } else {
         console.warn(
           '⚠️  SEM CUSTO para decrement (avg:',
@@ -491,7 +504,9 @@ export async function adjustStockLevel(options: {
     } else if (options.type === 'adjustment') {
       if (options.totalCostInBRL && options.quantityInGrams > 0) {
         movementTotalCost = options.totalCostInBRL;
-        movementUnitCost = Number(movementTotalCost / options.quantityInGrams);
+        // convert per-gram to per-kg for storage
+        const unitCostPerGram = Number(movementTotalCost / options.quantityInGrams);
+        movementUnitCost = unitCostPerGram * 1000; // R$ / kg
         const previousHighest = itemData.highestUnitCostInBRL ?? 0;
         if (movementUnitCost && Number.isFinite(movementUnitCost)) {
           itemUpdatePayload.highestUnitCostInBRL = Math.max(
@@ -686,7 +701,9 @@ export async function setManualPrice(options: {
       quantityInGrams: 0,
       previousQuantityInGrams: previous,
       resultingQuantityInGrams: previous,
-      totalCostInBRL: previous > 0 ? options.unitCostInBRL * previous : null,
+      // options.unitCostInBRL is stored as R$ / kg. When computing total cost for a
+      // quantity in grams, convert to per-gram first.
+      totalCostInBRL: previous > 0 ? (options.unitCostInBRL / 1000) * previous : null,
       unitCostInBRL: options.unitCostInBRL,
       note: options.note ?? 'Registro manual de preço',
       performedBy: options.performedBy,

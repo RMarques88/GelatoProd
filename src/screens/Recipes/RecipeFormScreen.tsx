@@ -15,8 +15,6 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ProductPickerModal } from '@/components/inputs/ProductPickerModal';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
@@ -24,8 +22,10 @@ import { Product, Recipe, RecipeIngredient } from '@/domain';
 import { useProducts, useRecipes, usePricingSettings, useStockItems } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import { unitCostPerGram } from '@/utils/financial';
 import { logError } from '@/utils/logger';
-// type imports moved above
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type IngredientFormValue = {
   type: RecipeIngredient['type'];
@@ -222,32 +222,55 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
   };
 
   const computeIngredientEstimatedCost = useCallback(
-    (ingredient: IngredientFormValue) => {
+    (ingredient: IngredientFormValue, depth = 5): number => {
       if (!ingredient.referenceId) return 0;
-      if (ingredient.type !== 'product') return 0; // skip recipes for now
-      const product = products.find(p => p.id === ingredient.referenceId);
-      if (!product) return 0;
-      const stock = stockItems.find(s => s.productId === product.id);
-      const unitCost = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
-      const qty = Number(ingredient.quantity.replace(',', '.'));
-      if (!Number.isFinite(qty) || qty <= 0) return 0;
 
-      // convert product unit to grams if necessary
-      const unit = product.unitOfMeasure ?? 'GRAMS';
-      let grams = qty;
-      if (unit === 'KILOGRAMS') grams = qty * 1000;
-      if (unit === 'LITERS') grams = qty * 1000;
-      if (unit === 'MILLILITERS') grams = qty;
+      const rawQty = Number(ingredient.quantity.replace(',', '.'));
+      if (!Number.isFinite(rawQty) || rawQty <= 0) return 0;
 
-      // UNITS treated as unit count: multiply count * unitCost
-      if (unit === 'UNITS') return qty * unitCost;
+      // If it's a product, compute from stock item unit costs
+      if (ingredient.type === 'product') {
+        const product = products.find(p => p.id === ingredient.referenceId);
+        if (!product) return 0;
+        const stock = stockItems.find(s => s.productId === product.id);
 
-      // unitCost is stored per gram in this app convention (some items use per-kg but tests show small numbers),
-      // but many places expect averageUnitCostInBRL to be per gram. If the unitCost seems like per-kg (>1),
-      // we still multiply grams * unitCost because elsewhere they do unitCost * grams.
-      return grams * unitCost;
+        // Recipe quantities are always entered in grams (or units when product.unitOfMeasure === 'UNITS').
+        // Use the raw parsed quantity for multiplication.
+        if ((product.unitOfMeasure ?? 'UNITS') === 'UNITS') {
+          // For unit-counted products the stored cost is per unit, use raw stored value
+          const rawStored =
+            stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+          return rawQty * rawStored;
+        }
+
+        const perGram = unitCostPerGram(stock ?? null);
+        return rawQty * perGram;
+      }
+
+      // If it's a nested recipe, compute the nested recipe total cost and scale
+      if (ingredient.type === 'recipe' && depth > 0) {
+        const nestedRecipe = recipes.find(r => r.id === ingredient.referenceId);
+        if (!nestedRecipe) return 0;
+        // compute total cost of nested recipe by summing its ingredients
+        const nestedTotal = nestedRecipe.ingredients.reduce((s, ing) => {
+          // reuse this same helper recursively (wrap minimal object to match IngredientFormValue shape)
+          const pseudo: IngredientFormValue = {
+            type: ing.type,
+            referenceId: ing.referenceId,
+            quantity: ing.quantityInGrams.toString(),
+          };
+          return s + computeIngredientEstimatedCost(pseudo, depth - 1);
+        }, 0);
+
+        // per-gram cost of nested recipe
+        const perGram =
+          nestedRecipe.yieldInGrams > 0 ? nestedTotal / nestedRecipe.yieldInGrams : 0;
+        return rawQty * perGram;
+      }
+
+      return 0;
     },
-    [products, stockItems],
+    [products, stockItems, recipes],
   );
 
   const estimatedTotalCost = useMemo(() => {
@@ -680,7 +703,68 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
                     <Text style={styles.hintText}>
                       Custo estimado: R$ {ingredient.estimatedCostInBRL.toFixed(2)}
                     </Text>
-                  ) : null}
+                  ) : (
+                    // Show computed cost or a warning if missing
+                    (() => {
+                      const computed = computeIngredientEstimatedCost(ingredient);
+                      if (computed > 0) {
+                        return (
+                          <Text style={styles.hintText}>
+                            Custo estimado: R$ {computed.toFixed(2)}
+                          </Text>
+                        );
+                      }
+                      return (
+                        <Text style={[styles.hintText, styles.hintWarning]}>
+                          Custo estimado: — (verificar preço no estoque)
+                        </Text>
+                      );
+                    })()
+                  )}
+                  {/* Debug breakdown to help find missing prices / unit mismatches */}
+                  {(() => {
+                    const prod = products.find(p => p.id === ingredient.referenceId);
+                    const stock = stockItems.find(
+                      s => s.productId === ingredient.referenceId,
+                    );
+                    const avg = stock?.averageUnitCostInBRL ?? null;
+                    const high = stock?.highestUnitCostInBRL ?? null;
+                    const used = avg ?? high ?? 0;
+                    const qty = Number(ingredient.quantity.replace(',', '.')) || 0;
+                    const perGram = unitCostPerGram(stock ?? null);
+                    const lineCost = prod
+                      ? prod.unitOfMeasure === 'UNITS'
+                        ? qty * (avg ?? high ?? 0)
+                        : qty * perGram
+                      : 0;
+
+                    // Only show debug when something is odd (no price or computed zero)
+                    if (!prod) return null;
+                    if ((used === 0 && qty > 0) || lineCost === 0) {
+                      return (
+                        <View style={styles.debugRow}>
+                          <Text style={styles.debugText}>
+                            {'Debug — unidade: '}
+                            {prod.unitOfMeasure ?? 'GRAMS'}
+                            {' | avg: '}
+                            {avg ?? '—'}
+                            {' | highest: '}
+                            {high ?? '—'}
+                            {' | usado: '}
+                            {used || '0'}
+                          </Text>
+                          <Text style={styles.debugText}>
+                            {'perGrama: '}
+                            {perGram.toFixed(6)}
+                            {' | custoLinha: R$ '}
+                            {lineCost.toFixed(2)}
+                          </Text>
+                        </View>
+                      );
+                    }
+
+                    return null;
+                  })()}
                 </View>
               </View>
             ))}
@@ -689,7 +773,10 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
           <View>
             <View style={styles.estimatedSummary}>
               <Text style={styles.estimatedSummaryText}>
-                Custo estimado da receita: R$ {estimatedTotalCost.toFixed(2)}
+                Custo estimado da receita:{' '}
+                {estimatedTotalCost > 0
+                  ? `R$ ${estimatedTotalCost.toFixed(2)}`
+                  : '— (alguns preços faltando)'}
               </Text>
             </View>
           </View>
@@ -1122,6 +1209,9 @@ const styles = StyleSheet.create({
     color: '#B45309',
     marginTop: 6,
   },
+  hintWarning: {
+    color: '#B45309',
+  },
   multilineInput: {
     minHeight: 120,
   },
@@ -1532,5 +1622,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
     fontWeight: '600',
+  },
+  debugRow: {
+    marginTop: 6,
+    padding: 8,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+  },
+  debugText: {
+    fontSize: 11,
+    color: '#92400E',
   },
 });

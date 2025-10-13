@@ -391,18 +391,28 @@ export default function StockListScreen({ navigation }: Props) {
       return;
     }
 
-    const minimumQuantityValue = Number(createState.minimumQuantity.replace(',', '.'));
-    const initialQuantityValue = Number(createState.initialQuantity.replace(',', '.'));
+    // User inputs minimum/initial in kg (or L). Convert to grams for internal storage.
+    const minimumQuantityKg = Number(createState.minimumQuantity.replace(',', '.'));
+    const initialQuantityKg = Number(createState.initialQuantity.replace(',', '.'));
+    const minimumQuantityValue = Number.isFinite(minimumQuantityKg)
+      ? Math.round(minimumQuantityKg * 1000)
+      : NaN;
+    const initialQuantityValue = Number.isFinite(initialQuantityKg)
+      ? Math.round(initialQuantityKg * 1000)
+      : NaN;
 
     if (!Number.isFinite(minimumQuantityValue) || minimumQuantityValue <= 0) {
-      Alert.alert('Quantidade mínima inválida', 'Informe um valor maior que zero.');
+      Alert.alert(
+        'Quantidade mínima inválida',
+        'Informe um valor maior que zero (em kg).',
+      );
       return;
     }
 
     if (!Number.isFinite(initialQuantityValue) || initialQuantityValue < 0) {
       Alert.alert(
         'Quantidade inicial inválida',
-        'Informe um valor maior ou igual a zero para iniciar o estoque.',
+        'Informe um valor maior ou igual a zero para iniciar o estoque (em kg).',
       );
       return;
     }
@@ -433,6 +443,7 @@ export default function StockListScreen({ navigation }: Props) {
         visible: true,
         itemId: created.id,
         type: 'increment',
+        // The Adjust modal expects grams in the quantity input field.
         quantity: initialQuantityValue > 0 ? String(initialQuantityValue) : '',
         note: '',
         totalCost: '',

@@ -55,3 +55,12 @@ firebase-service-account.json
 # generated native folders
 /ios
 /android
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+*.swp
+*.swo
+*.json
+/tests/e2e/backup/

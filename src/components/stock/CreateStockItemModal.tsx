@@ -150,19 +150,22 @@ export function CreateStockItemModal({
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.label}>Quantidade mínima (g)</Text>
+            <Text style={styles.label}>Quantidade mínima (kg/L)</Text>
             <TextInput
               value={state.minimumQuantity}
               onChangeText={value => onChange({ ...state, minimumQuantity: value })}
               style={styles.input}
-              placeholder="500"
+              placeholder="0,5"
               keyboardType="numeric"
               editable={!disabled}
             />
+            <Text style={styles.hintTextSmall}>
+              Informe a quantidade mínima em quilogramas ou litros. Ex: 0,5 = 500 g/ml
+            </Text>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.label}>Quantidade inicial (g)</Text>
+            <Text style={styles.label}>Quantidade inicial (kg/L)</Text>
             <TextInput
               value={state.initialQuantity}
               onChangeText={value => onChange({ ...state, initialQuantity: value })}
@@ -171,6 +174,10 @@ export function CreateStockItemModal({
               keyboardType="numeric"
               editable={!disabled}
             />
+            <Text style={styles.hintTextSmall}>
+              Informe a quantidade inicial em quilogramas ou litros. Será convertida para
+              gramas internamente.
+            </Text>
           </View>
 
           <Pressable
@@ -310,5 +317,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  hintTextSmall: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 6,
   },
 });

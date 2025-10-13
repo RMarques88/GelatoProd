@@ -14,9 +14,10 @@ import {
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { RoleGate } from '@/components/security/RoleGate';
-import { useRecipes } from '@/hooks/data';
+import { useRecipes, useProducts, useStockItems } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import { unitCostPerGram } from '@/utils/financial';
 import { logError } from '@/utils/logger';
 import type { AppStackParamList } from '@/navigation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -36,6 +37,8 @@ export default function RecipesListScreen({ navigation }: Props) {
   const { recipes, isLoading, error, archive, restore, remove, retry } = useRecipes({
     includeInactive,
   });
+  const { products } = useProducts({ includeInactive: true });
+  const { stockItems } = useStockItems({ includeArchived: true });
 
   const sortedRecipes = useMemo(
     () =>
@@ -147,6 +150,60 @@ export default function RecipesListScreen({ navigation }: Props) {
       const disabled = Boolean(processingId && processingId !== item.id);
       const isProcessing = processingId === item.id;
       const ingredientCount = item.ingredients.length;
+      // Helper to compute total cost of a recipe (in BRL) by summing its ingredients.
+      const computeRecipeTotalCost = (recipeId: string, depth = 5): number => {
+        if (depth <= 0) return 0;
+        const recipe = recipes.find(r => r.id === recipeId);
+        if (!recipe) return 0;
+
+        return recipe.ingredients.reduce((s, ing) => {
+          if (ing.type === 'product') {
+            const prod = products.find(p => p.id === ing.referenceId);
+            if (!prod) return s;
+            const stockItem = stockItems.find(si => si.productId === prod.id);
+            const perGram = unitCostPerGram(stockItem ?? null);
+            if (prod.unitOfMeasure === 'UNITS') {
+              const raw =
+                stockItem?.averageUnitCostInBRL ?? stockItem?.highestUnitCostInBRL ?? 0;
+              return s + ing.quantityInGrams * raw; // units still multiply directly
+            }
+            return s + ing.quantityInGrams * perGram;
+          }
+
+          // Nested recipe: compute total cost of nested recipe, then scale to quantity
+          const nestedTotal = computeRecipeTotalCost(ing.referenceId, depth - 1);
+          const nestedRecipe = recipes.find(r => r.id === ing.referenceId);
+          const perGram =
+            nestedRecipe && nestedRecipe.yieldInGrams > 0
+              ? nestedTotal / nestedRecipe.yieldInGrams
+              : 0;
+          return s + perGram * ing.quantityInGrams;
+        }, 0);
+      };
+
+      const estimatedCost = item.ingredients.reduce((sum, ing) => {
+        if (ing.type === 'product') {
+          const prod = products.find(p => p.id === ing.referenceId);
+          if (!prod) return sum;
+          const stockItem = stockItems.find(si => si.productId === prod.id);
+          const perGram = unitCostPerGram(stockItem ?? null);
+          if (prod.unitOfMeasure === 'UNITS') {
+            const raw =
+              stockItem?.averageUnitCostInBRL ?? stockItem?.highestUnitCostInBRL ?? 0;
+            return sum + ing.quantityInGrams * raw;
+          }
+          return sum + ing.quantityInGrams * perGram;
+        }
+
+        // ingredient type is 'recipe'
+        const nestedTotal = computeRecipeTotalCost(ing.referenceId);
+        const nestedRecipe = recipes.find(r => r.id === ing.referenceId);
+        const perGram =
+          nestedRecipe && nestedRecipe.yieldInGrams > 0
+            ? nestedTotal / nestedRecipe.yieldInGrams
+            : 0;
+        return sum + perGram * ing.quantityInGrams;
+      }, 0);
 
       return (
         <View style={styles.card}>
@@ -177,6 +234,13 @@ export default function RecipesListScreen({ navigation }: Props) {
             </Text>
             <Text style={styles.metaValue}>
               Ingredientes: {ingredientCount} {ingredientCount === 1 ? 'item' : 'itens'}
+            </Text>
+          </View>
+
+          {/* Estimated cost */}
+          <View style={styles.estimatedCostRow}>
+            <Text style={styles.estimatedCostText}>
+              Custo estimado: R$ {estimatedCost.toFixed(2)}
             </Text>
           </View>
 
@@ -257,6 +321,9 @@ export default function RecipesListScreen({ navigation }: Props) {
       confirmRestore,
       handleEditPress,
       processingId,
+      products,
+      stockItems,
+      recipes,
     ],
   );
 
@@ -500,6 +567,20 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     textAlign: 'center',
     paddingHorizontal: 24,
+  },
+  estimatedCostRow: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  estimatedCostText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
   },
   filterRow: {
     flexDirection: 'row',

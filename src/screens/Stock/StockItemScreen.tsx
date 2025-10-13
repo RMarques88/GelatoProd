@@ -31,7 +31,6 @@ import { logError } from '@/utils/logger';
 import type { StockAlertStatus, StockMovement, StockMovementType } from '@/domain';
 import type { AppStackParamList } from '@/navigation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-
 type Props = NativeStackScreenProps<AppStackParamList, 'StockItem'>;
 
 type AdjustState = AdjustStockModalState & { stockItemId: string | null };
@@ -237,7 +236,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
     if (Number.isNaN(priceValue) || priceValue <= 0) {
       Alert.alert(
         'Preço inválido',
-        'Informe um preço válido maior que zero (R$ por grama).',
+        'Informe um preço válido maior que zero (R$ por kg).',
       );
       return;
     }
@@ -254,13 +253,9 @@ export default function StockItemScreen({ navigation, route }: Props) {
             if (!user) return;
             try {
               setIsSubmittingPrice(true);
-              // converter preço conforme unidade do produto para o formato interno (por grama / por unidade)
-              const unit = product?.unitOfMeasure ?? 'GRAMS';
-              let unitCostToStore = priceValue;
-              if (unit === 'KILOGRAMS' || unit === 'LITERS') {
-                // preço informado por kg/L -> dividir por 1000 para obter por g/ml
-                unitCostToStore = priceValue / 1000;
-              }
+              // The price entered in this modal is always R$ per kilogram.
+              // The Firestore service expects unitCostInBRL as R$ / kg.
+              const unitCostToStore = priceValue; // R$ per kg
 
               const { setManualPrice } = await import('@/services/firestore');
               await setManualPrice({
@@ -285,7 +280,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
         },
       ],
     );
-  }, [priceModalState, stockItem, user, closePriceModal, product?.unitOfMeasure]);
+  }, [priceModalState, stockItem, user, closePriceModal]);
 
   const handleResolveAlert = useCallback(async () => {
     if (!alert || !authorization.canAcknowledgeStockAlerts) {
@@ -544,7 +539,6 @@ export default function StockItemScreen({ navigation, route }: Props) {
         onConfirm={handleConfirmPriceRegister}
         isSubmitting={isSubmittingPrice}
         disabled={!authorization.canAdjustStock}
-        unitLabel={unitLabel}
       />
     </ScreenContainer>
   );

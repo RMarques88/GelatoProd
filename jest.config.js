@@ -21,4 +21,5 @@ module.exports = {
       { slowTestThresholdMs: 1500 }, // marca testes acima de 1.5s
     ],
   ],
+  globalTeardown: '<rootDir>/tests/e2e/globalTeardown.js',
 };

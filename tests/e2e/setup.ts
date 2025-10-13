@@ -44,6 +44,33 @@ const app = initializeApp({
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
+// Ensure admin SDK is cleaned up when the test process exits to avoid
+// open GRPC handles that make Jest hang with "Jest did not exit".
+async function shutdownFirebaseApp() {
+  try {
+    // Terminate Firestore to close GRPC connections used by the Admin SDK.
+    await db.terminate();
+    console.log('✅ Firestore client terminated');
+  } catch (err) {
+    console.warn('⚠️ Error shutting down Firebase Admin app:', err);
+  }
+}
+
+process.once('beforeExit', () => {
+  // best-effort cleanup
+  shutdownFirebaseApp().catch(() => {});
+});
+
+process.once('SIGINT', async () => {
+  await shutdownFirebaseApp();
+  process.exit(0);
+});
+
+process.once('SIGTERM', async () => {
+  await shutdownFirebaseApp();
+  process.exit(0);
+});
+
 // Helper para limpar coleções após os testes
 export async function clearCollection(collectionName: string) {
   const snapshot = await db.collection(collectionName).get();
