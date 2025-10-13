@@ -14,6 +14,8 @@
 import { listProducts } from '../../src/services/firestore/productsService';
 import { listStockItems } from '../../src/services/firestore/stockService';
 
+import { installVisualHooks } from './e2eVisualHelper';
+installVisualHooks();
 // Sample quantities to validate (in grams or ml). For UNITS these are treated
 // as "units" (so 1 unit -> 1).
 const SAMPLE_QUANTITIES = [100, 300, 650];
@@ -24,7 +26,11 @@ function perGramFromKg(kgValue: number | null | undefined) {
 }
 
 describe('Read-only price interpretation check', () => {
-  it('computes expected costs from stored stock prices (read-only)', async () => {
+  jest.setTimeout(10 * 60 * 1000); // allow time for human-observed 5s delays across many items
+
+  const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+  it('computes expected costs from stored stock prices (read-only) — verbose, 5s between items', async () => {
     // Use the service functions where possible to normalize fields (these are
     // simple reads that don't mutate anything).
 
@@ -69,6 +75,14 @@ describe('Read-only price interpretation check', () => {
       checks: UnitCheck[];
     }> = [];
 
+    // Summary counters for quick diagnosis
+    let zeroCostCount = 0;
+    let kgLikeCount = 0;
+    let gLikeCount = 0;
+    const zeroExamples: any[] = [];
+    const kgExamples: any[] = [];
+    const gExamples: any[] = [];
+
     for (const p of products) {
       const stock = stockByProduct.get(p.id);
       const checks: UnitCheck[] = [];
@@ -103,6 +117,19 @@ describe('Read-only price interpretation check', () => {
         }
       }
 
+      // Accumulate simple heuristics
+      const avg = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+      if (!avg || avg === 0) {
+        zeroCostCount++;
+        if (zeroExamples.length < 5) zeroExamples.push({ id: p.id, name: p.name, avg });
+      } else if (avg > 1) {
+        kgLikeCount++;
+        if (kgExamples.length < 5) kgExamples.push({ id: p.id, name: p.name, avg });
+      } else if (avg > 0 && avg < 0.01) {
+        gLikeCount++;
+        if (gExamples.length < 5) gExamples.push({ id: p.id, name: p.name, avg });
+      }
+
       report.push({
         productId: p.id,
         productName: p.name,
@@ -112,23 +139,45 @@ describe('Read-only price interpretation check', () => {
     }
 
     // Print a compact report — developers can inspect the output when running
-    // the test locally. Keep assertions minimal: ensure computations produced
-    // finite non-negative numbers where applicable.
+    // the test locally. We intentionally pause 5s between each product entry so
+    // a human can follow along in the terminal/UI output.
     let failures = 0;
 
     for (const item of report) {
-      // Log product header
-
+      // Log product header + expected vs derived values
       console.log(`Product ${item.productId} - ${item.productName} (${item.unit})`);
       for (const c of item.checks) {
-        console.log('  ', c);
-        if ('expectedTotal' in c && c.expectedTotal != null) {
-          if (!Number.isFinite(c.expectedTotal) || c.expectedTotal < 0) {
+        if ('expectedTotal' in c) {
+          console.log(
+            '   qty:',
+            c.quantity,
+            'expectedPerGram/perUnit:',
+            'perGram' in c ? c.perGram : c.expectedPerDisplayedUnit,
+            'expectedTotal:',
+            c.expectedTotal,
+          );
+          if (
+            c.expectedTotal != null &&
+            (!Number.isFinite(c.expectedTotal) || c.expectedTotal < 0)
+          )
             failures++;
-          }
+        } else {
+          console.log('   info:', c);
         }
       }
+      // Wait 5 seconds so the user can follow along in the terminal
+      // (useful for visual/manual verification during local runs)
+      await sleep(5000);
     }
+
+    // Print aggregated heuristics summary and examples
+    console.log('\n=== Summary heuristics ===');
+    console.log('zeroCostCount (avg/highest == 0):', zeroCostCount);
+    console.log('kgLikeCount (avg>1):', kgLikeCount);
+    console.log('gLikeCount (avg<0.01):', gLikeCount);
+    console.log('Examples zero:', zeroExamples);
+    console.log('Examples kg-like:', kgExamples);
+    console.log('Examples g-like:', gExamples);
 
     expect(failures).toBe(0);
   }, 30000);

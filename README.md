@@ -452,6 +452,55 @@ npx eas build --platform android --profile production-apk
 
 - Validam fluxos completos com dados reais no Firestore
 - Requerem `firebase-service-account.json` — veja [`E2E_TESTING_SETUP.md`](./E2E_TESTING_SETUP.md)
+
+### Fluxo E2E com backup interativo
+
+Adicionamos um script para executar os testes E2E destrutivos em cadeia com opção
+interativa de backup local antes de qualquer wipe no banco. O script:
+
+- Pergunta ao usuário se deseja criar backup local (Y/N).
+- Se o usuário concordar, executa `node ./scripts/backupFirestore.js` e grava cópias
+  JSON das coleções em `app/tests/e2e/backups/`.
+- Em seguida pede confirmação final (`type RUN`) para executar os testes destrutivos
+  (ex.: `seedAndValidateCosts.e2e.test.ts`).
+
+Como usar (PowerShell):
+
+```powershell
+Set-Location -LiteralPath 'C:\Dev\Gelateria V2\app'
+./scripts/run-e2e-chain.ps1
+```
+
+Avisos importantes:
+
+- O backup é opcional, mas fortemente recomendado — backups geram leitura e custo no
+  Firestore. Por isso movemos a criação dos backups para o script `run-e2e-chain.ps1`
+  (o teste destrutivo em si não gera backups automaticamente).
+- Nunca execute esse fluxo contra o banco de produção. Para segurança adicional o
+  `tests/e2e/setup.ts` impedirá a execução caso o `project_id` pareça ser de
+  produção a menos que `ALLOW_E2E_ON_PROD=true` esteja explicitamente definido.
+
+Variáveis de ambiente relevantes para E2E e visualização
+
+- `ALLOW_E2E_ON_PROD` (default `false`) — requer confirmação explícita para executar
+  testes destrutivos em projetos cujo project_id pareça de produção.
+- `E2E_VISUAL` (default `false`) — quando `true` ativa pausas de 5s entre testes e logs
+  visuais (útil para observação manual; não recomendado em CI).
+- `FORCE_JEST_EXIT` (default `false`) — quando `true` força `process.exit` na finalização
+  do `globalTeardown` como fallback para handles abertos no CI.
+
+Exemplo de fluxo seguro recomendado:
+
+1. Copie `.env.example` para `.env` e preencha com as credenciais do projeto de teste.
+2. Execute o script interativo:
+
+```powershell
+Set-Location -LiteralPath 'C:\Dev\Gelateria V2\app'
+./scripts/run-e2e-chain.ps1
+```
+
+3. Siga as instruções na tela para criar backup e, somente depois de confirmar, execute os testes destrutivos.
+
 - Localizados em `tests/e2e/`
 - **28 cenários de teste implementados:**
 

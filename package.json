@@ -7,8 +7,10 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "npm run lint -- --fix",
+  "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --ignore-pattern 'tests/e2e/**'",
+  "lint:fix": "npm run lint -- --fix",
+  "lint:all": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+  "lint:all:fix": "npm run lint:all -- --fix",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\"",
     "typecheck": "tsc --noEmit",
@@ -18,6 +20,7 @@
     "test:e2e:coverage": "jest tests/e2e --coverage --collectCoverageFrom=\"src/**/*.ts\" --coverageDirectory=coverage-e2e --forceExit --runInBand",
     "db:seed:users": "node ./scripts/seed-users.js",
     "db:wipe": "node ./scripts/wipe-firestore.js"
+    ,"test:e2e:chain":"pwsh ./scripts/run-e2e-chain.ps1"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.3",

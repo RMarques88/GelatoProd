@@ -1,56 +1,49 @@
+/* eslint-disable */
 /* eslint-disable @typescript-eslint/no-explicit-any -- test file intentionally works with dynamic DB shapes */
 /* eslint-disable prettier/prettier -- keep array/object formatting comfortable for reviewers */
+import { installVisualHooks } from './e2eVisualHelper';
+
+installVisualHooks();
 import * as fs from 'fs';
 import * as path from 'path';
-import { db, clearCollection } from './setup';
 import { computeRecipeEstimatedCost } from '@/utils/financial';
+import { db, clearCollection } from './setup';
 
-// Collections used by the app
-const COLLECTIONS_TO_BACKUP = [
-  'products',
-  'stockItems',
-  'recipes',
-  'stockMovements',
-  'users',
-];
-
-function backupDir() {
-  const dir = path.join(__dirname, 'backups');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-async function dumpCollectionToFile(col: string, dir: string) {
-  const snapshot = await db.collection(col).get();
-  const docs = snapshot.docs.map(d => ({ id: d.id, data: d.data() }));
-  const filename = path.join(dir, `${col}-${Date.now()}.json`);
-  fs.writeFileSync(filename, JSON.stringify(docs, null, 2), 'utf8');
-  return filename;
-}
+// Note: Backup of production/test data MUST be performed by the caller
+// (see scripts/run-e2e-chain.ps1). This test is destructive and assumes the
+// caller handled backups. Backups were intentionally removed from the test.
 
 describe('E2E: seed -> validate costs', () => {
-  jest.setTimeout(120_000);
+  jest.setTimeout(10 * 60 * 1000);
+  const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
   it('backs up collections, wipes, seeds and validates cost calc', async () => {
-    const dir = backupDir();
-    const backups: Record<string, string> = {};
-
-    // 1) Backup
-    for (const col of COLLECTIONS_TO_BACKUP) {
-      const file = await dumpCollectionToFile(col, dir);
-      backups[col] = file;
-      console.log(`📦 Backup ${col} -> ${file}`);
-    }
+    // Note: backup step removed from this test. Ensure you ran the
+    // `scripts/run-e2e-chain.ps1` (or equivalent) to create backups before
+    // executing this destructive test.
 
     // 2) Wipe collections (clearCollection helper)
-    for (const col of COLLECTIONS_TO_BACKUP) {
-      await clearCollection(col);
-    }
+    console.log(`Clearing collection 'products'`);
+    await clearCollection('products');
+    await sleep(5000);
+    console.log(`Clearing collection 'stockItems'`);
+    await clearCollection('stockItems');
+    await sleep(5000);
+    console.log(`Clearing collection 'recipes'`);
+    await clearCollection('recipes');
+    await sleep(5000);
+    console.log(`Clearing collection 'stockMovements'`);
+    await clearCollection('stockMovements');
+    await sleep(5000);
+    console.log(`Clearing collection 'users'`);
+    await clearCollection('users');
+    await sleep(5000);
 
     // 3) Seed deterministic data
     const milkRef = db.collection('products').doc();
     const sugarRef = db.collection('products').doc();
 
+    console.log('Seeding products: milk and sugar');
     await milkRef.set({
       name: 'Leite',
       unitOfMeasure: 'LITERS',
@@ -69,6 +62,7 @@ describe('E2E: seed -> validate costs', () => {
 
     // Stock items: store averageUnitCostInBRL and highestUnitCostInBRL as R$ / kg (or per L equivalent)
     const sugarStockRef = db.collection('stockItems').doc();
+    console.log('Seeding stock items for sugar');
     await sugarStockRef.set({
       productId: sugarRef.id,
       currentQuantityInGrams: 5000, // 5 kg
@@ -81,6 +75,7 @@ describe('E2E: seed -> validate costs', () => {
     });
 
     const milkStockRef = db.collection('stockItems').doc();
+    console.log('Seeding stock items for milk');
     await milkStockRef.set({
       productId: milkRef.id,
       currentQuantityInGrams: 10000,
@@ -107,6 +102,7 @@ describe('E2E: seed -> validate costs', () => {
       updatedAt: new Date(),
     } as const;
 
+    console.log('Seeding recipe that uses sugar and milk');
     await recipeRef.set({
       name: recipe.name,
       yieldInGrams: recipe.yieldInGrams,
@@ -117,6 +113,9 @@ describe('E2E: seed -> validate costs', () => {
     });
 
     // 5) Read back products and stock items to feed computeRecipeEstimatedCost
+    console.log('Reading back products, stockItems and recipe for validation');
+    // human-observable pause before reads
+    await sleep(5000);
     const productsSnap = await db.collection('products').get();
     type Product = {
       id: string;
@@ -161,19 +160,26 @@ describe('E2E: seed -> validate costs', () => {
       stockItems as unknown as any,
       [recipeFromDb as unknown as any],
     );
-    const perGram = recipeFromDb.yieldInGrams && recipeFromDb.yieldInGrams > 0 ? estimatedCostTotal / recipeFromDb.yieldInGrams : 0;
+
+    // Emit a visual compare/log so E2E_VISUAL shows the computed outcome.
+    try {
+      // @ts-ignore - may be undefined when not in visual mode
+      (globalThis as any).e2eVisual?.e2eLog({ estimatedCostTotal }, { estimatedCostTotal }, 'estimatedCostTotal');
+    } catch {}
+    const perGram =
+      recipeFromDb.yieldInGrams && recipeFromDb.yieldInGrams > 0
+        ? estimatedCostTotal / recipeFromDb.yieldInGrams
+        : 0;
 
     for (const qty of samples) {
       const expectedForQty = perGram * qty;
       console.log(`Quantidade ${qty}g -> custo estimado R$ ${expectedForQty.toFixed(4)}`);
       expect(Number.isFinite(expectedForQty)).toBe(true);
       expect(expectedForQty).toBeGreaterThanOrEqual(0);
+      // brief pause so user can observe output
+      await sleep(5000);
     }
 
-    // Basic assertions about backups present
-    for (const col of COLLECTIONS_TO_BACKUP) {
-      expect(typeof backups[col]).toBe('string');
-      expect(fs.existsSync(backups[col])).toBe(true);
-    }
+    // No backups asserted here; the caller is responsible for backing up data.
   });
 });

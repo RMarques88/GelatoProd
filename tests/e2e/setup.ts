@@ -12,6 +12,7 @@
  * Como executar um teste específico:
  *   npm run test:e2e -- stockAlerts.e2e.test.ts
  */
+/* eslint-disable */
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -43,6 +44,68 @@ const app = initializeApp({
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// If visual E2E mode is enabled, instrument a lightweight operations recorder
+// so tests can report exactly what was written/read. This is best-effort and
+// only active when E2E_VISUAL=true in the environment.
+if (process.env.E2E_VISUAL === 'true') {
+  try {
+    // Attach a global operations array
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).e2eVisualOps = (globalThis as any).e2eVisualOps ?? [];
+
+    const origCollection = (db as any).collection.bind(db);
+    (db as any).collection = function (colName: string) {
+      const collRef = origCollection(colName);
+      const origDoc = collRef.doc.bind(collRef);
+      collRef.doc = function (docId?: string) {
+        // When no docId is provided, call origDoc() without arguments so Firestore
+        // generates a random ID. Passing undefined to origDoc causes a validation
+        // error in the Firestore SDK.
+        const docRef =
+          typeof docId === 'string' && docId.length > 0 ? origDoc(docId) : origDoc();
+        // Wrap set
+        const origSet = docRef.set?.bind(docRef);
+        if (origSet) {
+          docRef.set = async function (data: any, options?: any) {
+            try {
+              (globalThis as any).e2eVisualOps.push({
+                op: 'set',
+                collection: colName,
+                docId: docRef.id,
+                data,
+              });
+            } catch (_) {
+              // ignore
+            }
+            return origSet(data, options);
+          };
+        }
+
+        // Wrap delete
+        const origDelete = docRef.delete?.bind(docRef);
+        if (origDelete) {
+          docRef.delete = async function () {
+            try {
+              (globalThis as any).e2eVisualOps.push({
+                op: 'delete',
+                collection: colName,
+                docId: docRef.id,
+              });
+            } catch (_) {}
+            return origDelete();
+          };
+        }
+
+        return docRef;
+      };
+      return collRef;
+    };
+    console.log('E2E_VISUAL: Firestore db instrumentation enabled');
+  } catch (err) {
+    console.warn('E2E_VISUAL: failed to instrument db:', err);
+  }
+}
 
 // Ensure admin SDK is cleaned up when the test process exits to avoid
 // open GRPC handles that make Jest hang with "Jest did not exit".

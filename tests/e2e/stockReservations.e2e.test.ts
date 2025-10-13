@@ -16,6 +16,9 @@
 
 import { FieldValue } from 'firebase-admin/firestore';
 import { db, clearCollection, createTestUser, deleteTestUser } from './setup';
+import { installVisualHooks } from './e2eVisualHelper';
+
+installVisualHooks();
 
 describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
   it('Deve validar sistema de reserva de estoque completo', async () => {

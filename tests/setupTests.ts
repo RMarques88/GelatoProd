@@ -52,3 +52,15 @@ beforeAll(() => {
 afterAll(() => {
   (console.warn as jest.Mock).mockRestore?.();
 });
+
+// Optionally install the interactive visual helper for E2E runs.
+(async () => {
+  try {
+    const visual = await import('./e2e/e2eVisualHelper');
+    if (visual && typeof visual.installVisualHooks === 'function') {
+      visual.installVisualHooks();
+    }
+  } catch {
+    // ignore — helper is optional
+  }
+})();

@@ -11,11 +11,20 @@ module.exports = async function globalTeardown() {
 
     if (adminApps.length === 0) {
       // Fallback: if no admin apps exist, try to read service account and initialize one to terminate.
-      const serviceAccountPath = path.join(__dirname, '..', '..', 'firebase-service-account.json');
+      const serviceAccountPath = path.join(
+        __dirname,
+        '..',
+        '..',
+        'firebase-service-account.json',
+      );
       if (!fs.existsSync(serviceAccountPath)) {
-        console.warn('globalTeardown: no firebase-service-account.json found, skipping Firestore terminate');
+        console.warn(
+          'globalTeardown: no firebase-service-account.json found, skipping Firestore terminate',
+        );
       } else {
-        const serviceAccountJSON = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+        const serviceAccountJSON = JSON.parse(
+          fs.readFileSync(serviceAccountPath, 'utf8'),
+        );
         const app = initializeApp({
           credential: cert(serviceAccountJSON),
           projectId: serviceAccountJSON.project_id,

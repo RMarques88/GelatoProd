@@ -11,6 +11,9 @@
  */
 
 import { db, clearCollection, createTestUser, deleteTestUser } from './setup';
+import { installVisualHooks } from './e2eVisualHelper';
+
+installVisualHooks();
 
 describe('E2E: Authorization & Permissions', () => {
   let gelatieUserId: string;

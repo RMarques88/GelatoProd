@@ -18,6 +18,9 @@
  */
 
 import { db, clearCollection, createTestUser, deleteTestUser } from './setup';
+import { installVisualHooks } from './e2eVisualHelper';
+
+installVisualHooks();
 
 interface PricingSettingsDoc {
   sellingPricePer100gInBRL?: number;

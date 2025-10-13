@@ -1,5 +1,49 @@
 module.exports = {
   root: true,
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    ecmaVersion: 2020,
+    sourceType: 'module',
+    project: ['./tsconfig.json'],
+  },
+  plugins: ['@typescript-eslint', 'prettier', 'import', 'react', 'react-hooks'],
+  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'plugin:react/recommended', 'plugin:prettier/recommended'],
+  env: {
+    node: true,
+    es6: true,
+    jest: true,
+  },
+  settings: {
+    react: {
+      version: 'detect',
+    },
+    'import/resolver': {
+      typescript: {},
+    },
+  },
+  overrides: [
+    {
+      files: ['tests/e2e/**', 'tests/**', 'scripts/**'],
+      parser: '@typescript-eslint/parser',
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: 'module',
+      },
+      env: {
+        jest: true,
+        node: true,
+      },
+      rules: {
+        // relax rules for E2E helpers that intentionally use dynamic shapes
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
+        'prettier/prettier': 'off',
+      },
+    },
+  ],
+};
+module.exports = {
+  root: true,
   env: {
     browser: true,
     es2023: true,

@@ -15,6 +15,9 @@
 
 import { FieldValue } from 'firebase-admin/firestore';
 import { db, clearCollection, createTestUser, deleteTestUser } from './setup';
+import { installVisualHooks } from './e2eVisualHelper';
+
+installVisualHooks();
 
 describe('E2E: Produção com Consumo de Estoque Completo', () => {
   let testUserId: string;

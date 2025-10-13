@@ -1,3 +1,7 @@
+import { installVisualHooks } from './e2eVisualHelper';
+
+installVisualHooks();
+
 /**
  * Teste E2E: Alertas de Estoque
  *
