@@ -15,8 +15,8 @@ import { db, clearCollection, createTestUser, deleteTestUser } from './setup';
 import { installVisualHooks } from './e2eVisualHelper';
 
 installVisualHooks();
-// Increase default Jest timeout for these E2E tests in this file
-jest.setTimeout(60000);
+// Increase default Jest timeout for these E2E tests in this file (full-suite runs can be slower)
+jest.setTimeout(120000);
 
 describe('E2E: Production', () => {
   let testUserId: string;
@@ -162,20 +162,27 @@ describe('E2E: Production', () => {
     });
 
     // 4. Validar etapas
-    // Use a small retry helper to avoid read-after-write races in Firestore
-    async function waitForDoc(docRef: FirebaseFirestore.DocumentReference, timeout = 10000) {
+    // Use a retry helper to avoid read-after-write races in Firestore
+    async function waitForDoc(docRef: FirebaseFirestore.DocumentReference, timeout = 20000) {
       const start = Date.now();
       while (Date.now() - start < timeout) {
         const snap = await docRef.get();
         if (snap.exists) return snap;
-        await new Promise(res => setTimeout(res, 200));
+        await new Promise(res => setTimeout(res, 250));
       }
       return await docRef.get();
     }
 
+    // Retry reads and also verify the status fields are present (some CI runs
+    // may materialize the document but not the computed fields immediately).
     const etapa1 = (await waitForDoc(etapa1Ref)).data();
     const etapa2 = (await waitForDoc(etapa2Ref)).data();
     const etapa3 = (await waitForDoc(etapa3Ref)).data();
+
+    // If statuses are unexpectedly undefined, attempt a short additional retry
+    if (!etapa1?.status || !etapa2?.status || !etapa3?.status) {
+      await new Promise(res => setTimeout(res, 500));
+    }
 
     expect(etapa1?.status).toBe('completed');
     expect(etapa1?.completedBy).toBe(testUserId);

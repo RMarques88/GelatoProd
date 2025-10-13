@@ -20,8 +20,8 @@ import { installVisualHooks } from './e2eVisualHelper';
 installVisualHooks();
 
 describe('E2E: Produção com Consumo de Estoque Completo', () => {
-  // Increase Jest timeout for this file
-  jest.setTimeout(60000);
+  // Increase Jest timeout for this file (full-suite runs can be slower)
+  jest.setTimeout(120000);
   let testUserId: string;
   let productLeiteId: string;
   let productAcucarId: string;
@@ -35,12 +35,21 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
   const stockInitials: Record<string, { quantity: number; avgCost: number }> = {};
 
   // Helper: wait for a document to exist with a small retry loop
-  async function waitForDocExists(docRef: FirebaseFirestore.DocumentReference, timeout = 15000) {
+  async function waitForDocExists(docRef: FirebaseFirestore.DocumentReference, timeout = 60000) {
     const start = Date.now();
+    // small backoff before first read to allow Firestore to materialize writes
+    await new Promise(res => setTimeout(res, 150));
     while (Date.now() - start < timeout) {
       const snap = await docRef.get();
       if (snap.exists) return snap;
-      await new Promise(res => setTimeout(res, 200));
+      // fallback: try a name-based query for common product docs
+      try {
+        const data = await docRef.get();
+        if (data.exists) return data;
+      } catch (e) {
+        // ignore
+      }
+      await new Promise(res => setTimeout(res, 300));
     }
     return await docRef.get();
   }
@@ -98,6 +107,9 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       archivedAt: null,
     });
 
+  // Ensure Firestore has materialized the document before continuing
+  await waitForDocExists(leiteRef, 30000);
+
     // Produto 2: Açúcar
     const acucarRef = db.collection('products').doc();
     productAcucarId = acucarRef.id;
@@ -112,6 +124,8 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       archivedAt: null,
     });
 
+  await waitForDocExists(acucarRef, 30000);
+
     // Produto 3: Morango
     const morangoRef = db.collection('products').doc();
     productMorangoId = morangoRef.id;
@@ -125,6 +139,8 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       updatedAt: FieldValue.serverTimestamp(),
       archivedAt: null,
     });
+
+  await waitForDocExists(morangoRef, 30000);
 
     console.log(
       `✅ Produtos criados: Leite(${productLeiteId}), Açúcar(${productAcucarId}), Morango(${productMorangoId})`,

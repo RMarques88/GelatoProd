@@ -333,8 +333,12 @@ describe('E2E: Recipes', () => {
       );
     }
 
-    // 4. Validar edição
-    const receitaAtualizada = (await receitaRef.get()).data();
+    // 4. Validar edição (with a short retry to avoid read-after-write races)
+    let receitaAtualizada = (await receitaRef.get()).data();
+    if (!receitaAtualizada?.description) {
+      await new Promise(res => setTimeout(res, 300));
+      receitaAtualizada = (await receitaRef.get()).data();
+    }
 
     expect(receitaAtualizada?.description).toBe('Versão melhorada com mais baunilha');
     expect(receitaAtualizada?.yieldInGrams).toBe(600);

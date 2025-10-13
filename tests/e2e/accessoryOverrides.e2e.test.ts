@@ -186,6 +186,21 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
       updatedAt: new Date(),
     });
 
+    // Wait for the override to become visible to subsequent reads. This avoids
+    // transient cases in full-suite runs where a read immediately after an
+    // update can still return the previous value.
+    async function waitForOverride(timeout = 5000) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        const s = await pricingRef.get();
+        const data = s.data() as PricingSettingsDoc | undefined;
+        if (data?.accessories?.overridesByRecipeId && data.accessories.overridesByRecipeId[recipeId]) return;
+        await new Promise(res => setTimeout(res, 200));
+      }
+    }
+
+    await waitForOverride();
+
     const marginOverride = await computeMargin();
     // Override: 2 * 0.5 * 10 = 10 => margem 100 - 10 = 90
     expect(marginOverride).toBeCloseTo(90, 2);
@@ -198,6 +213,19 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
       },
       updatedAt: new Date(),
     });
+    // Wait for revert to propagate
+    async function waitForRevert(timeout = 5000) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        const s = await pricingRef.get();
+        const data = s.data() as PricingSettingsDoc | undefined;
+        if (!data?.accessories?.overridesByRecipeId || Object.keys(data.accessories.overridesByRecipeId ?? {}).length === 0) return;
+        await new Promise(res => setTimeout(res, 200));
+      }
+    }
+
+    await waitForRevert();
+
     const marginReverted = await computeMargin();
     expect(marginReverted).toBeCloseTo(94, 2);
   }, 30000);

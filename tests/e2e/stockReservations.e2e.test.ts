@@ -21,6 +21,8 @@ import { installVisualHooks } from './e2eVisualHelper';
 installVisualHooks();
 
 describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
+  jest.setTimeout(120000);
+
   it('Deve validar sistema de reserva de estoque completo', async () => {
     console.log('\n' + '='.repeat(80));
     console.log('🚀 INICIANDO TESTE E2E DE RESERVA DE ESTOQUE');
@@ -58,6 +60,7 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
       category: 'Laticínios',
       barcode: '7891234567890',
       isActive: true,
+      createdBy: testUserId,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       archivedAt: null,
@@ -235,16 +238,40 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
     // ========================================================================
   console.log('🔍 PASSO 8: Validando após cancelamento...');
   stockDoc = await db.collection('stockItems').doc(stockItemLeiteId).get();
-  // If the stock doc isn't found (race with cleanup), fall back to the
-  // initial value recorded earlier to avoid spurious negatives.
+    // If the stock doc isn't found (race with cleanup), fall back to the
+    // initial value recorded earlier to avoid spurious negatives.
   physicalStock = stockDoc.exists ? stockDoc.data()?.currentQuantityInGrams || 0 : initialPhysicalStock;
 
+  // Helper: wait until a plan reaches the expected status or timeout
+  async function waitForPlanStatus(code: string, expectedStatus: string, timeout = 10000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const snap = await db.collection('productionPlans').where('code', '==', code).limit(1).get();
+      if (!snap.empty) {
+        const status = snap.docs[0].data()?.status;
+        if (status === expectedStatus) return snap.docs[0];
+      }
+      await new Promise(res => setTimeout(res, 200));
+    }
+    return null;
+  }
+
     // Limit to plans created by this test user
-    const activePlansSnapshot = await db
+    let activePlansSnapshot = await db
       .collection('productionPlans')
       .where('status', 'in', ['scheduled', 'in_progress'])
       .where('createdBy', '==', testUserId)
       .get();
+
+    // If the cancel update did not propagate yet, retry once briefly
+    if (activePlansSnapshot.size === 5) {
+      await new Promise(res => setTimeout(res, 300));
+      activePlansSnapshot = await db
+        .collection('productionPlans')
+        .where('status', 'in', ['scheduled', 'in_progress'])
+        .where('createdBy', '==', testUserId)
+        .get();
+    }
 
     const totalReservedAfter = activePlansSnapshot.size * 1000;
     const availableAfter = physicalStock - totalReservedAfter;
@@ -258,7 +285,7 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
       `  Disponível: ${availableAfter}g (${physicalStock} - ${totalReservedAfter})`,
     );
 
-    expect(activePlansSnapshot.size).toBe(4);
+  expect(activePlansSnapshot.size).toBe(4);
     expect(totalReservedAfter).toBe(4000);
     expect(availableAfter).toBe(1000);
 

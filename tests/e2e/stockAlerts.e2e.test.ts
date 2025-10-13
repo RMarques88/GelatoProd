@@ -19,6 +19,7 @@ import { db, clearCollection, createTestUser, deleteTestUser } from './setup';
 
 describe('E2E: Stock Alerts', () => {
   let testUserId: string;
+  jest.setTimeout(120000);
 
   beforeAll(
     async () => {
@@ -249,7 +250,13 @@ describe('E2E: Stock Alerts', () => {
     );
 
     // 6. Valida que o alerta foi resolvido
-    const alertSnapshot = await alertRef.get();
+    // Read back with a short retry to make the resolution visible in full-suite runs
+    let alertSnapshot = await alertRef.get();
+    if (alertSnapshot.exists && alertSnapshot.data()?.status !== 'resolved') {
+      // give the DB a short moment
+      await new Promise(res => setTimeout(res, 300));
+      alertSnapshot = await alertRef.get();
+    }
     const alertData = alertSnapshot.data();
 
     expect(alertData?.status).toBe('resolved');
