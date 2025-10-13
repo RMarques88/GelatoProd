@@ -163,7 +163,10 @@ describe('E2E: Production', () => {
 
     // 4. Validar etapas
     // Use a retry helper to avoid read-after-write races in Firestore
-    async function waitForDoc(docRef: FirebaseFirestore.DocumentReference, timeout = 20000) {
+    async function waitForDoc(
+      docRef: FirebaseFirestore.DocumentReference,
+      timeout = 20000,
+    ) {
       const start = Date.now();
       while (Date.now() - start < timeout) {
         const snap = await docRef.get();
@@ -175,13 +178,26 @@ describe('E2E: Production', () => {
 
     // Retry reads and also verify the status fields are present (some CI runs
     // may materialize the document but not the computed fields immediately).
-    const etapa1 = (await waitForDoc(etapa1Ref)).data();
-    const etapa2 = (await waitForDoc(etapa2Ref)).data();
-    const etapa3 = (await waitForDoc(etapa3Ref)).data();
+    let etapa1 = (await waitForDoc(etapa1Ref)).data();
+    let etapa2 = (await waitForDoc(etapa2Ref)).data();
+    let etapa3 = (await waitForDoc(etapa3Ref)).data();
 
-    // If statuses are unexpectedly undefined, attempt a short additional retry
-    if (!etapa1?.status || !etapa2?.status || !etapa3?.status) {
-      await new Promise(res => setTimeout(res, 500));
+    // If statuses are unexpectedly undefined, attempt short retries to allow
+    // Firestore to populate computed/derived fields in full-suite runs.
+    const maxRetries = 5;
+    let retries = 0;
+    while (
+      retries < maxRetries &&
+      (!etapa1?.status || !etapa2?.status || !etapa3?.status)
+    ) {
+      await new Promise(res => setTimeout(res, 300));
+      const e1 = (await etapa1Ref.get()).data();
+      const e2 = (await etapa2Ref.get()).data();
+      const e3 = (await etapa3Ref.get()).data();
+      if (e1) etapa1 = { ...(etapa1 || {}), ...e1 };
+      if (e2) etapa2 = { ...(etapa2 || {}), ...e2 };
+      if (e3) etapa3 = { ...(etapa3 || {}), ...e3 };
+      retries++;
     }
 
     expect(etapa1?.status).toBe('completed');

@@ -194,7 +194,10 @@ export function resetFirestoreMocks() {
 
   addDoc.mockImplementation(async () => ({ __type: 'docRef' }));
   getDoc.mockImplementation(async () => createSnapshot('doc-id', undefined));
-  getDocs.mockImplementation(async () => ({ docs: [] as Array<SnapshotData<unknown>>, empty: true }));
+  getDocs.mockImplementation(async () => ({
+    docs: [] as Array<SnapshotData<unknown>>,
+    empty: true,
+  }));
   updateDoc.mockImplementation(async () => {});
   deleteDoc.mockImplementation(async () => {});
   runTransaction.mockImplementation(

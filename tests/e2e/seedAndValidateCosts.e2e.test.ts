@@ -164,7 +164,11 @@ describe('E2E: seed -> validate costs', () => {
     // Emit a visual compare/log so E2E_VISUAL shows the computed outcome.
     try {
       // @ts-ignore - may be undefined when not in visual mode
-      (globalThis as any).e2eVisual?.e2eLog({ estimatedCostTotal }, { estimatedCostTotal }, 'estimatedCostTotal');
+      (globalThis as any).e2eVisual?.e2eLog(
+        { estimatedCostTotal },
+        { estimatedCostTotal },
+        'estimatedCostTotal',
+      );
     } catch {}
     const perGram =
       recipeFromDb.yieldInGrams && recipeFromDb.yieldInGrams > 0

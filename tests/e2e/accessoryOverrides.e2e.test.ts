@@ -194,7 +194,11 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
       while (Date.now() - start < timeout) {
         const s = await pricingRef.get();
         const data = s.data() as PricingSettingsDoc | undefined;
-        if (data?.accessories?.overridesByRecipeId && data.accessories.overridesByRecipeId[recipeId]) return;
+        if (
+          data?.accessories?.overridesByRecipeId &&
+          data.accessories.overridesByRecipeId[recipeId]
+        )
+          return;
         await new Promise(res => setTimeout(res, 200));
       }
     }
@@ -219,7 +223,11 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
       while (Date.now() - start < timeout) {
         const s = await pricingRef.get();
         const data = s.data() as PricingSettingsDoc | undefined;
-        if (!data?.accessories?.overridesByRecipeId || Object.keys(data.accessories.overridesByRecipeId ?? {}).length === 0) return;
+        if (
+          !data?.accessories?.overridesByRecipeId ||
+          Object.keys(data.accessories.overridesByRecipeId ?? {}).length === 0
+        )
+          return;
         await new Promise(res => setTimeout(res, 200));
       }
     }

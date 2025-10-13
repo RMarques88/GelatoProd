@@ -235,9 +235,9 @@ app/
    ```
 
 3. **Configurar variáveis**
-  - Copie `.env.example` para `.env` (arquivo não versionado).
-  - Preencha com as credenciais do projeto Firebase. Valores com prefixo `EXPO_PUBLIC_` ficam disponíveis ao bundle.
 
+- Copie `.env.example` para `.env` (arquivo não versionado).
+- Preencha com as credenciais do projeto Firebase. Valores com prefixo `EXPO_PUBLIC_` ficam disponíveis ao bundle.
 
 Principais artefatos e scripts relacionados aos E2E
 
@@ -267,15 +267,15 @@ Como rodar os E2E (não-destrutivos)
 1. Configure `firebase-service-account.json` no diretório `app/` (se você quiser que os testes leiam/escrevam via Admin). Alguns testes read-only podem ser executados sem credenciais e irão pular com aviso.
 2. Instale dependências:
 
-  ```powershell
-  npm install
-  ```
+```powershell
+npm install
+```
 
 3. Rodar apenas os testes não-destrutivos (ex.: diagnóstico read-only):
 
-  ```powershell
-  npm run test:e2e -- tests/e2e/readOnlyPriceCheck.e2e.test.ts -- --runInBand --detectOpenHandles
-  ```
+```powershell
+npm run test:e2e -- tests/e2e/readOnlyPriceCheck.e2e.test.ts -- --runInBand --detectOpenHandles
+```
 
 Fluxo destrutivo seguro (backup obrigatório)
 
@@ -283,27 +283,28 @@ Este projeto separa o backup do teste destrutivo por segurança. Antes de execut
 
 1. Gerar backup local (PowerShell):
 
-  ```powershell
-  node ./scripts/backupFirestore.js
-  # ou usar o runner interativo abaixo
-  ```
+```powershell
+node ./scripts/backupFirestore.js
+# ou usar o runner interativo abaixo
+```
 
 2. Rodar o fluxo interativo (executa backup e pede confirmação):
 
-  ```powershell
-  ./scripts/run-e2e-chain.ps1
-  ```
+```powershell
+./scripts/run-e2e-chain.ps1
+```
 
-  O script irá:
-  - pedir confirmação textual para prosseguir;
-  - salvar backup em `tests/e2e/backups/` com timestamp;
-  - definir `ALLOW_E2E_ON_PROD=true` temporariamente e invocar o Jest apenas para o teste destrutivo selecionado.
+O script irá:
+
+- pedir confirmação textual para prosseguir;
+- salvar backup em `tests/e2e/backups/` com timestamp;
+- definir `ALLOW_E2E_ON_PROD=true` temporariamente e invocar o Jest apenas para o teste destrutivo selecionado.
 
 3. Se preferir rodar manualmente (com backup já criado):
 
-  ```powershell
-  $env:ALLOW_E2E_ON_PROD = 'true'; npm run test:e2e -- tests/e2e/seedAndValidateCosts.e2e.test.ts -- --runInBand --detectOpenHandles
-  ```
+```powershell
+$env:ALLOW_E2E_ON_PROD = 'true'; npm run test:e2e -- tests/e2e/seedAndValidateCosts.e2e.test.ts -- --runInBand --detectOpenHandles
+```
 
 Variáveis de ambiente relevantes
 
@@ -332,7 +333,6 @@ Avisos e boas práticas
 - Revise o backup em `tests/e2e/backups/` antes de restaurar ou manipular dados de produção.
 - Modo visual é para inspeção humana — evita automatizar esse modo em CI.
 
-
 4. **Executar o app**
 
    ```powershell
@@ -342,8 +342,9 @@ Avisos e boas práticas
    Abra o app via Expo Go (QR code) ou use `npm run android` para disparar direto no emulador.
 
 5. **Configurar testes E2E** (opcional, mas recomendado)
-  - Baixe o `firebase-service-account.json` do Firebase Console (veja [`E2E_TESTING_SETUP.md`](./E2E_TESTING_SETUP.md)).
-  - Salve o arquivo na raiz de `/app` (já está no `.gitignore`).
+
+- Baixe o `firebase-service-account.json` do Firebase Console (veja [`E2E_TESTING_SETUP.md`](./E2E_TESTING_SETUP.md)).
+- Salve o arquivo na raiz de `/app` (já está no `.gitignore`).
 
 ## 🧪 Testes End-to-End — detalhes, segurança e execução
 

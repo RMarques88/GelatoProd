@@ -35,7 +35,10 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
   const stockInitials: Record<string, { quantity: number; avgCost: number }> = {};
 
   // Helper: wait for a document to exist with a small retry loop
-  async function waitForDocExists(docRef: FirebaseFirestore.DocumentReference, timeout = 60000) {
+  async function waitForDocExists(
+    docRef: FirebaseFirestore.DocumentReference,
+    timeout = 60000,
+  ) {
     const start = Date.now();
     // small backoff before first read to allow Firestore to materialize writes
     await new Promise(res => setTimeout(res, 150));
@@ -107,8 +110,8 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       archivedAt: null,
     });
 
-  // Ensure Firestore has materialized the document before continuing
-  await waitForDocExists(leiteRef, 30000);
+    // Ensure Firestore has materialized the document before continuing
+    await waitForDocExists(leiteRef, 30000);
 
     // Produto 2: Açúcar
     const acucarRef = db.collection('products').doc();
@@ -124,7 +127,7 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       archivedAt: null,
     });
 
-  await waitForDocExists(acucarRef, 30000);
+    await waitForDocExists(acucarRef, 30000);
 
     // Produto 3: Morango
     const morangoRef = db.collection('products').doc();
@@ -140,30 +143,37 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       archivedAt: null,
     });
 
-  await waitForDocExists(morangoRef, 30000);
+    await waitForDocExists(morangoRef, 30000);
 
     console.log(
       `✅ Produtos criados: Leite(${productLeiteId}), Açúcar(${productAcucarId}), Morango(${productMorangoId})`,
     );
 
     // Validar
-  let leiteDoc = await waitForDocExists(leiteRef, 30000);
-  // If the direct doc read failed, try a name-based query with retries to handle
-  // possible parallel cleanups recreating documents with different IDs.
-  if (!leiteDoc.exists) {
-    const startQ = Date.now();
-    while (Date.now() - startQ < 30000) {
-      const byName = await db.collection('products').where('name', '==', 'Leite Integral').limit(1).get();
-      if (!byName.empty) {
-        leiteDoc = byName.docs[0];
-        break;
+    let leiteDoc = await waitForDocExists(leiteRef, 30000);
+    // If the direct doc read failed, try a name-based query with retries to handle
+    // possible parallel cleanups recreating documents with different IDs.
+    if (!leiteDoc.exists) {
+      const startQ = Date.now();
+      while (Date.now() - startQ < 30000) {
+        const byName = await db
+          .collection('products')
+          .where('name', '==', 'Leite Integral')
+          .limit(1)
+          .get();
+        if (!byName.empty) {
+          // Prefer documents created by this test user when possible
+          const owned =
+            byName.docs.find(d => d.data()?.createdBy === testUserId) || byName.docs[0];
+          leiteDoc = owned;
+          break;
+        }
+        await new Promise(res => setTimeout(res, 200));
       }
-      await new Promise(res => setTimeout(res, 200));
     }
-  }
 
-  expect(leiteDoc.exists).toBe(true);
-  expect(leiteDoc.data()?.name).toBe('Leite Integral');
+    expect(leiteDoc.exists).toBe(true);
+    expect(leiteDoc.data()?.name).toBe('Leite Integral');
   });
 
   it('2. Deve registrar estoque com custo para cada produto', async () => {
@@ -172,7 +182,7 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     // Estoque de Leite: 5.000g a R$ 0,006/g (R$ 6,00/kg)
     const stockLeiteRef = db.collection('stockItems').doc();
     stockItemLeiteId = stockLeiteRef.id;
-  stockItemMap[productLeiteId] = stockItemLeiteId;
+    stockItemMap[productLeiteId] = stockItemLeiteId;
     await stockLeiteRef.set({
       productId: productLeiteId,
       createdBy: testUserId,
@@ -186,8 +196,8 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     });
     // record initial stock to allow recovery if a doc is missing later
     stockInitials[stockItemLeiteId] = { quantity: 5000, avgCost: 6.0 };
-  // Wait for the stock doc to exist (prevent later read races)
-  await waitForDocExists(stockLeiteRef, 30000);
+    // Wait for the stock doc to exist (prevent later read races)
+    await waitForDocExists(stockLeiteRef, 30000);
     // Persist a mapping so consumption step can reliably find this stock item
     await db.collection('e2eStockMap').doc(productLeiteId).set({
       stockItemId: stockItemLeiteId,
@@ -199,7 +209,7 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     // Estoque de Açúcar: 3.000g a R$ 0,004/g (R$ 4,00/kg)
     const stockAcucarRef = db.collection('stockItems').doc();
     stockItemAcucarId = stockAcucarRef.id;
-  stockItemMap[productAcucarId] = stockItemAcucarId;
+    stockItemMap[productAcucarId] = stockItemAcucarId;
     await stockAcucarRef.set({
       productId: productAcucarId,
       currentQuantityInGrams: 3000,
@@ -211,7 +221,7 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       updatedAt: FieldValue.serverTimestamp(),
     });
     stockInitials[stockItemAcucarId] = { quantity: 3000, avgCost: 4.0 };
-  await waitForDocExists(stockAcucarRef, 30000);
+    await waitForDocExists(stockAcucarRef, 30000);
     await db.collection('e2eStockMap').doc(productAcucarId).set({
       stockItemId: stockItemAcucarId,
       productId: productAcucarId,
@@ -222,7 +232,7 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     // Estoque de Morango: 2.000g a R$ 0,015/g (R$ 15,00/kg)
     const stockMorangoRef = db.collection('stockItems').doc();
     stockItemMorangoId = stockMorangoRef.id;
-  stockItemMap[productMorangoId] = stockItemMorangoId;
+    stockItemMap[productMorangoId] = stockItemMorangoId;
     await stockMorangoRef.set({
       productId: productMorangoId,
       currentQuantityInGrams: 2000,
@@ -234,7 +244,7 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       updatedAt: FieldValue.serverTimestamp(),
     });
     stockInitials[stockItemMorangoId] = { quantity: 2000, avgCost: 15.0 };
-  await waitForDocExists(stockMorangoRef, 30000);
+    await waitForDocExists(stockMorangoRef, 30000);
     await db.collection('e2eStockMap').doc(productMorangoId).set({
       stockItemId: stockItemMorangoId,
       productId: productMorangoId,
@@ -300,9 +310,9 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     console.log('  Custo estimado: R$ 8,30/kg');
 
     // Validar
-  const recipeDoc = await waitForDocExists(recipeRef);
-  expect(recipeDoc.exists).toBe(true);
-  expect(recipeDoc.data()?.ingredients).toHaveLength(3);
+    const recipeDoc = await waitForDocExists(recipeRef);
+    expect(recipeDoc.exists).toBe(true);
+    expect(recipeDoc.data()?.ingredients).toHaveLength(3);
   });
 
   it('4. Deve criar plano de produção para 2kg', async () => {
@@ -310,10 +320,34 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
 
     const planRef = db.collection('productionPlans').doc();
     planId = planRef.id;
-      // Try update, but be resilient if the plan doc was removed/recreated in
-      // a parallel operation. Fall back to set with merge if update fails.
-      try {
-        await planRef.set({
+    // Try update, but be resilient if the plan doc was removed/recreated in
+    // a parallel operation. Fall back to set with merge if update fails.
+    try {
+      await planRef.set({
+        code: 'E2E-TEST-001',
+        recipeId,
+        recipeName: 'Gelato de Morango',
+        quantityInUnits: 2000, // 2kg
+        unitOfMeasure: 'GRAMS',
+        scheduledFor: FieldValue.serverTimestamp(),
+        status: 'pending',
+        estimatedProductionCostInBRL: 16.6, // 2 * 8.30
+        actualProductionCostInBRL: null,
+        actualQuantityInUnits: null,
+        startedAt: null,
+        completedAt: null,
+        createdBy: testUserId,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        archivedAt: null,
+      });
+    } catch (err) {
+      console.log(
+        'WARN: failed to create production plan, attempting set with merge',
+        err && (err as any).message ? (err as any).message : err,
+      );
+      await planRef.set(
+        {
           code: 'E2E-TEST-001',
           recipeId,
           recipeName: 'Gelato de Morango',
@@ -330,34 +364,10 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
           archivedAt: null,
-        });
-      } catch (err) {
-        console.log(
-          'WARN: failed to create production plan, attempting set with merge',
-          err && (err as any).message ? (err as any).message : err,
-        );
-        await planRef.set(
-          {
-            code: 'E2E-TEST-001',
-            recipeId,
-            recipeName: 'Gelato de Morango',
-            quantityInUnits: 2000, // 2kg
-            unitOfMeasure: 'GRAMS',
-            scheduledFor: FieldValue.serverTimestamp(),
-            status: 'pending',
-            estimatedProductionCostInBRL: 16.6, // 2 * 8.30
-            actualProductionCostInBRL: null,
-            actualQuantityInUnits: null,
-            startedAt: null,
-            completedAt: null,
-            createdBy: testUserId,
-            createdAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-            archivedAt: null,
-          },
-          { merge: true },
-        );
-      }
+        },
+        { merge: true },
+      );
+    }
 
     console.log(`✅ Plano criado: ${planId}`);
     console.log('  Quantidade: 2.000g (2kg)');
@@ -368,9 +378,9 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     console.log('  Custo estimado total: R$ 16,60');
 
     // Validar
-  const planDoc = await waitForDocExists(planRef);
-  expect(planDoc.exists).toBe(true);
-  expect(planDoc.data()?.quantityInUnits).toBe(2000);
+    const planDoc = await waitForDocExists(planRef);
+    expect(planDoc.exists).toBe(true);
+    expect(planDoc.data()?.quantityInUnits).toBe(2000);
   });
 
   it('5. Deve concluir produção e dar baixa automática no estoque', async () => {
@@ -395,16 +405,27 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     for (const ingredient of recipe?.ingredients || []) {
       const quantityNeeded = ingredient.quantityInGrams * batchFactor;
 
-      console.log(`DEBUG: processing ingredient ${ingredient.productId}, need ${quantityNeeded}g`);
+      console.log(
+        `DEBUG: processing ingredient ${ingredient.productId}, need ${quantityNeeded}g`,
+      );
 
       // Buscar item de estoque — preferir the e2eStockMap created earlier
       let stockDoc = null;
       try {
-        const mapSnap = await db.collection('e2eStockMap').doc(ingredient.productId).get();
+        const mapSnap = await db
+          .collection('e2eStockMap')
+          .doc(ingredient.productId)
+          .get();
         if (mapSnap.exists) {
           const mappedId = mapSnap.data()?.stockItemId;
           const mappingOwner = mapSnap.data()?.createdBy;
-          console.log('DEBUG: e2eStockMap mappedId for product', ingredient.productId, mappedId, 'owner', mappingOwner);
+          console.log(
+            'DEBUG: e2eStockMap mappedId for product',
+            ingredient.productId,
+            mappedId,
+            'owner',
+            mappingOwner,
+          );
           // Only trust mappings created by this test user to avoid cross-test contamination
           if (mappingOwner === testUserId && mappedId) {
             const docSnap = await db.collection('stockItems').doc(mappedId).get();
@@ -423,7 +444,11 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
           .where('createdBy', '==', testUserId)
           .get();
 
-        console.log('DEBUG: stockSnapshot.size for product', ingredient.productId, stockSnapshot.size);
+        console.log(
+          'DEBUG: stockSnapshot.size for product',
+          ingredient.productId,
+          stockSnapshot.size,
+        );
         if (!stockSnapshot.empty) {
           stockDoc = stockSnapshot.docs[0];
         }
@@ -432,10 +457,15 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       if (stockDoc) {
         console.log('DEBUG: using stockDoc.id', stockDoc.id, 'data', stockDoc.data());
         const stockData = stockDoc.data() || {};
-        const currentQty = stockData.currentQuantityInGrams ?? stockInitials[stockDoc.id]?.quantity ?? 0;
+        const currentQty =
+          stockData.currentQuantityInGrams ?? stockInitials[stockDoc.id]?.quantity ?? 0;
         const newQty = currentQty - quantityNeeded;
         // stored unitCost is R$ per kilogram in Firestore; convert to per-gram
-        const unitCost = stockData.averageUnitCostInBRL ?? stockData.highestUnitCostInBRL ?? stockInitials[stockDoc.id]?.avgCost ?? 0; // R$ / kg
+        const unitCost =
+          stockData.averageUnitCostInBRL ??
+          stockData.highestUnitCostInBRL ??
+          stockInitials[stockDoc.id]?.avgCost ??
+          0; // R$ / kg
         const totalCost = (unitCost / 1000) * quantityNeeded; // R$
 
         // Atualizar estoque (se o doc existir; se não, recriar a partir do initial)
@@ -448,21 +478,23 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
           // If update failed because the doc disappeared, recreate it from the recorded initial
           const initial = stockInitials[stockDoc.id];
           if (initial) {
-            await db.collection('stockItems').doc(stockDoc.id).set({
-              productId: ingredient.productId,
-              currentQuantityInGrams: initial.quantity - quantityNeeded,
-              minimumQuantityInGrams: Math.max(10, Math.floor(initial.quantity * 0.1)),
-              averageUnitCostInBRL: initial.avgCost,
-              highestUnitCostInBRL: initial.avgCost,
-              lastMovementId: null,
-              createdAt: FieldValue.serverTimestamp(),
-              updatedAt: FieldValue.serverTimestamp(),
-            });
+            await db
+              .collection('stockItems')
+              .doc(stockDoc.id)
+              .set({
+                productId: ingredient.productId,
+                currentQuantityInGrams: initial.quantity - quantityNeeded,
+                minimumQuantityInGrams: Math.max(10, Math.floor(initial.quantity * 0.1)),
+                averageUnitCostInBRL: initial.avgCost,
+                highestUnitCostInBRL: initial.avgCost,
+                lastMovementId: null,
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
+              });
           } else {
             throw err;
           }
         }
-
 
         // Criar movimentação
         const movementRef = db.collection('stockMovements').doc();
@@ -506,7 +538,10 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
         updatedAt: FieldValue.serverTimestamp(),
       });
     } catch (err) {
-      console.log('WARN: failed to update production plan, attempting set with merge', err && (err as any).message ? (err as any).message : err);
+      console.log(
+        'WARN: failed to update production plan, attempting set with merge',
+        err && (err as any).message ? (err as any).message : err,
+      );
       await db.collection('productionPlans').doc(planId).set(
         {
           status: 'completed',
@@ -640,4 +675,4 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     console.log('\n🎉 Sistema de produção funcionando 100%!');
     console.log('='.repeat(80) + '\n');
   });
-  });
+});

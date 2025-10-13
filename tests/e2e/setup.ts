@@ -27,7 +27,12 @@ interface ServiceAccountJSON {
   [key: string]: unknown;
 }
 
-const serviceAccountPath = path.join(__dirname, '..', '..', 'firebase-service-account.json');
+const serviceAccountPath = path.join(
+  __dirname,
+  '..',
+  '..',
+  'firebase-service-account.json',
+);
 const serviceAccountJSON = JSON.parse(
   fs.readFileSync(serviceAccountPath, 'utf8'),
 ) as ServiceAccountJSON;

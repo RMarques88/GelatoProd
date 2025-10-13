@@ -87,7 +87,12 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
     console.log(`✅ Estoque: 5.000g (${stockItemLeiteId})\n`);
     // Debug: verify document was written and can be read back
     const verifyStock = await db.collection('stockItems').doc(stockItemLeiteId).get();
-    console.log('DEBUG: stock doc exists?', verifyStock.exists, 'data:', verifyStock.data());
+    console.log(
+      'DEBUG: stock doc exists?',
+      verifyStock.exists,
+      'data:',
+      verifyStock.data(),
+    );
 
     // ========================================================================
     // PASSO 3: Criar receita (1kg gelato = 1kg leite)
@@ -116,26 +121,29 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
     });
     console.log(`✅ Receita: ${recipeId} (1kg gelato = 1kg leite)\n`);
 
-  // ========================================================================
-  // PASSO 4: Verificar estoque inicial
-  // ========================================================================
-  console.log('🔍 PASSO 4: Verificando estoque inicial...');
-  // Read with retry to avoid transient read-after-write races
-  async function waitForDoc(ref: FirebaseFirestore.DocumentReference, timeout = 10000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-      const s = await ref.get();
-      if (s.exists) return s;
-      await new Promise(res => setTimeout(res, 200));
+    // ========================================================================
+    // PASSO 4: Verificar estoque inicial
+    // ========================================================================
+    console.log('🔍 PASSO 4: Verificando estoque inicial...');
+    // Read with retry to avoid transient read-after-write races
+    async function waitForDoc(ref: FirebaseFirestore.DocumentReference, timeout = 10000) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        const s = await ref.get();
+        if (s.exists) return s;
+        await new Promise(res => setTimeout(res, 200));
+      }
+      return await ref.get();
     }
-    return await ref.get();
-  }
 
-  let stockDoc = await waitForDoc(db.collection('stockItems').doc(stockItemLeiteId), 15000);
-  let physicalStock = stockDoc.data()?.currentQuantityInGrams || 0;
-  // Persist the initial physical stock so later validations can fall back
-  // if the document is temporarily unavailable due to parallel cleanup.
-  const initialPhysicalStock = physicalStock;
+    let stockDoc = await waitForDoc(
+      db.collection('stockItems').doc(stockItemLeiteId),
+      15000,
+    );
+    let physicalStock = stockDoc.data()?.currentQuantityInGrams || 0;
+    // Persist the initial physical stock so later validations can fall back
+    // if the document is temporarily unavailable due to parallel cleanup.
+    const initialPhysicalStock = physicalStock;
     // Scope to this test's user to avoid seeing plans created by other tests
     let plansSnapshot = await db
       .collection('productionPlans')
@@ -236,25 +244,35 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
     // ========================================================================
     // PASSO 8: Validar após cancelamento (disponível = 1kg)
     // ========================================================================
-  console.log('🔍 PASSO 8: Validando após cancelamento...');
-  stockDoc = await db.collection('stockItems').doc(stockItemLeiteId).get();
+    console.log('🔍 PASSO 8: Validando após cancelamento...');
+    stockDoc = await db.collection('stockItems').doc(stockItemLeiteId).get();
     // If the stock doc isn't found (race with cleanup), fall back to the
     // initial value recorded earlier to avoid spurious negatives.
-  physicalStock = stockDoc.exists ? stockDoc.data()?.currentQuantityInGrams || 0 : initialPhysicalStock;
+    physicalStock = stockDoc.exists
+      ? stockDoc.data()?.currentQuantityInGrams || 0
+      : initialPhysicalStock;
 
-  // Helper: wait until a plan reaches the expected status or timeout
-  async function waitForPlanStatus(code: string, expectedStatus: string, timeout = 10000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-      const snap = await db.collection('productionPlans').where('code', '==', code).limit(1).get();
-      if (!snap.empty) {
-        const status = snap.docs[0].data()?.status;
-        if (status === expectedStatus) return snap.docs[0];
+    // Helper: wait until a plan reaches the expected status or timeout
+    async function waitForPlanStatus(
+      code: string,
+      expectedStatus: string,
+      timeout = 10000,
+    ) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        const snap = await db
+          .collection('productionPlans')
+          .where('code', '==', code)
+          .limit(1)
+          .get();
+        if (!snap.empty) {
+          const status = snap.docs[0].data()?.status;
+          if (status === expectedStatus) return snap.docs[0];
+        }
+        await new Promise(res => setTimeout(res, 200));
       }
-      await new Promise(res => setTimeout(res, 200));
+      return null;
     }
-    return null;
-  }
 
     // Limit to plans created by this test user
     let activePlansSnapshot = await db
@@ -285,7 +303,7 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
       `  Disponível: ${availableAfter}g (${physicalStock} - ${totalReservedAfter})`,
     );
 
-  expect(activePlansSnapshot.size).toBe(4);
+    expect(activePlansSnapshot.size).toBe(4);
     expect(totalReservedAfter).toBe(4000);
     expect(availableAfter).toBe(1000);
 
