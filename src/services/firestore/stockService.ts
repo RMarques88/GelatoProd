@@ -633,6 +633,72 @@ export async function adjustStockLevel(options: {
   return mapStockMovement(createdMovement);
 }
 
+// Registra manualmente um novo preço de custo para o item de estoque.
+// Esta operação sobrescreve o preço médio atual e, se for maior, atualiza o highestUnitCostInBRL.
+// Além disso, cria uma movimentação do tipo 'adjustment' para deixar um rastro da alteração,
+// mas não altera a quantidade do estoque.
+export async function setManualPrice(options: {
+  stockItemId: string;
+  unitCostInBRL: number;
+  performedBy: string;
+  note?: string;
+}): Promise<StockMovement> {
+  const db = getDb();
+  const itemRef = getDocument<StockItemDocument>(
+    db,
+    `${STOCK_ITEMS_COLLECTION}/${options.stockItemId}`,
+  );
+  const movementsCollection = getCollection<StockMovementDocument>(
+    db,
+    STOCK_MOVEMENTS_COLLECTION,
+  );
+  const movementRef = doc(movementsCollection);
+
+  await runTransaction(db, async transaction => {
+    const itemSnapshot = await transaction.get(itemRef);
+
+    const itemData = itemSnapshot.data();
+    if (!itemData) {
+      throw new Error('Item de estoque não encontrado para registro de preço.');
+    }
+
+    const previous = itemData.currentQuantityInGrams ?? 0;
+
+    const previousHighest = itemData.highestUnitCostInBRL ?? 0;
+    const nextHighest = Math.max(previousHighest, options.unitCostInBRL);
+
+    const itemUpdatePayload: Record<string, unknown> = {
+      averageUnitCostInBRL: options.unitCostInBRL,
+      highestUnitCostInBRL: nextHighest,
+      lastMovementId: movementRef.id,
+      createdAt: itemData.createdAt,
+      updatedAt: serverTimestamp(),
+    };
+
+    transaction.update(itemRef, itemUpdatePayload);
+
+    // Criar uma movimentação de ajuste apenas para registrar a alteração de preço.
+    transaction.set(movementRef, {
+      productId: itemData.productId,
+      stockItemId: options.stockItemId,
+      type: 'adjustment',
+      // Não alteramos a quantidade — registramos 0 como qty e repetimos previous/resulting
+      quantityInGrams: 0,
+      previousQuantityInGrams: previous,
+      resultingQuantityInGrams: previous,
+      totalCostInBRL: previous > 0 ? options.unitCostInBRL * previous : null,
+      unitCostInBRL: options.unitCostInBRL,
+      note: options.note ?? 'Registro manual de preço',
+      performedBy: options.performedBy,
+      performedAt: serverTimestamp(),
+    });
+  });
+
+  const createdMovement = await getDoc(movementRef);
+
+  return mapStockMovement(createdMovement);
+}
+
 export function subscribeToStockItems(
   handlers: FirestoreObserver<StockItem[]>,
   options?: { includeArchived?: boolean; productId?: string },

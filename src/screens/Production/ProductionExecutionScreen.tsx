@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
@@ -39,6 +40,7 @@ import type {
 import type { AppStackParamList } from '@/navigation';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+// type imports already declared above
 
 function StageCard({
   stage,
@@ -412,10 +414,12 @@ function StageFormModal({
           <Text style={styles.modalTitle}>
             {state?.mode === 'edit' ? 'Editar etapa' : 'Nova etapa'}
           </Text>
-          <ScrollView
+          <KeyboardAwareScrollView
             style={styles.modalForm}
             contentContainerStyle={styles.modalFormContent}
             keyboardShouldPersistTaps="handled"
+            enableOnAndroid
+            extraScrollHeight={Platform.OS === 'android' ? 20 : 0}
           >
             <Text style={styles.modalLabel}>Nome</Text>
             <TextInput
@@ -424,6 +428,7 @@ function StageFormModal({
               placeholder="Ex: Mistura da base"
               style={styles.modalInput}
               editable={!isSubmitting}
+              showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
             />
 
             <Text style={styles.modalLabel}>Descrição</Text>
@@ -435,6 +440,7 @@ function StageFormModal({
               multiline
               numberOfLines={4}
               editable={!isSubmitting}
+              showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
             />
 
             <Text style={styles.modalLabel}>Ordem</Text>
@@ -447,8 +453,9 @@ function StageFormModal({
               style={styles.modalInput}
               keyboardType="number-pad"
               editable={!isSubmitting}
+              showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
             />
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           <View style={styles.modalActions}>
             <Pressable

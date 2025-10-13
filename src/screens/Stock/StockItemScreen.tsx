@@ -15,6 +15,9 @@ import {
   AdjustStockModalState,
   movementTypeLabels,
 } from '@/components/stock/AdjustStockModal';
+import PriceRegisterModal, {
+  PriceRegisterState,
+} from '@/components/stock/PriceRegisterModal';
 import {
   useProducts,
   useStockAlerts,
@@ -93,6 +96,12 @@ export default function StockItemScreen({ navigation, route }: Props) {
     totalCost: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [priceModalState, setPriceModalState] = useState<PriceRegisterState>({
+    visible: false,
+    price: '',
+    note: '',
+  });
+  const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
   const [isResolvingAlert, setIsResolvingAlert] = useState(false);
   const [isAcknowledgingAlert, setIsAcknowledgingAlert] = useState(false);
 
@@ -122,6 +131,14 @@ export default function StockItemScreen({ navigation, route }: Props) {
 
   const closeAdjustModal = useCallback(() => {
     setAdjustState(previous => ({ ...previous, visible: false }));
+  }, []);
+
+  const openPriceModal = useCallback(() => {
+    setPriceModalState({ visible: true, price: '', note: '' });
+  }, []);
+
+  const closePriceModal = useCallback(() => {
+    setPriceModalState(prev => ({ ...prev, visible: false }));
   }, []);
 
   const handleConfirmAdjust = useCallback(() => {
@@ -208,6 +225,67 @@ export default function StockItemScreen({ navigation, route }: Props) {
       setIsAcknowledgingAlert(false);
     }
   }, [acknowledge, alert, authorization.canAcknowledgeStockAlerts]);
+
+  const handleConfirmPriceRegister = useCallback(() => {
+    if (!stockItem || !priceModalState.price) {
+      closePriceModal();
+      return;
+    }
+
+    const priceValue = Number(priceModalState.price.replace(',', '.'));
+
+    if (Number.isNaN(priceValue) || priceValue <= 0) {
+      Alert.alert(
+        'Preço inválido',
+        'Informe um preço válido maior que zero (R$ por grama).',
+      );
+      return;
+    }
+
+    // Aviso de confirmação conforme solicitado: sobrescrever histórico e não usar como controle de estoque
+    Alert.alert(
+      'Confirmar registro manual de preço',
+      'Isso irá sobrescrever o histórico de preço e passar a ser o novo preço de custo. Não utilize este registro para controle regular de estoque; use apenas para correções pontuais. Deseja prosseguir?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            if (!user) return;
+            try {
+              setIsSubmittingPrice(true);
+              // converter preço conforme unidade do produto para o formato interno (por grama / por unidade)
+              const unit = product?.unitOfMeasure ?? 'GRAMS';
+              let unitCostToStore = priceValue;
+              if (unit === 'KILOGRAMS' || unit === 'LITERS') {
+                // preço informado por kg/L -> dividir por 1000 para obter por g/ml
+                unitCostToStore = priceValue / 1000;
+              }
+
+              const { setManualPrice } = await import('@/services/firestore');
+              await setManualPrice({
+                stockItemId: stockItem.id,
+                unitCostInBRL: unitCostToStore,
+                performedBy: user.id,
+                note: priceModalState.note?.trim() || undefined,
+              });
+              Alert.alert('Preço registrado', 'O preço foi atualizado com sucesso.');
+              closePriceModal();
+            } catch (err) {
+              Alert.alert(
+                'Erro',
+                err instanceof Error
+                  ? err.message
+                  : 'Não foi possível registrar o preço.',
+              );
+            } finally {
+              setIsSubmittingPrice(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [priceModalState, stockItem, user, closePriceModal, product?.unitOfMeasure]);
 
   const handleResolveAlert = useCallback(async () => {
     if (!alert || !authorization.canAcknowledgeStockAlerts) {
@@ -408,6 +486,15 @@ export default function StockItemScreen({ navigation, route }: Props) {
               >
                 <Text style={styles.secondaryButtonText}>Ajustar manualmente</Text>
               </Pressable>
+              <Pressable
+                onPress={openPriceModal}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.secondaryButtonPressed,
+                ]}
+              >
+                <Text style={styles.secondaryButtonText}>Registrar preço</Text>
+              </Pressable>
             </View>
           ) : null}
         </View>
@@ -449,6 +536,15 @@ export default function StockItemScreen({ navigation, route }: Props) {
         onConfirm={handleConfirmAdjust}
         isSubmitting={isSubmitting}
         disabled={!authorization.canAdjustStock}
+      />
+      <PriceRegisterModal
+        state={priceModalState}
+        onChange={next => setPriceModalState(next)}
+        onClose={closePriceModal}
+        onConfirm={handleConfirmPriceRegister}
+        isSubmitting={isSubmittingPrice}
+        disabled={!authorization.canAdjustStock}
+        unitLabel={unitLabel}
       />
     </ScreenContainer>
   );

@@ -66,6 +66,7 @@ export function EditMinimumQuantityModal({
               placeholder="Ex: 1500"
               style={styles.input}
               editable={!disabled}
+              showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
             />
             <Text style={styles.hint}>
               Essa quantidade será usada para gerar alertas quando o estoque estiver

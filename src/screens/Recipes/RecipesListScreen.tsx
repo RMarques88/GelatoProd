@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { RoleGate } from '@/components/security/RoleGate';
 import { useRecipes } from '@/hooks/data';
@@ -19,6 +20,7 @@ import { useAuthorization } from '@/hooks/useAuthorization';
 import { logError } from '@/utils/logger';
 import type { AppStackParamList } from '@/navigation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+// ...existing code...
 
 const yieldFormatter = (value: number) => `${value.toFixed(0)} g`;
 
@@ -27,6 +29,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Recipes'>;
 export default function RecipesListScreen({ navigation }: Props) {
   const { user } = useAuth();
   const authorization = useAuthorization(user);
+  const [filterText, setFilterText] = useState('');
   const [includeInactive, setIncludeInactive] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -36,10 +39,20 @@ export default function RecipesListScreen({ navigation }: Props) {
 
   const sortedRecipes = useMemo(
     () =>
-      [...recipes].sort((first, second) =>
-        first.name.localeCompare(second.name, 'pt-BR', { sensitivity: 'base' }),
-      ),
-    [recipes],
+      [...recipes]
+        .filter(r => {
+          const term = filterText.trim().toLowerCase();
+          if (!term) return true;
+          const nameMatches = r.name.toLowerCase().includes(term);
+          const descriptionMatches = r.description
+            ? r.description.toLowerCase().includes(term)
+            : false;
+          return nameMatches || descriptionMatches;
+        })
+        .sort((first, second) =>
+          first.name.localeCompare(second.name, 'pt-BR', { sensitivity: 'base' }),
+        ),
+    [recipes, filterText],
   );
 
   const handleRefresh = useCallback(() => {
@@ -267,6 +280,17 @@ export default function RecipesListScreen({ navigation }: Props) {
 
   return (
     <ScreenContainer>
+      <View style={styles.filterRow}>
+        <BarcodeScannerField
+          value={filterText}
+          onChangeText={setFilterText}
+          placeholder="Buscar por nome ou descrição"
+          placeholderTextColor="#9CA3AF"
+          containerStyle={styles.filterScannerField}
+          inputStyle={styles.filterInput}
+          editable
+        />
+      </View>
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Receitas</Text>
@@ -476,5 +500,23 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     textAlign: 'center',
     paddingHorizontal: 24,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginBottom: 16,
+    width: '100%',
+  },
+  filterScannerField: {
+    flex: 1,
+    minWidth: 0,
+    maxWidth: '100%',
+  },
+  filterInput: {
+    fontSize: 15,
+    color: '#1A1B1E',
+    paddingVertical: 6,
   },
 });

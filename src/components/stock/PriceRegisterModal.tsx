@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -10,42 +11,31 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
-import { StockMovementType } from '@/domain';
-
-export const movementTypeLabels: Record<StockMovementType, string> = {
-  increment: 'Entrada',
-  decrement: 'Saída',
-  adjustment: 'Ajuste manual',
-  initial: 'Estoque inicial',
-};
-
-export type AdjustStockModalState = {
+export type PriceRegisterState = {
   visible: boolean;
-  type: StockMovementType;
-  quantity: string;
+  price: string; // R$ per unit (per gram)
   note: string;
-  totalCost: string;
 };
 
-export type AdjustStockModalProps = {
-  state: AdjustStockModalState;
-  onChange: (nextState: AdjustStockModalState) => void;
+export type PriceRegisterProps = {
+  state: PriceRegisterState;
+  onChange: (next: PriceRegisterState) => void;
   onClose: () => void;
   onConfirm: () => void;
-  isSubmitting: boolean;
+  isSubmitting?: boolean;
   disabled?: boolean;
+  unitLabel?: string;
 };
 
-export function AdjustStockModal({
+export function PriceRegisterModal({
   state,
   onChange,
   onClose,
   onConfirm,
-  isSubmitting,
+  isSubmitting = false,
   disabled = false,
-}: AdjustStockModalProps) {
-  const shouldCaptureCost = state.type === 'increment' || state.type === 'initial';
-
+  unitLabel,
+}: PriceRegisterProps) {
   return (
     <Modal
       visible={state.visible}
@@ -61,7 +51,7 @@ export function AdjustStockModal({
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Registrar movimentação</Text>
+            <Text style={styles.modalTitle}>Registrar preço manual</Text>
             <Pressable
               onPress={onClose}
               style={({ pressed }) => [
@@ -74,68 +64,25 @@ export function AdjustStockModal({
           </View>
 
           <View style={styles.modalBody}>
-            <Text style={styles.modalLabel}>Tipo de movimentação</Text>
-            <View style={styles.modalToggleGroup}>
-              {(['increment', 'decrement', 'adjustment'] as StockMovementType[]).map(
-                option => (
-                  <Pressable
-                    key={option}
-                    onPress={() => onChange({ ...state, type: option })}
-                    style={({ pressed }) => [
-                      styles.modalToggleButton,
-                      state.type === option && styles.modalToggleButtonActive,
-                      pressed && styles.modalToggleButtonPressed,
-                    ]}
-                    disabled={disabled}
-                  >
-                    <Text
-                      style={[
-                        styles.modalToggleButtonText,
-                        state.type === option && styles.modalToggleButtonTextActive,
-                      ]}
-                    >
-                      {movementTypeLabels[option]}
-                    </Text>
-                  </Pressable>
-                ),
-              )}
-            </View>
-
-            <Text style={styles.modalLabel}>Quantidade (em gramas)</Text>
+            <Text style={styles.modalLabel}>Preço por unidade (R$)</Text>
             <TextInput
-              value={state.quantity}
-              onChangeText={value => onChange({ ...state, quantity: value })}
-              placeholder="500"
+              value={state.price}
+              onChangeText={value => onChange({ ...state, price: value })}
+              placeholder="0,00"
               style={styles.modalInput}
               keyboardType="numeric"
               editable={!disabled}
               showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
             />
-            <Text style={styles.modalHintText}>
-              As movimentações são registradas em gramas, independente da unidade padrão
-              do produto.
-            </Text>
-
-            {shouldCaptureCost ? (
-              <View style={styles.modalFieldGroup}>
-                <Text style={styles.modalLabel}>Valor total da compra (R$)</Text>
-                <TextInput
-                  value={state.totalCost}
-                  onChangeText={value => onChange({ ...state, totalCost: value })}
-                  placeholder="150,00"
-                  style={styles.modalInput}
-                  keyboardType="numeric"
-                  editable={!disabled}
-                  showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
-                />
-              </View>
+            {unitLabel ? (
+              <Text style={styles.modalHintText}>Informe o preço por {unitLabel}.</Text>
             ) : null}
 
-            <Text style={styles.modalLabel}>Observações</Text>
+            <Text style={styles.modalLabel}>Observações (opcional)</Text>
             <TextInput
               value={state.note}
               onChangeText={value => onChange({ ...state, note: value })}
-              placeholder="Motivo do ajuste (opcional)"
+              placeholder="Por que está ajustando o preço (opcional)"
               style={[styles.modalInput, styles.modalInputMultiline]}
               multiline
               numberOfLines={3}
@@ -155,7 +102,7 @@ export function AdjustStockModal({
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.modalPrimaryButtonText}>Confirmar ajuste</Text>
+              <Text style={styles.modalPrimaryButtonText}>Registrar preço</Text>
             )}
           </Pressable>
         </KeyboardAwareScrollView>
@@ -208,37 +155,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
   },
-  modalFieldGroup: {
-    gap: 8,
-  },
-  modalToggleGroup: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalToggleButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-  },
-  modalToggleButtonActive: {
-    backgroundColor: '#D1FAE5',
-    borderColor: '#10B981',
-  },
-  modalToggleButtonPressed: {
-    opacity: 0.85,
-  },
-  modalToggleButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  modalToggleButtonTextActive: {
-    color: '#047857',
-  },
   modalInput: {
     borderWidth: 1,
     borderColor: '#D1D5DB',
@@ -252,10 +168,6 @@ const styles = StyleSheet.create({
   modalInputMultiline: {
     minHeight: 96,
     textAlignVertical: 'top',
-  },
-  modalHintText: {
-    fontSize: 12,
-    color: '#6B7280',
   },
   modalPrimaryButton: {
     alignItems: 'center',
@@ -273,3 +185,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+export default PriceRegisterModal;

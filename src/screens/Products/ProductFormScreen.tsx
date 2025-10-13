@@ -5,12 +5,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
@@ -21,6 +21,7 @@ import { logError } from '@/utils/logger';
 import type { UnitOfMeasure } from '@/domain';
 import type { AppStackParamList } from '@/navigation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+// ...existing code...
 
 type Props = NativeStackScreenProps<AppStackParamList, 'ProductUpsert'>;
 
@@ -292,9 +293,11 @@ export default function ProductFormScreen({ navigation, route }: Props) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
       <ScreenContainer>
-        <ScrollView
+        <KeyboardAwareScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          enableOnAndroid
+          extraScrollHeight={Platform.OS === 'android' ? 20 : 0}
         >
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>
@@ -331,17 +334,7 @@ export default function ProductFormScreen({ navigation, route }: Props) {
             />
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Categoria</Text>
-            <TextInput
-              value={category}
-              onChangeText={setCategory}
-              placeholder="Clássicos"
-              style={styles.input}
-              editable={canManage}
-              returnKeyType="next"
-            />
-          </View>
+          {/* Categoria hidden per request - state still kept and submitted optionally */}
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Código de barras</Text>
@@ -349,21 +342,12 @@ export default function ProductFormScreen({ navigation, route }: Props) {
               value={barcode}
               onChangeText={setBarcode}
               placeholder="Opcional"
-              inputStyle={styles.input}
+              /* do not pass bordered input style to avoid nested borders */
               editable={canManage && !isSubmitting}
             />
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Tags (separadas por vírgula)</Text>
-            <TextInput
-              value={tagsText}
-              onChangeText={setTagsText}
-              placeholder="vegano, sem lactose"
-              style={styles.input}
-              editable={canManage}
-            />
-          </View>
+          {/* Tags hidden per request - state still kept and submitted optionally */}
 
           <View style={[styles.formGroup]}>
             <Text style={styles.label}>Unidade padrão</Text>
@@ -506,7 +490,7 @@ export default function ProductFormScreen({ navigation, route }: Props) {
               </View>
             </View>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </ScreenContainer>
     </KeyboardAvoidingView>
   );
