@@ -5,34 +5,54 @@ const { getFirestore } = require('firebase-admin/firestore');
 
 module.exports = async function globalTeardown() {
   try {
-    const serviceAccountPath = path.join(
-      __dirname,
-      '..',
-      '..',
-      'firebase-service-account.json',
-    );
-    if (!fs.existsSync(serviceAccountPath)) {
-      console.warn(
-        'globalTeardown: no firebase-service-account.json found, skipping Firestore terminate',
-      );
-      return;
-    }
-    const serviceAccountJSON = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-    const app = initializeApp({
-      credential: cert(serviceAccountJSON),
-      projectId: serviceAccountJSON.project_id,
-    });
-    const db = getFirestore(app);
-    await db.terminate();
-    // try to delete the admin app if possible (best-effort)
-    if (typeof app.delete === 'function') {
-      try {
-        await app.delete();
-      } catch (e) {
-        /* ignore */
+    // Prefer terminating any existing admin SDK apps instead of creating a new one.
+    const { getApps: getAdminApps } = require('firebase-admin/app');
+    const adminApps = typeof getAdminApps === 'function' ? getAdminApps() : [];
+
+    if (adminApps.length === 0) {
+      // Fallback: if no admin apps exist, try to read service account and initialize one to terminate.
+      const serviceAccountPath = path.join(__dirname, '..', '..', 'firebase-service-account.json');
+      if (!fs.existsSync(serviceAccountPath)) {
+        console.warn('globalTeardown: no firebase-service-account.json found, skipping Firestore terminate');
+      } else {
+        const serviceAccountJSON = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+        const app = initializeApp({
+          credential: cert(serviceAccountJSON),
+          projectId: serviceAccountJSON.project_id,
+        });
+        try {
+          const db = getFirestore(app);
+          await db.terminate();
+        } catch (e) {
+          // ignore
+        }
+        try {
+          if (typeof app.delete === 'function') await app.delete();
+        } catch (e) {
+          // ignore
+        }
+        console.log('globalTeardown: initialized+terminated fallback admin app');
       }
+    } else {
+      for (const adminApp of adminApps) {
+        try {
+          const db = getFirestore(adminApp);
+          if (db && typeof db.terminate === 'function') {
+            await db.terminate();
+          }
+        } catch (e) {
+          // ignore per-app failures
+        }
+        try {
+          if (adminApp && typeof adminApp.delete === 'function') {
+            await adminApp.delete();
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      console.log('globalTeardown: terminated existing admin apps');
     }
-    console.log('globalTeardown: Firestore terminated');
     // Also attempt to terminate any client SDK Firestore instances created by tests
     try {
       // require the modular client SDK (if present) and terminate its Firestore instances
