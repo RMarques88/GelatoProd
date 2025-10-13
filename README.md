@@ -52,7 +52,7 @@ O app é pensado para tablets na loja. Ele dá conta de:
 - **Quick wins de Stage 5:** adicionamos documentação atualizada dos índices no Firestore (`CRIAR_INDICES_FIRESTORE.md`, `FIRESTORE_INDICES_MANUAL.md`) com novos pares de ordenação necessários aos relatórios. Também criamos um scaffold de migrações em `src/migrations/` para registrar scripts operacionais futuros.
 - **Checagem de estoque no agendamento:** o app agora calcula os insumos necessários (inclusive receitas encadeadas) antes de confirmar um plano. Se faltar ingrediente, o Gelatiê precisa aprovar manualmente e a decisão gera um registro de divergência para acompanhamento posterior.
 - **Execução integrada à checagem de disponibilidade:** a tela de execução passa a exibir o histórico de faltas aprovadas, pedir uma confirmação extra antes de iniciar planos com indisponibilidade e conciliar automaticamente a baixa de estoque com o registro de divergências e o log de disponibilidade.
-- **Cobertura completa de testes E2E (28 cenários):** expandimos os testes End-to-End para cobrir todas as funcionalidades principais do sistema - alertas de estoque (4 testes), receitas simples e compostas (6 testes), planejamento e execução de produção (5 testes), notificações (6 testes) e autorização/permissões (7 testes). Infraestrutura completa com Firebase Admin SDK criando dados reais e validando comportamentos automaticamente. Veja [`E2E_TESTING_SETUP.md`](./E2E_TESTING_SETUP.md).
+- **Testes End-to-End:** expandimos a suíte E2E para cobrir os fluxos operacionais principais (alertas de estoque, receitas, planejamento/execução de produção, notificações, autorização e reservas). A infraestrutura usa Firebase Admin SDK para criação determinística de dados e validações. Veja [`E2E_TESTING_SETUP.md`](./E2E_TESTING_SETUP.md) para detalhes de setup e segurança.
 - Escaneamento de código de barras passou a usar `expo-camera`, com modal dedicado, verificação de permissões e fallback manual.
 - **Validação de duplicados no cadastro de produtos:** impedimos salvar produtos com mesmo nome ou mesmo código de barras (checagem otimista no app e validação nos serviços do Firestore).
 - **Busca no catálogo de produtos:** campo de busca na lista de produtos filtrando por nome, código de barras, tags e categoria, com botão de limpar.
@@ -137,6 +137,30 @@ Próximos incrementos sugeridos:
 
 Índices Firestore: sem novos requisitos — consultas continuam baseadas em `productionPlans` por intervalo/status. Nenhum filtro adicional criado sobre o mapa de overrides (lido como documento único).
 
+## Testes End-to-End — notas atualizadas
+
+Algumas observações sobre a suíte E2E e práticas seguras para execução.
+
+- Isolamento por execução: para evitar que testes se afetem (limpando coleções usadas por outros testes), os testes E2E usam um namespace por execução. Isso é implementado em `tests/e2e/setup.ts` — por padrão um `TEST_RUN_ID` é gerado automaticamente. Você pode forçar um id fixo definindo a variável de ambiente `E2E_RUN_ID` antes de executar os testes (útil para depuração).
+
+- Execução padrão (gera um namespace aleatório):
+
+```powershell
+npm test -i --runInBand --color
+```
+
+- Execução com namespace fixo (debug):
+
+```powershell
+$env:E2E_RUN_ID = "e2e_local_debug_01"; npm test -i --runInBand --color
+```
+
+- Os nomes das coleções criadas nos testes terão sufixo `__e2e__<TEST_RUN_ID>` (por exemplo `products__e2e__e2e_local_debug_01`). Isso evita interferência entre execuções e permite inspecionar/limpar namespaces específicos manualmente.
+
+- Ainda há testes destrutivos (ex.: `seedAndValidateCosts.e2e.test.ts`) que limpam coleções específicas — siga o fluxo de backup descrito em `scripts/run-e2e-chain.ps1` antes de rodar esses testes.
+
+- Para CI: recomendamos usar o Firestore Emulator (configurável) ou garantir um projeto de teste isolado para evitar dados reais serem afetados.
+
 ## 🛠️ Stack Tecnológica
 
 - **Expo 54 / React Native 0.81** com TypeScript e alias `@/`.
@@ -180,13 +204,19 @@ app/
 │       ├── env.ts
 │       └── logger.ts
 └── tests/
-    ├── e2e/                             # Testes End-to-End com Firebase Admin SDK
-    │   ├── setup.ts                     # Configuração e helpers (clearCollection, createTestUser)
-    │   ├── stockAlerts.e2e.test.ts      # Alertas de estoque (4 testes)
-    │   ├── recipes.e2e.test.ts          # Receitas simples e compostas (6 testes)
-    │   ├── production.e2e.test.ts       # Planejamento e execução de produção (5 testes)
-    │   ├── notifications.e2e.test.ts    # Sistema de notificações (6 testes)
-    │   └── authorization.e2e.test.ts    # Permissões e papéis de usuário (7 testes)
+  ├── e2e/                             # Testes End-to-End com Firebase Admin SDK
+  │   ├── setup.ts                     # Configuração e helpers (clearCollection, createTestUser)
+  │   ├── stockAlerts.e2e.test.ts      # Alertas de estoque (4 testes)
+  │   ├── recipes.e2e.test.ts          # Receitas simples e compostas (5 testes)
+  │   ├── production.e2e.test.ts       # Planejamento e execução de produção (5 testes)
+  │   ├── productionWithStockConsumption.e2e.test.ts # Produção + consumo automático de estoque (9 testes)
+  │   ├── notifications.e2e.test.ts    # Sistema de notificações (6 testes)
+  │   ├── authorization.e2e.test.ts    # Permissões e papéis de usuário (7 testes)
+  │   ├── stockReservations.e2e.test.ts# Reservas de estoque (1 teste consolidado)
+  │   ├── accessoryOverrides.e2e.test.ts # Acessórios / overrides (1 teste)
+  │   ├── readOnlyPriceCheck.e2e.test.ts # Diagnóstico read-only de preços e conversões (1 teste)
+  │   ├── seedAndValidateCosts.e2e.test.ts # Teste destrutivo: semear e validar cálculos de custo (1 teste)
+  │   ├── scanStockItems.js             # Utilitário read-only para inspecionar stockItems
     ├── firestore/                       # Testes unitários de serviços Firestore
     ├── mocks/firebaseFirestore.ts
     └── setupTests.ts
@@ -250,17 +280,27 @@ Principais artefatos e scripts relacionados aos E2E
   2. executa `scripts/backupFirestore.js` para criar backup local;
   3. só então define a variável `ALLOW_E2E_ON_PROD=true` e roda o teste destrutivo.
 
-Resumo dos cenários E2E (o que existe hoje)
+Resumo dos cenários E2E (inventário atual)
 
-- `readOnlyPriceCheck.e2e.test.ts` — diagnóstico read-only que calcula custo estimado para amostras [100g, 300g, 650g] e verifica a conversão R$/kg → R$/g. O teste é tolerante a falta de credenciais (não-falha em PERMISSION_DENIED).
-- `seedAndValidateCosts.e2e.test.ts` — fluxo DESTRUTIVO (limpa coleções, semeia dados determinísticos e valida `computeRecipeEstimatedCost`). NUNCA rode sem backup local.
-- `stockAlerts.e2e.test.ts` — alertas de estoque (vários cenários).
-- `recipes.e2e.test.ts` — receitas simples e compostas.
-- `production.e2e.test.ts` / `productionWithStockConsumption.e2e.test.ts` — planejamento, execução e consumo.
-- `notifications.e2e.test.ts` — notificações (criar, ler, limpar).
-- `authorization.e2e.test.ts` — permissões e papéis.
-- `stockReservations.e2e.test.ts` — reservas de estoque.
-- `accessoryOverrides.e2e.test.ts` — acessórios e overrides para cálculo de custo.
+Existem 10 arquivos de teste E2E na pasta `tests/e2e/` cobrindo 40 casos de teste (soma dos `it(...)` declarados). Abaixo o inventário exato com uma breve descrição e contagem de casos por arquivo:
+
+- `stockAlerts.e2e.test.ts` — Alertas de estoque (4 casos)
+- `recipes.e2e.test.ts` — Receitas simples e compostas (5 casos)
+- `production.e2e.test.ts` — Planejamento e execução de produção (5 casos)
+- `productionWithStockConsumption.e2e.test.ts` — Produção com consumo automático de estoque e relatórios (9 casos)
+- `notifications.e2e.test.ts` — Sistema de notificações (6 casos)
+- `authorization.e2e.test.ts` — Permissões e papéis de usuário (7 casos)
+- `stockReservations.e2e.test.ts` — Reservas de estoque (1 caso consolidado)
+- `accessoryOverrides.e2e.test.ts` — Acessórios / overrides na margem financeira (1 caso)
+- `readOnlyPriceCheck.e2e.test.ts` — Diagnóstico read-only de preços e conversões (1 caso)
+- `seedAndValidateCosts.e2e.test.ts` — Teste destrutivo: semear e validar cálculos de custo (1 caso) — execute apenas com backup e confirmação explícita.
+
+Total: 10 arquivos / 40 casos de teste (E2E)
+
+Notas importantes:
+
+- Arquivo destrutivo: `seedAndValidateCosts.e2e.test.ts` limpa coleções e semeia dados; sempre crie backup local antes de executar (veja `scripts/run-e2e-chain.ps1`).
+- Os demais testes escrevem e removem dados no namespace do `TEST_RUN_ID` por padrão, reduzindo o risco de interferência entre execuções. Mesmo assim, siga as recomendações de backup e execute em um projeto de teste ou no emulador quando possível.
 
 Como rodar os E2E (não-destrutivos)
 
