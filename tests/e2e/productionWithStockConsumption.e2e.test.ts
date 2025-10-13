@@ -92,6 +92,7 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       category: 'Laticínios',
       barcode: '7891234567890',
       isActive: true,
+      createdBy: testUserId,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       archivedAt: null,
@@ -131,11 +132,18 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
 
     // Validar
   let leiteDoc = await waitForDocExists(leiteRef, 30000);
-  // If the direct doc read failed (possible if the doc was recreated with a new id),
-  // try a name-based query as a fallback to make the test more robust in concurrent runs.
+  // If the direct doc read failed, try a name-based query with retries to handle
+  // possible parallel cleanups recreating documents with different IDs.
   if (!leiteDoc.exists) {
-    const byName = await db.collection('products').where('name', '==', 'Leite Integral').limit(1).get();
-    if (!byName.empty) leiteDoc = byName.docs[0];
+    const startQ = Date.now();
+    while (Date.now() - startQ < 30000) {
+      const byName = await db.collection('products').where('name', '==', 'Leite Integral').limit(1).get();
+      if (!byName.empty) {
+        leiteDoc = byName.docs[0];
+        break;
+      }
+      await new Promise(res => setTimeout(res, 200));
+    }
   }
 
   expect(leiteDoc.exists).toBe(true);

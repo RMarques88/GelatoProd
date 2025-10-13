@@ -72,6 +72,7 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
     const stockItemLeiteId = stockLeiteRef.id;
     await stockLeiteRef.set({
       productId: productLeiteId,
+      createdBy: testUserId,
       currentQuantityInGrams: 5000, // 5kg
       minimumQuantityInGrams: 500,
       averageUnitCostInBRL: 6.0,
@@ -116,7 +117,18 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
   // PASSO 4: Verificar estoque inicial
   // ========================================================================
   console.log('🔍 PASSO 4: Verificando estoque inicial...');
-  let stockDoc = await db.collection('stockItems').doc(stockItemLeiteId).get();
+  // Read with retry to avoid transient read-after-write races
+  async function waitForDoc(ref: FirebaseFirestore.DocumentReference, timeout = 10000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const s = await ref.get();
+      if (s.exists) return s;
+      await new Promise(res => setTimeout(res, 200));
+    }
+    return await ref.get();
+  }
+
+  let stockDoc = await waitForDoc(db.collection('stockItems').doc(stockItemLeiteId), 15000);
   let physicalStock = stockDoc.data()?.currentQuantityInGrams || 0;
   // Persist the initial physical stock so later validations can fall back
   // if the document is temporarily unavailable due to parallel cleanup.
