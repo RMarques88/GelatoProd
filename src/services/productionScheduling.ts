@@ -5,6 +5,7 @@ import {
 } from '@/services/firestore/productionService';
 import { getRecipeById } from '@/services/firestore/recipesService';
 import { listStockItems } from '@/services/firestore/stockService';
+import { unitCostPerGram, FinancialStockItemLike } from '@/utils/financial';
 import { resolveProductRequirements } from './productionRequirements';
 import type {
   IngredientAvailability,
@@ -142,10 +143,11 @@ async function resolveAvailabilityItems(options: {
     const aggregatedCost = stockItems.reduce(
       (acc, item) => {
         const quantity = item.currentQuantityInGrams ?? 0;
-        const unitCost = item.averageUnitCostInBRL ?? item.highestUnitCostInBRL ?? 0;
+        // Convert stored R$ per kg to R$ per gram using helper
+        const perGram = unitCostPerGram(item as FinancialStockItemLike);
         return {
           totalQuantity: acc.totalQuantity + quantity,
-          totalCost: acc.totalCost + quantity * unitCost,
+          totalCost: acc.totalCost + quantity * perGram,
         };
       },
       { totalQuantity: 0, totalCost: 0 },
@@ -162,7 +164,10 @@ async function resolveAvailabilityItems(options: {
     }
 
     const estimatedCostInBRL = averageUnitCostInBRL
-      ? averageUnitCostInBRL * requiredQuantity
+      ? unitCostPerGram({
+          productId,
+          averageUnitCostInBRL,
+        } as unknown as FinancialStockItemLike) * requiredQuantity
       : null;
 
     totalRequiredInGrams += requiredQuantity;

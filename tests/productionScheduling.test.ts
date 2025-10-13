@@ -2,16 +2,18 @@ import {
   checkProductionPlanAvailability,
   scheduleProductionPlan,
 } from '@/services/productionScheduling';
+
 import type { Recipe } from '@/domain';
 import type { PlanAvailabilityResult } from '@/services/productionScheduling';
-
 const mockCreateProductionPlan = jest.fn();
+const mockListProductionPlans = jest.fn();
 const mockCreateAvailabilityRecord = jest.fn();
 const mockResolveProductRequirements = jest.fn();
 const mockListStockItems = jest.fn();
 
 jest.mock('@/services/firestore/productionService', () => ({
   createProductionPlan: (...args: unknown[]) => mockCreateProductionPlan(...args),
+  listProductionPlans: (...args: unknown[]) => mockListProductionPlans(...args),
 }));
 
 jest.mock('@/services/firestore/productionAvailabilityService', () => ({
@@ -35,6 +37,8 @@ jest.mock('@/services/firestore/recipesService', () => ({
 describe('productionScheduling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Ensure listProductionPlans mock returns an empty array unless test overrides it
+    mockListProductionPlans.mockResolvedValue([]);
   });
 
   it('detects shortages when stock is insufficient', async () => {

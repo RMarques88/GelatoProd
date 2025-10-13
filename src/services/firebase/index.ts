@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { getApps, initializeApp, deleteApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, getReactNativePersistence, initializeAuth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import type { Auth } from 'firebase/auth';
 
 // Import Auth component registration for React Native
 // This MUST come before any auth usage to register the component
 import { appEnv } from '@/utils/env';
-import type { Auth } from 'firebase/auth';
 
 // Persist across Fast Refresh to avoid re-initialization races in RN/Expo
 const globalScope = globalThis as unknown as Record<string, unknown>;
@@ -105,6 +105,42 @@ export function getFirestoreDb(): Firestore {
   console.log('[firebase] Firestore DB initialized');
 
   return firestoreDb;
+}
+
+// Test/helper: cleanup Firebase client resources to allow Jest to exit cleanly.
+// This is safe to call multiple times and is useful in tests that initialize
+// the Firebase client SDK and need deterministic teardown.
+export async function cleanupFirebase(): Promise<void> {
+  // Attempt to terminate Firestore client if available (best-effort)
+  if (
+    firestoreDb &&
+    typeof (firestoreDb as unknown as { terminate?: unknown }).terminate === 'function'
+  ) {
+    try {
+      // Type assertion used because Firestore exposes terminate() on the client
+      await (firestoreDb as unknown as { terminate: () => Promise<void> }).terminate();
+      console.log('[firebase] Firestore client terminated (cleanup)');
+    } catch {
+      // ignore termination errors
+    }
+  }
+
+  if (firebaseApp) {
+    try {
+      await deleteApp(firebaseApp);
+      console.log('[firebase] Firebase app deleted (cleanup)');
+    } catch {
+      // ignore deletion errors in test cleanup
+    }
+  }
+
+  // Clear in-memory singletons to allow reinitialization in other tests
+  firebaseApp = null;
+  firebaseAuth = null;
+  firestoreDb = null;
+  globalScope[APP_SINGLETON_KEY] = null;
+  globalScope[AUTH_SINGLETON_KEY] = null;
+  globalScope[DB_SINGLETON_KEY] = null;
 }
 
 type FirebaseConfig = {

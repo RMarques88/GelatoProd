@@ -74,8 +74,8 @@ describe('E2E: Reserva de Estoque - Teste Consolidado', () => {
       productId: productLeiteId,
       currentQuantityInGrams: 5000, // 5kg
       minimumQuantityInGrams: 500,
-      averageUnitCostInBRL: 0.006,
-      highestUnitCostInBRL: 0.006,
+      averageUnitCostInBRL: 6.0,
+      highestUnitCostInBRL: 6.0,
       lastMovementId: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

@@ -12,7 +12,8 @@ describe('financial summary & accessories overrides', () => {
   ];
   const baseStock = [
     { productId: 'cup', averageUnitCostInBRL: 0.5 },
-    { productId: 'topping', averageUnitCostInBRL: 0.02 }, // 0.02 per gram
+    // topping: 0.02 per gram -> store as 20.0 R$/kg
+    { productId: 'topping', averageUnitCostInBRL: 20.0 },
   ];
   const basePlan = (d: Date) => ({
     recipeId: 'gelato1',

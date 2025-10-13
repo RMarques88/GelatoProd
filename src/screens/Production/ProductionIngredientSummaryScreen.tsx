@@ -18,6 +18,11 @@ import {
   resolveProductRequirementsWithBreakdown,
   type RecipeIngredientBreakdownRecipeNode,
 } from '@/services/productionRequirements';
+import {
+  unitCostForDisplay,
+  unitCostPerGram,
+  FinancialStockItemLike,
+} from '@/utils/financial';
 import type { Recipe, ProductionPlan, UnitOfMeasure } from '@/domain';
 import type { AppStackParamList } from '@/navigation';
 import type { RouteProp } from '@react-navigation/native';
@@ -229,11 +234,12 @@ export function ProductionIngredientSummaryScreen() {
             const aggregatedCost = stockItems.reduce(
               (accumulator, item) => {
                 const quantity = item.currentQuantityInGrams ?? 0;
-                const unitCost =
-                  item.averageUnitCostInBRL ?? item.highestUnitCostInBRL ?? 0;
+                // item.averageUnitCostInBRL is stored as R$ per kilogram. Convert to
+                // R$ per gram using unitCostPerGram helper before multiplying by grams.
+                const perGram = unitCostPerGram(item as FinancialStockItemLike);
                 return {
                   totalQuantity: accumulator.totalQuantity + quantity,
-                  totalCost: accumulator.totalCost + quantity * unitCost,
+                  totalCost: accumulator.totalCost + quantity * perGram,
                 };
               },
               { totalQuantity: 0, totalCost: 0 },
@@ -253,7 +259,10 @@ export function ProductionIngredientSummaryScreen() {
 
             const estimatedCostInBRL =
               averageUnitCostInBRL !== null && Number.isFinite(requiredQuantity)
-                ? averageUnitCostInBRL * requiredQuantity
+                ? unitCostPerGram({
+                    productId,
+                    averageUnitCostInBRL,
+                  } as unknown as FinancialStockItemLike) * requiredQuantity
                 : null;
 
             return {
@@ -496,10 +505,12 @@ export function ProductionIngredientSummaryScreen() {
                 const hasCost =
                   typeof item.estimatedCostInBRL === 'number' &&
                   Number.isFinite(item.estimatedCostInBRL);
+                // Use helper from financial utils to get display-friendly unit cost
+                // (per kilogram for weight/volume, per unit for UNITS)
                 const unitCostPerKilogram =
                   typeof item.averageUnitCostInBRL === 'number' &&
                   Number.isFinite(item.averageUnitCostInBRL)
-                    ? item.averageUnitCostInBRL * 1000
+                    ? unitCostForDisplay(item, undefined)
                     : null;
 
                 return (

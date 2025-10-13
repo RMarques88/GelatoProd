@@ -82,7 +82,6 @@ describe('stockService', () => {
     });
 
     await listStockItems();
-
     const [, ...constraints] = (query as jest.Mock).mock.calls[0];
     expect(constraints).toHaveLength(2);
     expect(constraints[0]).toMatchObject({ field: 'archivedAt', op: '==', value: null });
@@ -335,8 +334,9 @@ describe('stockService', () => {
       productId: 'prod-1',
       currentQuantityInGrams: 100,
       minimumQuantityInGrams: 50,
-      highestUnitCostInBRL: 2,
-      averageUnitCostInBRL: 2,
+      // Stored as R$ / kg in Firestore
+      highestUnitCostInBRL: 2000,
+      averageUnitCostInBRL: 2000,
     });
 
     const alertSnapshot = createSnapshot('alert-1', {
@@ -361,7 +361,8 @@ describe('stockService', () => {
       performedBy: 'tester',
       performedAt: createTimestamp(new Date()),
       totalCostInBRL: 25,
-      unitCostInBRL: 2.5,
+      // Recorded unit cost for the movement (R$ / kg)
+      unitCostInBRL: 2500,
     });
 
     (getDoc as jest.Mock).mockResolvedValueOnce(movementSnapshot);
@@ -379,16 +380,19 @@ describe('stockService', () => {
     expect(transactionUpdate.mock.calls[0][1]).toMatchObject({
       currentQuantityInGrams: 110,
       lastMovementId: expect.any(String),
-      highestUnitCostInBRL: 2.5,
+      // highestUnitCostInBRL stored as R$ / kg
+      highestUnitCostInBRL: 2500,
       averageUnitCostInBRL: expect.any(Number),
     });
     const updatePayload = transactionUpdate.mock.calls[0][1] as Record<string, number>;
-    expect(updatePayload.averageUnitCostInBRL).toBeCloseTo(2.045, 3);
+    // averageUnitCostInBRL stored as R$ / kg; expected computed average using exact math
+    expect(updatePayload.averageUnitCostInBRL).toBeCloseTo(2045.4545454545455, 3);
     expect(transactionSet).toHaveBeenCalled();
     expect(transactionSet.mock.calls[0][1]).toMatchObject({
       resultingQuantityInGrams: 110,
       totalCostInBRL: 25,
-      unitCostInBRL: 2.5,
+      // unitCostInBRL persisted as R$ / kg
+      unitCostInBRL: 2500,
     });
     expect(
       transactionUpdate.mock.calls.some(
@@ -404,7 +408,8 @@ describe('stockService', () => {
       productId: 'prod-1',
       currentQuantityInGrams: 60,
       minimumQuantityInGrams: 80,
-      averageUnitCostInBRL: 2,
+      // Stored as R$ / kg in Firestore
+      averageUnitCostInBRL: 2000,
     });
 
     (transactionGet as jest.Mock)
@@ -436,7 +441,8 @@ describe('stockService', () => {
     expect(transactionSet).toHaveBeenCalled();
     const movementPayload = transactionSet.mock.calls[0][1] as Record<string, number>;
     expect(movementPayload.totalCostInBRL).toBeCloseTo(60, 3);
-    expect(movementPayload.unitCostInBRL).toBeCloseTo(2, 3);
+    // unitCostInBRL persisted as R$ / kg (previous average was 2000 R$/kg)
+    expect(movementPayload.unitCostInBRL).toBeCloseTo(2000, 3);
     expect(createNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         category: 'stock',

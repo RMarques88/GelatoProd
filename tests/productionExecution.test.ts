@@ -1,3 +1,8 @@
+import {
+  completeProductionPlanWithConsumption,
+  startProductionPlanExecution,
+} from '@/services/productionExecution';
+
 import type {
   ProductionDivergence,
   ProductionPlan,
@@ -26,30 +31,30 @@ const mockFindAvailabilityRecord = jest.fn();
 const mockUpdateAvailabilityRecord = jest.fn();
 
 jest.mock('@/services/firestore/productionService', () => ({
-  getProductionPlanById: mockGetProductionPlanById,
-  updateProductionPlan: mockUpdateProductionPlan,
+  getProductionPlanById: (...args: unknown[]) => mockGetProductionPlanById(...args),
+  updateProductionPlan: (...args: unknown[]) => mockUpdateProductionPlan(...args),
 }));
-
 jest.mock('@/services/firestore/productionStagesService', () => ({
-  listProductionStages: mockListProductionStages,
-  updateProductionStage: mockUpdateProductionStage,
+  listProductionStages: (...args: unknown[]) => mockListProductionStages(...args),
+  updateProductionStage: (...args: unknown[]) => mockUpdateProductionStage(...args),
 }));
 
 jest.mock('@/services/firestore/recipesService', () => ({
-  getRecipeById: mockGetRecipeById,
+  getRecipeById: (...args: unknown[]) => mockGetRecipeById(...args),
 }));
 
 jest.mock('@/services/firestore/stockService', () => ({
-  listStockItems: mockListStockItems,
-  adjustStockLevel: mockAdjustStockLevel,
+  listStockItems: (...args: unknown[]) => mockListStockItems(...args),
+  adjustStockLevel: (...args: unknown[]) => mockAdjustStockLevel(...args),
 }));
 
 jest.mock('@/services/firestore/productionDivergencesService', () => ({
-  createProductionDivergence: mockCreateProductionDivergence,
+  createProductionDivergence: (...args: unknown[]) =>
+    mockCreateProductionDivergence(...args),
 }));
 
 jest.mock('@/services/firestore/notificationsService', () => ({
-  createNotification: mockCreateNotification,
+  createNotification: (...args: unknown[]) => mockCreateNotification(...args),
 }));
 
 jest.mock('@/services/firestore/productionAvailabilityService', () => ({
@@ -58,13 +63,6 @@ jest.mock('@/services/firestore/productionAvailabilityService', () => ({
   updateProductionPlanAvailabilityRecord: (...args: unknown[]) =>
     mockUpdateAvailabilityRecord(...args),
 }));
-
-// eslint-disable-next-line import/order
-import {
-  completeProductionPlanWithConsumption,
-  startProductionPlanExecution,
-} from '@/services/productionExecution';
-
 describe('completeProductionPlanWithConsumption', () => {
   const mockPlan: ProductionPlan = {
     id: 'plan-1',
@@ -232,6 +230,7 @@ describe('completeProductionPlanWithConsumption', () => {
     });
 
     mockFindAvailabilityRecord.mockResolvedValue(availabilityRecord);
+
     mockUpdateAvailabilityRecord.mockResolvedValue({
       ...availabilityRecord,
       status: 'reconciled',

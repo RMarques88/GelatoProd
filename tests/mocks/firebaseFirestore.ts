@@ -142,6 +142,9 @@ export function createTimestamp(date: Date) {
 }
 
 export function resetFirestoreMocks() {
+  // Use mockReset to clear both call history and any queued mockResolvedValueOnce
+  // behaviors. mockClear only clears call history which allowed leftover
+  // one-time resolves to leak between tests.
   collection.mockClear();
   doc.mockClear();
   addDoc.mockClear();

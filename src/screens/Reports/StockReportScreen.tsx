@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+
 import { ProductPickerModal } from '@/components/inputs/ProductPickerModal';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
@@ -28,6 +29,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { formatRelativeDate } from '@/utils/date';
+import { unitCostPerGram } from '@/utils/financial';
 import type {
   ProductionDivergenceStatus,
   ProductionPlanAvailabilityStatus,
@@ -490,7 +492,8 @@ export default function StockReportScreen() {
             product.unitOfMeasure ?? 'GRAMS',
             item.defaultQtyPerPortion,
           );
-          costPerPortion += grams * unitCost; // unitCost ~ BRL per gram
+          const perGram = unitCostPerGram(stock ?? null);
+          costPerPortion += grams * perGram;
         }
       }
 

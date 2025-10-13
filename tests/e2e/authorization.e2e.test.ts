@@ -165,7 +165,8 @@ describe('E2E: Authorization & Permissions', () => {
       previousQuantityInGrams: 500,
       resultingQuantityInGrams: 700,
       totalCostInBRL: 50.0,
-      unitCostInBRL: 0.25,
+      // stored as R$ / kg
+      unitCostInBRL: 250,
       note: 'Entrada de estoque por estoquista',
       performedBy: estoquistaUserId,
       performedAt: new Date(),

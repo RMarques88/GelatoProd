@@ -21,6 +21,27 @@ export function unitCostPerGram(stock?: FinancialStockItemLike | null): number {
   return stored / 1000;
 }
 
+// Return unit cost in BRL per kilogram. This reads the stored normalization value
+// directly (the stock service stores costs as R$ per kilogram or per liter equivalent).
+export function unitCostPerKilogram(stock?: FinancialStockItemLike | null): number {
+  return stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+}
+
+// Helper that returns the most appropriate cost for display depending on the
+// product's unit of measure. For `UNITS` it returns the raw per-unit cost (R$ per unit).
+// For weight/volume units it returns R$ per kilogram (suitable to show as €/kg in UI).
+export function unitCostForDisplay(
+  stock?: FinancialStockItemLike | null,
+  productUnit?: string | null,
+): number {
+  const unit = productUnit ?? 'GRAMS';
+  if (unit === 'UNITS') {
+    return stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+  }
+  // For grams/ml/liters/kilograms show per-kilogram (the stored form)
+  return unitCostPerKilogram(stock);
+}
+
 export interface FinancialPlanLike {
   recipeId: string;
   unitOfMeasure: UnitOfMeasure; // we only meaningfully handle 'GRAMS' for revenue here

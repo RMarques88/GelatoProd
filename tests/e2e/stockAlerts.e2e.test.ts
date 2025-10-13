@@ -84,11 +84,15 @@ describe('E2E: Stock Alerts', () => {
       performedAt: new Date(),
     });
 
-    // 4. Atualiza o stockItem com o novo valor
-    await stockItemRef.update({
-      currentQuantityInGrams: 40,
-      updatedAt: new Date(),
-    });
+    // 4. Atualiza o stockItem com o novo valor (usar set merge para tolerar
+    // casos onde o documento não exista devido a limpeza paralela)
+    await stockItemRef.set(
+      {
+        currentQuantityInGrams: 40,
+        updatedAt: new Date(),
+      },
+      { merge: true },
+    );
 
     // 5. Simula a criação do alerta (normalmente feito por Cloud Function ou hook)
     const alertRef = await db.collection('stockAlerts').add({
@@ -212,7 +216,8 @@ describe('E2E: Stock Alerts', () => {
       previousQuantityInGrams: 30,
       resultingQuantityInGrams: 150,
       totalCostInBRL: 50.0,
-      unitCostInBRL: 0.42,
+      // stored as R$ / kg
+      unitCostInBRL: 420,
       note: 'Reposição de estoque - teste',
       performedBy: testUserId,
       performedAt: new Date(),

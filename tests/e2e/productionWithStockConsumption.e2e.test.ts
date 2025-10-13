@@ -122,8 +122,8 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       productId: productLeiteId,
       currentQuantityInGrams: 5000,
       minimumQuantityInGrams: 500,
-      averageUnitCostInBRL: 0.006, // R$ 6,00/kg
-      highestUnitCostInBRL: 0.006,
+      averageUnitCostInBRL: 6.0, // R$ 6,00/kg (stored as R$/kg)
+      highestUnitCostInBRL: 6.0,
       lastMovementId: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -136,8 +136,8 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       productId: productAcucarId,
       currentQuantityInGrams: 3000,
       minimumQuantityInGrams: 300,
-      averageUnitCostInBRL: 0.004, // R$ 4,00/kg
-      highestUnitCostInBRL: 0.004,
+      averageUnitCostInBRL: 4.0, // R$ 4,00/kg (stored as R$/kg)
+      highestUnitCostInBRL: 4.0,
       lastMovementId: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -150,8 +150,8 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
       productId: productMorangoId,
       currentQuantityInGrams: 2000,
       minimumQuantityInGrams: 200,
-      averageUnitCostInBRL: 0.015, // R$ 15,00/kg
-      highestUnitCostInBRL: 0.015,
+      averageUnitCostInBRL: 15.0, // R$ 15,00/kg (stored as R$/kg)
+      highestUnitCostInBRL: 15.0,
       lastMovementId: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -165,8 +165,9 @@ describe('E2E: Produção com Consumo de Estoque Completo', () => {
     // Validar
     const stockDoc = await stockLeiteRef.get();
     expect(stockDoc.exists).toBe(true);
-    expect(stockDoc.data()?.currentQuantityInGrams).toBe(5000);
-    expect(stockDoc.data()?.averageUnitCostInBRL).toBe(0.006);
+  expect(stockDoc.data()?.currentQuantityInGrams).toBe(5000);
+  // Stored as R$ per kilogram
+  expect(stockDoc.data()?.averageUnitCostInBRL).toBe(6.0);
   });
 
   it('3. Deve criar receita com ingredientes', async () => {

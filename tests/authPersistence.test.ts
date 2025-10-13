@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
 
@@ -39,8 +40,10 @@ describe('getFirebaseAuth', () => {
     delete globalScope.__firebase_db_instance__;
   });
 
-  it('configures React Native persistence when initializing auth', async () => {
-    const { getFirebaseAuth } = await import('@/services/firebase');
+  it('configures React Native persistence when initializing auth', () => {
+    // Use synchronous require to avoid dynamic import which requires experimental vm modules
+    // in Node/Jest environment.
+    const { getFirebaseAuth } = require('@/services/firebase');
     const auth = getFirebaseAuth();
 
     expect(auth).toBe(mockAuthInstance);
@@ -52,8 +55,8 @@ describe('getFirebaseAuth', () => {
     expect(mockGetAuth).not.toHaveBeenCalled();
   });
 
-  it('reuses the cached auth instance within the same launch', async () => {
-    const { getFirebaseAuth } = await import('@/services/firebase');
+  it('reuses the cached auth instance within the same launch', () => {
+    const { getFirebaseAuth } = require('@/services/firebase');
     const first = getFirebaseAuth();
     const second = getFirebaseAuth();
 
@@ -63,7 +66,8 @@ describe('getFirebaseAuth', () => {
   });
 
   it('configures persistence again on a new launch (module reload)', async () => {
-    const { getFirebaseAuth } = await import('@/services/firebase');
+    // initial load via require
+    const { getFirebaseAuth } = require('@/services/firebase');
     getFirebaseAuth();
 
     expect(mockInitializeAuth).toHaveBeenCalledTimes(1);
@@ -75,7 +79,8 @@ describe('getFirebaseAuth', () => {
 
     jest.resetModules();
 
-    const reloadedModule = await import('@/services/firebase');
+    // reload module after resetting modules
+    const reloadedModule = require('@/services/firebase');
     reloadedModule.getFirebaseAuth();
 
     expect(mockInitializeAuth).toHaveBeenCalledTimes(2);
@@ -87,12 +92,12 @@ describe('getFirebaseAuth', () => {
     });
   });
 
-  it('falls back to getAuth when initializeAuth throws', async () => {
+  it('falls back to getAuth when initializeAuth throws', () => {
     mockInitializeAuth.mockImplementation(() => {
       throw new Error('already-initialized');
     });
 
-    const { getFirebaseAuth } = await import('@/services/firebase');
+    const { getFirebaseAuth } = require('@/services/firebase');
     const auth = getFirebaseAuth();
 
     expect(mockInitializeAuth).toHaveBeenCalledTimes(1);

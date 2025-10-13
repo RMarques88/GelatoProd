@@ -81,7 +81,7 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
       name: 'Cobertura',
       unitOfMeasure: 'GRAMS',
       isActive: true,
-      averageUnitCostInBRL: 0.02, // 0.02 por grama
+      averageUnitCostInBRL: 20.0, // R$ 20/kg -> 0.02 per gram
       createdAt: new Date(),
       updatedAt: new Date(),
       archivedAt: null,
@@ -156,10 +156,12 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
         const pc = productCosts[acc.productId];
         if (!pc) continue;
         if (pc.unit === 'UNITS') {
+          // cost is R$ per unit
           accessoriesCost += acc.defaultQtyPerPortion * pc.cost * portions;
         } else {
-          // grams (ou heurística 1ml=1g)
-          accessoriesCost += acc.defaultQtyPerPortion * pc.cost * portions;
+          // cost stored as R$ / kg for weight/volume products; convert to per-gram
+          const perGram = pc.cost / 1000;
+          accessoriesCost += acc.defaultQtyPerPortion * perGram * portions;
         }
       }
       // Sem outros custos nesse teste

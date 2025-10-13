@@ -15,6 +15,7 @@ import { listProducts } from '../../src/services/firestore/productsService';
 import { listStockItems } from '../../src/services/firestore/stockService';
 
 import { installVisualHooks } from './e2eVisualHelper';
+import { cleanupFirebase } from '../../src/services/firebase';
 installVisualHooks();
 // Sample quantities to validate (in grams or ml). For UNITS these are treated
 // as "units" (so 1 unit -> 1).
@@ -181,4 +182,12 @@ describe('Read-only price interpretation check', () => {
 
     expect(failures).toBe(0);
   }, 30000);
+  afterAll(async () => {
+    // Ensure Firebase client resources are cleaned up so Jest can exit.
+    try {
+      await cleanupFirebase();
+    } catch (err) {
+      // Ignore cleanup failures in test harness
+    }
+  });
 });

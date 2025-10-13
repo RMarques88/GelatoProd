@@ -20,17 +20,14 @@ import { initializeApp, cert, ServiceAccount } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
+import { cleanupFirebase } from '../../src/services/firebase';
+
 interface ServiceAccountJSON {
   project_id: string;
   [key: string]: unknown;
 }
 
-const serviceAccountPath = path.join(
-  __dirname,
-  '..',
-  '..',
-  'firebase-service-account.json',
-);
+const serviceAccountPath = path.join(__dirname, '..', '..', 'firebase-service-account.json');
 const serviceAccountJSON = JSON.parse(
   fs.readFileSync(serviceAccountPath, 'utf8'),
 ) as ServiceAccountJSON;
@@ -119,18 +116,33 @@ async function shutdownFirebaseApp() {
   }
 }
 
-process.once('beforeExit', () => {
-  // best-effort cleanup
-  shutdownFirebaseApp().catch(() => {});
+process.once('beforeExit', async () => {
+  // best-effort cleanup: terminate Admin SDK Firestore then cleanup client SDK
+  try {
+    await shutdownFirebaseApp();
+  } catch {}
+  try {
+    await cleanupFirebase();
+  } catch {}
 });
 
 process.once('SIGINT', async () => {
-  await shutdownFirebaseApp();
+  try {
+    await shutdownFirebaseApp();
+  } catch {}
+  try {
+    await cleanupFirebase();
+  } catch {}
   process.exit(0);
 });
 
 process.once('SIGTERM', async () => {
-  await shutdownFirebaseApp();
+  try {
+    await shutdownFirebaseApp();
+  } catch {}
+  try {
+    await cleanupFirebase();
+  } catch {}
   process.exit(0);
 });
 
