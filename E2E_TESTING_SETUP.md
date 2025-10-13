@@ -108,6 +108,38 @@ Test Suites: 1 passed, 1 total
 Tests:       4 passed, 4 total
 ```
 
+## 4. Fluxo destrutivo, backups e modo visual
+
+Algumas operações E2E são destrutivas por design (por exemplo, testes que limpam coleções ou semeiam dados determinísticos). Para evitar perda acidental de dados, siga este fluxo recomendado:
+
+- Sempre gere um backup local antes de executar qualquer teste destrutivo. Use o script:
+
+```powershell
+node ./scripts/backupFirestore.js
+```
+
+- Há um runner interativo em PowerShell que automatiza backup + confirmação antes de executar o teste destrutivo:
+
+```powershell
+./scripts/run-e2e-chain.ps1
+```
+
+   O runner irá:
+   - perguntar se você deseja criar o backup local;
+   - criar o backup em `tests/e2e/backups/{timestamp}/`;
+   - pedir confirmação final (typing RUN) e então definir `ALLOW_E2E_ON_PROD=true` temporariamente para permitir a execução segura do teste destrutivo.
+
+- O script de backup (`scripts/backupFirestore.js`) salva coleções alvo como JSON. Verifique os arquivos gerados antes de prosseguir.
+
+Modo visual (`E2E_VISUAL`):
+
+- Defina `E2E_VISUAL=true` para ativar hooks que adicionam pausas e logs humanos-friendly (pausas de ~5s entre testes, listagem de operações Firestore capturadas e tentativas de read-back/comparação). Isso é útil para inspeção manual e demos, mas não recomendado em CI.
+
+- O helper `tests/e2e/e2eVisualHelper.ts` expõe `installVisualHooks()` e utilitários `e2eLog`/`compareAndLog` que os testes podem usar para emitir comparações ricas quando `E2E_VISUAL` está ativo.
+
+Observação de segurança: mesmo com `E2E_VISUAL` ligado, o runner exige confirmação explícita antes de permitir operações destrutivas.
+
+
 ## 5. Próximos Passos
 
 ### Testes E2E a adicionar:
