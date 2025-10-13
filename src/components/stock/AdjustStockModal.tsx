@@ -175,6 +175,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    paddingTop: 32,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
     gap: 16,
   },
   modalHeader: {
@@ -263,6 +265,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     backgroundColor: '#4E9F3D',
+    marginTop: 12,
+    marginBottom: Platform.OS === 'ios' ? 8 : 4,
   },
   modalPrimaryButtonPressed: {
     opacity: 0.9,

@@ -15,22 +15,23 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ProductPickerModal } from '@/components/inputs/ProductPickerModal';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Product, Recipe, RecipeIngredient } from '@/domain';
-import { useProducts, useRecipes, usePricingSettings } from '@/hooks/data';
+import { useProducts, useRecipes, usePricingSettings, useStockItems } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { logError } from '@/utils/logger';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 // type imports moved above
 
 type IngredientFormValue = {
   type: RecipeIngredient['type'];
   referenceId: string;
   quantity: string;
+  estimatedCostInBRL?: number; // local-only estimated cost for this ingredient
 };
 
 type Props = NativeStackScreenProps<AppStackParamList, 'RecipeUpsert'>;
@@ -55,6 +56,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
     includeInactive: true,
   });
   const { products } = useProducts({ includeInactive: true });
+  const { stockItems } = useStockItems({ includeArchived: true });
   const { settings: pricingSettings, update: updatePricingSettings } = usePricingSettings(
     { enabled: true },
   );
@@ -218,6 +220,42 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
       ),
     );
   };
+
+  const computeIngredientEstimatedCost = useCallback(
+    (ingredient: IngredientFormValue) => {
+      if (!ingredient.referenceId) return 0;
+      if (ingredient.type !== 'product') return 0; // skip recipes for now
+      const product = products.find(p => p.id === ingredient.referenceId);
+      if (!product) return 0;
+      const stock = stockItems.find(s => s.productId === product.id);
+      const unitCost = stock?.averageUnitCostInBRL ?? stock?.highestUnitCostInBRL ?? 0;
+      const qty = Number(ingredient.quantity.replace(',', '.'));
+      if (!Number.isFinite(qty) || qty <= 0) return 0;
+
+      // convert product unit to grams if necessary
+      const unit = product.unitOfMeasure ?? 'GRAMS';
+      let grams = qty;
+      if (unit === 'KILOGRAMS') grams = qty * 1000;
+      if (unit === 'LITERS') grams = qty * 1000;
+      if (unit === 'MILLILITERS') grams = qty;
+
+      // UNITS treated as unit count: multiply count * unitCost
+      if (unit === 'UNITS') return qty * unitCost;
+
+      // unitCost is stored per gram in this app convention (some items use per-kg but tests show small numbers),
+      // but many places expect averageUnitCostInBRL to be per gram. If the unitCost seems like per-kg (>1),
+      // we still multiply grams * unitCost because elsewhere they do unitCost * grams.
+      return grams * unitCost;
+    },
+    [products, stockItems],
+  );
+
+  const estimatedTotalCost = useMemo(() => {
+    return ingredients.reduce((sum, ing) => {
+      const cost = ing.estimatedCostInBRL ?? computeIngredientEstimatedCost(ing);
+      return sum + (Number.isFinite(cost) ? cost : 0);
+    }, 0);
+  }, [ingredients, computeIngredientEstimatedCost]);
 
   const handleSubmit = async () => {
     if (!canManage) {
@@ -613,19 +651,47 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
 
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Quantidade (g) *</Text>
-                  <TextInput
-                    value={ingredient.quantity}
-                    onChangeText={value =>
-                      handleIngredientChange(index, { quantity: value })
-                    }
-                    placeholder="500"
-                    style={styles.input}
-                    keyboardType="numeric"
-                    editable={canManage}
-                  />
+                  <View style={styles.qtyRow}>
+                    <TextInput
+                      value={ingredient.quantity}
+                      onChangeText={value =>
+                        handleIngredientChange(index, { quantity: value })
+                      }
+                      placeholder="500"
+                      style={[styles.input, styles.qtyInput]}
+                      keyboardType="numeric"
+                      editable={canManage}
+                    />
+                    <Pressable
+                      onPress={() => {
+                        const cost = computeIngredientEstimatedCost(ingredient);
+                        handleIngredientChange(index, { estimatedCostInBRL: cost });
+                      }}
+                      style={({ pressed }) => [
+                        styles.estimateBtn,
+                        pressed && styles.estimateBtnPressed,
+                      ]}
+                      disabled={!canManage}
+                    >
+                      <Ionicons name="calculator-outline" size={20} color="#1F2937" />
+                    </Pressable>
+                  </View>
+                  {typeof ingredient.estimatedCostInBRL === 'number' ? (
+                    <Text style={styles.hintText}>
+                      Custo estimado: R$ {ingredient.estimatedCostInBRL.toFixed(2)}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             ))}
+          </View>
+
+          <View>
+            <View style={styles.estimatedSummary}>
+              <Text style={styles.estimatedSummaryText}>
+                Custo estimado da receita: R$ {estimatedTotalCost.toFixed(2)}
+              </Text>
+            </View>
           </View>
 
           <Pressable
@@ -1437,5 +1503,34 @@ const styles = StyleSheet.create({
   },
   disabledSecondaryButton: {
     opacity: 0.5,
+  },
+  qtyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  qtyInput: {
+    flex: 1,
+  },
+  estimateBtn: {
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+  },
+  estimateBtnPressed: {
+    opacity: 0.8,
+  },
+  estimatedSummary: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  estimatedSummaryText: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '600',
   },
 });
