@@ -1171,8 +1171,8 @@ export function ProductionExecutionScreen() {
                         Produto {adjustment.productId}
                       </Text>
                       <Text style={styles.adjustmentQuantity}>
-                        -{adjustment.quantityInGrams} g · Restante{' '}
-                        {adjustment.resultingQuantityInGrams} g
+                        -{`${formatGrams(adjustment.quantityInGrams)} g`} · Restante{' '}
+                        {`${formatGrams(adjustment.resultingQuantityInGrams)} g`}
                       </Text>
                       <Text style={styles.adjustmentMeta}>
                         Registrado {formatRelativeDate(adjustment.performedAt)} por{' '}

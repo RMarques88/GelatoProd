@@ -919,8 +919,8 @@ export function HomeScreen() {
                           `Produto #${alert.productId}`}
                       </Text>
                       <Text style={styles.listItemSubtitle}>
-                        {alert.currentQuantityInGrams}g disponíveis · mínimo{' '}
-                        {alert.minimumQuantityInGrams}g
+                        {`${formatGrams(alert.currentQuantityInGrams)} g disponíveis · mínimo `}
+                        {`${formatGrams(alert.minimumQuantityInGrams)} g`}
                       </Text>
                       <Text style={styles.listItemMeta}>
                         Atualizado {formatRelativeDate(alert.updatedAt)}

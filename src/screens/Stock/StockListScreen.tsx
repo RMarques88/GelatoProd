@@ -96,6 +96,19 @@ export default function StockListScreen({ navigation }: Props) {
     [products],
   );
 
+  const gramsFormatter = useMemo(
+    () => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }),
+    [],
+  );
+
+  const formatGrams = useCallback(
+    (value: number | null | undefined) => {
+      const v = Number(value ?? 0);
+      return gramsFormatter.format(v);
+    },
+    [gramsFormatter],
+  );
+
   const availableProductsForCreation = useMemo(() => {
     const existingProductIds = new Set(stockItems.map(item => item.productId));
     return products
@@ -559,7 +572,9 @@ export default function StockListScreen({ navigation }: Props) {
             </View>
             <View style={styles.cardHeaderRight}>
               <View style={styles.quantityBadge}>
-                <Text style={styles.quantityText}>{item.currentQuantityInGrams} g</Text>
+                <Text
+                  style={styles.quantityText}
+                >{`${formatGrams(item.currentQuantityInGrams)} g`}</Text>
                 <Text style={styles.quantitySubtext}>Atual</Text>
               </View>
               {authorization.canManageStock ? (
@@ -581,12 +596,14 @@ export default function StockListScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Mínimo: {item.minimumQuantityInGrams} g</Text>
-            <Text style={styles.metaLabel}>
-              {movement
-                ? `Última mov.: ${movementTypeLabels[movement.type]} (${movement.quantityInGrams} g)`
-                : 'Sem movimentações'}
-            </Text>
+              <Text style={styles.metaLabel}>
+                Mínimo: {`${formatGrams(item.minimumQuantityInGrams)} g`}
+              </Text>
+              <Text style={styles.metaLabel}>
+                {movement
+                  ? `Última mov.: ${movementTypeLabels[movement.type]} (${formatGrams(movement.quantityInGrams)} g)`
+                  : 'Sem movimentações'}
+              </Text>
           </View>
 
           {hasAlert ? (
@@ -646,6 +663,7 @@ export default function StockListScreen({ navigation }: Props) {
       openAdjustModal,
       openEditMinimumModal,
       productsById,
+      formatGrams,
     ],
   );
 

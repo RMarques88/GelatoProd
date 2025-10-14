@@ -111,6 +111,16 @@ export default function StockItemScreen({ navigation, route }: Props) {
     return { visible, type, quantity, note, totalCost, unitPrice: adjustState.unitPrice };
   }, [adjustState]);
 
+  const gramsFormatter = useMemo(
+    () => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }),
+    [],
+  );
+
+  const formatGrams = useCallback(
+    (value: number | null | undefined) => gramsFormatter.format(Number(value ?? 0)),
+    [gramsFormatter],
+  );
+
   const handleModalChange = useCallback((state: AdjustStockModalState) => {
     setAdjustState(previous => ({ ...previous, ...state }));
   }, []);
@@ -350,19 +360,21 @@ export default function StockItemScreen({ navigation, route }: Props) {
       <View style={styles.movementCard}>
         <View style={styles.movementHeader}>
           <Text style={styles.movementType}>{movementTypeLabels[item.type]}</Text>
-          <Text style={styles.movementQuantity}>{item.quantityInGrams} g</Text>
+          <Text
+            style={styles.movementQuantity}
+          >{`${formatGrams(item.quantityInGrams)} g`}</Text>
         </View>
         <Text style={styles.movementMeta}>
-          Anterior: {item.previousQuantityInGrams} g
+          Anterior: {`${formatGrams(item.previousQuantityInGrams)} g`}
         </Text>
         <Text style={styles.movementMeta}>
-          Resultante: {item.resultingQuantityInGrams} g
+          Resultante: {`${formatGrams(item.resultingQuantityInGrams)} g`}
         </Text>
         <Text style={styles.movementDate}>{formatRelativeDate(item.performedAt)}</Text>
         {item.note ? <Text style={styles.movementNote}>{item.note}</Text> : null}
       </View>
     ),
-    [],
+    [formatGrams],
   );
 
   const renderEmptyMovements = useCallback(
@@ -415,7 +427,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
             </View>
             <View style={styles.quantityBadge}>
               <Text style={styles.quantityText}>
-                {stockItem.currentQuantityInGrams} g
+                {`${formatGrams(stockItem.currentQuantityInGrams)} g`}
               </Text>
               <Text style={styles.quantitySubtext}>Atual</Text>
             </View>
@@ -423,7 +435,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
 
           <View style={styles.progressContainer}>
             <Text style={styles.progressLabel}>
-              Cobertura vs mínimo ({stockItem.minimumQuantityInGrams} g)
+              Cobertura vs mínimo ({`${formatGrams(stockItem.minimumQuantityInGrams)} g`})
             </Text>
             <View style={styles.progressBar}>
               <View
@@ -453,8 +465,8 @@ export default function StockItemScreen({ navigation, route }: Props) {
                 {alert.severity === 'critical' ? 'Estoque crítico' : 'Abaixo do mínimo'}
               </Text>
               <Text style={styles.alertDescription}>
-                Atualmente com {alert.currentQuantityInGrams} g. Mínimo:{' '}
-                {alert.minimumQuantityInGrams} g.
+                Atualmente com {`${formatGrams(alert.currentQuantityInGrams)} g`}. Mínimo:{' '}
+                {`${formatGrams(alert.minimumQuantityInGrams)} g`}.
               </Text>
               {authorization.canAcknowledgeStockAlerts ? (
                 <View style={styles.alertActions}>
