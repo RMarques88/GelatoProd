@@ -160,7 +160,7 @@ function formatGrams(value: number | null | undefined) {
   return `${value.toLocaleString('pt-BR', {
     maximumFractionDigits: value % 1 === 0 ? 0 : 2,
     minimumFractionDigits: value % 1 === 0 ? 0 : 2,
-  })}g`;
+  })} g`;
 }
 
 const availabilityStatusCopy: Record<

@@ -80,7 +80,11 @@ async function calculateReservedQuantities(options: {
         const current = reservedByProduct.get(productId) || 0;
         reservedByProduct.set(productId, current + quantity);
         console.log(
-          `  📦 [Reservas] ${productId.slice(0, 8)}... reservado: +${quantity}g (total: ${current + quantity}g)`,
+          `  📦 [Reservas] ${productId.slice(0, 8)}... reservado: +${Number(
+            quantity,
+          ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} g (total: ${Number(
+            current + quantity,
+          ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} g)`,
         );
       }
     } catch (error) {
@@ -277,7 +281,11 @@ export async function checkProductionPlanAvailability(options: {
   if (shortages.length > 0) {
     console.log(`❌ Faltas detectadas: ${shortages.length} produto(s)`);
     shortages.forEach(s => {
-      console.log(`   - ${s.productId.slice(0, 8)}...: falta ${s.shortageInGrams}g`);
+      console.log(
+        `   - ${s.productId.slice(0, 8)}...: falta ${Number(
+          s.shortageInGrams,
+        ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} g`,
+      );
     });
   }
   console.log('═'.repeat(80));

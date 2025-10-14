@@ -217,10 +217,9 @@ function ReportingAnalyticsPanelComponent({
                   </View>
                   <View style={styles.metricItem}>
                     <Text style={styles.metricValue}>
-                      {latestIngredientSummary.totals.totalConsumedInGrams.toLocaleString(
-                        'pt-BR',
-                        { maximumFractionDigits: 0 },
-                      )}
+                      {Number(
+                        latestIngredientSummary.totals.totalConsumedInGrams,
+                      ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}{' '}
                       g
                     </Text>
                     <Text style={styles.metricLabel}>Consumo total</Text>
@@ -235,10 +234,9 @@ function ReportingAnalyticsPanelComponent({
                           {getProductName(product.productId)}
                         </Text>
                         <Text style={styles.listItemSubtitle}>
-                          {product.quantityInGrams.toLocaleString('pt-BR', {
-                            maximumFractionDigits: 0,
-                          })}{' '}
-                          g · {product.movementCount} mov.
+                          {`${Number(product.quantityInGrams).toLocaleString('pt-BR', {
+                            maximumFractionDigits: 2,
+                          })} g · ${product.movementCount} mov.`}
                         </Text>
                       </View>
                     ))}
