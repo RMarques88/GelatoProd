@@ -412,12 +412,12 @@ export function HomeScreen() {
             {isSelected ? <Ionicons name="checkmark" size={18} color="#2563EB" /> : null}
           </View>
           <Text style={styles.recipeMeta}>
-            Rendimento {item.yieldInGrams}g · {item.ingredients.length} ingredientes
+            {`Rendimento ${formatGrams(item.yieldInGrams)} g · ${item.ingredients.length} ingredientes`}
           </Text>
         </Pressable>
       );
     },
-    [handleSelectRecipe, selectedRecipeId],
+    [handleSelectRecipe, selectedRecipeId, formatGrams],
   );
 
   const handleCreateProduct = async () => {
@@ -1198,7 +1198,7 @@ export function HomeScreen() {
                         </Text>
                         <Text style={styles.selectorHint}>
                           {selectedRecipe
-                            ? `${selectedRecipe.yieldInGrams}g · ${selectedRecipe.ingredients.length} ingredientes`
+                            ? `${formatGrams(selectedRecipe.yieldInGrams)} g · ${selectedRecipe.ingredients.length} ingredientes`
                             : recipes.length === 0
                               ? 'Nenhuma receita cadastrada ainda'
                               : 'Toque para escolher uma receita cadastrada'}
@@ -1542,8 +1542,7 @@ export function HomeScreen() {
                     <View>
                       <Text style={styles.listItemTitle}>{recipe.name}</Text>
                       <Text style={styles.listItemSubtitle}>
-                        Rendimento: {recipe.yieldInGrams}g • {recipe.ingredients.length}{' '}
-                        ingredientes
+                        {`Rendimento: ${formatGrams(recipe.yieldInGrams)} g • ${recipe.ingredients.length} ingredientes`}
                       </Text>
                     </View>
                   </View>
@@ -1626,8 +1625,8 @@ export function HomeScreen() {
                           `Produto #${item.productId}`}
                       </Text>
                       <Text style={styles.listItemSubtitle}>
-                        {item.currentQuantityInGrams}g disponíveis · mínimo{' '}
-                        {item.minimumQuantityInGrams}g
+                        {formatGrams(item.currentQuantityInGrams)} g disponíveis · mínimo{' '}
+                        {formatGrams(item.minimumQuantityInGrams)} g
                       </Text>
                       <Text style={styles.listItemMeta}>
                         Atualizado {formatRelativeDate(item.updatedAt)}
