@@ -28,6 +28,15 @@ import {
 } from '@/services/productionRequirements';
 import { logError } from '@/utils/logger';
 
+function formatGrams(value: number | null | undefined) {
+  if (value === null || value === undefined) return '0 g';
+  const formatted = Number(value).toLocaleString('pt-BR', {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+  return `${formatted} g`;
+}
+
 function resolveSeverity(
   missing: number,
   required: number,
@@ -102,7 +111,9 @@ export async function completeProductionPlanWithConsumption(options: {
   console.log('═'.repeat(80));
 
   const plan = await getProductionPlanById(planId);
-  console.log(`✅ Plano: ${plan.code} - ${plan.recipeName} (${plan.quantityInUnits}g)`);
+  console.log(
+    `✅ Plano: ${plan.code} - ${plan.recipeName} (${formatGrams(plan.quantityInUnits)})`,
+  );
 
   const recipe = await getRecipeById(plan.recipeId);
   console.log(`✅ Receita: ${recipe.name} (${recipe.ingredients.length} ingredientes)`);
@@ -165,7 +176,7 @@ export async function completeProductionPlanWithConsumption(options: {
     const missing = Math.max(0, requiredQuantity - consumed);
 
     console.log(
-      `  📦 Produto: necessário ${requiredQuantity}g | disponível ${available}g | consumindo ${consumed}g`,
+      `  📦 Produto: necessário ${formatGrams(requiredQuantity)} | disponível ${formatGrams(available)} | consumindo ${formatGrams(consumed)}`,
     );
 
     totalConsumedInGrams += consumed;
@@ -190,7 +201,7 @@ export async function completeProductionPlanWithConsumption(options: {
           totalCostInBRL += adjustment.totalCostInBRL;
         }
         console.log(
-          `  ✅ Consumido! Novo estoque: ${adjustment.resultingQuantityInGrams}g | Custo: R$ ${adjustment.totalCostInBRL?.toFixed(2) || '0.00'}`,
+          `  ✅ Consumido! Novo estoque: ${formatGrams(adjustment.resultingQuantityInGrams)} | Custo: R$ ${adjustment.totalCostInBRL?.toFixed(2) || '0.00'}`,
         );
       } catch (adjustError) {
         console.error(`  ❌ ERRO ao consumir estoque:`, adjustError);
@@ -199,7 +210,7 @@ export async function completeProductionPlanWithConsumption(options: {
     } else if (!stockItem) {
       console.log(`  ⚠️  Item de estoque NÃO ENCONTRADO`);
     } else {
-      console.log(`  ⚠️  Estoque INSUFICIENTE (${available}g disponível)`);
+      console.log(`  ⚠️  Estoque INSUFICIENTE (${formatGrams(available)} disponível)`);
     }
 
     if (missing > 0 || !stockItem) {
@@ -257,8 +268,8 @@ export async function completeProductionPlanWithConsumption(options: {
   const actualQuantity = Math.max(0, plan.quantityInUnits * (1 - worstMissingRatio));
 
   console.log(`\n📊 RESUMO:`);
-  console.log(`  • Consumido: ${totalConsumedInGrams}g`);
-  console.log(`  • Falta: ${totalMissingInGrams}g`);
+  console.log(`  • Consumido: ${formatGrams(totalConsumedInGrams)}`);
+  console.log(`  • Falta: ${formatGrams(totalMissingInGrams)}`);
   console.log(`  • Custo total: R$ ${totalCostInBRL.toFixed(2)}`);
   console.log(`  • Movimentos: ${adjustments.length}`);
   console.log(`  • Divergências: ${divergences.length}`);

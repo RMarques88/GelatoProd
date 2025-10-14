@@ -49,8 +49,13 @@ export default function FinancialReportScreen() {
   const { width, height } = useWindowDimensions();
   const orientation = height >= width ? 'portrait' : 'landscape';
   const { settings, isLoading: isLoadingPricing } = usePricingSettings();
-  const { plans, isLoading: isLoadingPlans } = useProductionPlans({
+  const { plans: completedPlans, isLoading: isLoadingPlans } = useProductionPlans({
     status: ['completed'],
+    includeArchived: false,
+    limit: 250,
+  });
+  const { plans: scheduledPlans } = useProductionPlans({
+    status: ['scheduled'],
     includeArchived: false,
     limit: 250,
   });
@@ -72,7 +77,7 @@ export default function FinancialReportScreen() {
   const { summary, hasAnyOverride } = useMemo(() => {
     // detect overrides presence among filtered plans within window
     const s = computeFinancialSummary(
-      plans,
+      completedPlans,
       products,
       stockItems,
       settings ?? undefined,
@@ -94,21 +99,41 @@ export default function FinancialReportScreen() {
       }
     }
     return { summary: s, hasAnyOverride: any };
-  }, [plans, products, stockItems, settings, rangeFrom, rangeTo]);
+  }, [completedPlans, products, stockItems, settings, rangeFrom, rangeTo]);
 
   const isLoading = isLoadingPricing || isLoadingPlans;
 
+  // Projection: sum estimated costs and computed revenue for scheduled plans in the
+  // next 15 days. If there are no scheduled plans, projection will be zeros.
   const projection = useMemo(() => {
-    const days = Math.max(
-      1,
-      (rangeTo.getTime() - rangeFrom.getTime()) / (1000 * 60 * 60 * 24),
+    const now = new Date();
+    const end = new Date();
+    end.setDate(now.getDate() + 15);
+
+    const upcoming = (scheduledPlans ?? []).filter(p => {
+      const ref = p.scheduledFor;
+      return ref && ref >= now && ref <= end;
+    });
+
+    if (!upcoming.length) return { revenue: 0, cost: 0, margin: 0 };
+
+    const sellingPricePer100g = settings?.sellingPricePer100gInBRL ?? 0;
+    const totalCost = upcoming.reduce(
+      (s, p) => s + (p.estimatedProductionCostInBRL ?? 0),
+      0,
     );
+    const totalRevenue = upcoming.reduce((s, p) => {
+      if (!p.quantityInUnits || !p.unitOfMeasure) return s;
+      if (p.unitOfMeasure !== 'GRAMS' || sellingPricePer100g <= 0) return s;
+      return s + (p.quantityInUnits / 100) * sellingPricePer100g;
+    }, 0);
+
     return {
-      revenue: (summary.revenue / days) * 15,
-      cost: (summary.cost / days) * 15,
-      margin: (summary.margin / days) * 15,
+      revenue: totalRevenue,
+      cost: totalCost,
+      margin: Math.max(0, totalRevenue - totalCost),
     };
-  }, [rangeFrom, rangeTo, summary]);
+  }, [scheduledPlans, settings]);
 
   return (
     <ScreenContainer>

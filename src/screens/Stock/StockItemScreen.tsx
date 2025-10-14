@@ -93,6 +93,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
     quantity: '',
     note: '',
     totalCost: '',
+    unitPrice: undefined,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [priceModalState, setPriceModalState] = useState<PriceRegisterState>({
@@ -106,7 +107,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
 
   const modalState = useMemo<AdjustStockModalState>(() => {
     const { visible, type, quantity, note, totalCost } = adjustState;
-    return { visible, type, quantity, note, totalCost };
+    return { visible, type, quantity, note, totalCost, unitPrice: adjustState.unitPrice };
   }, [adjustState]);
 
   const handleModalChange = useCallback((state: AdjustStockModalState) => {
@@ -123,6 +124,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
         quantity: '',
         note: '',
         totalCost: '',
+        unitPrice: undefined,
       }));
     },
     [stockItemId],
@@ -149,7 +151,27 @@ export default function StockItemScreen({ navigation, route }: Props) {
     const quantityValue = Number(adjustState.quantity.replace(',', '.'));
     const shouldCaptureCost =
       adjustState.type === 'increment' || adjustState.type === 'initial';
-    const totalCostValue = Number(adjustState.totalCost.replace(',', '.'));
+
+    // Parse provided total cost and optional unit price (R$ / kg or R$ / L).
+    const rawTotalCost = adjustState.totalCost
+      ? adjustState.totalCost.replace(',', '.')
+      : '';
+    let totalCostValue = rawTotalCost ? Number(rawTotalCost) : NaN;
+
+    const unitPriceRaw = adjustState.unitPrice
+      ? adjustState.unitPrice.replace(',', '.')
+      : '';
+    const unitPriceValue = unitPriceRaw ? Number(unitPriceRaw) : NaN;
+
+    // If user didn't provide total cost but provided a unit price, compute
+    // totalCost = unitPrice * (qty / 1000)
+    if (
+      (Number.isNaN(totalCostValue) || totalCostValue <= 0) &&
+      !Number.isNaN(unitPriceValue) &&
+      unitPriceValue > 0
+    ) {
+      totalCostValue = unitPriceValue * (quantityValue / 1000);
+    }
 
     if (Number.isNaN(quantityValue) || quantityValue <= 0) {
       Alert.alert('Quantidade inválida', 'Informe um valor maior que zero.');
@@ -166,9 +188,13 @@ export default function StockItemScreen({ navigation, route }: Props) {
       }
     }
 
+    const formattedQuantity = Number(quantityValue).toLocaleString('pt-BR', {
+      maximumFractionDigits: 2,
+    });
+
     Alert.alert(
       'Confirmar ajuste',
-      `Deseja registrar ${movementTypeLabels[adjustState.type].toLowerCase()} de ${quantityValue}g?`,
+      `Deseja registrar ${movementTypeLabels[adjustState.type].toLowerCase()} de ${formattedQuantity} g?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {

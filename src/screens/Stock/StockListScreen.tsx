@@ -35,7 +35,6 @@ import { useAuthorization } from '@/hooks/useAuthorization';
 import type { StockAlertStatus, StockMovementType } from '@/domain';
 import type { AppStackParamList } from '@/navigation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-
 type Props = NativeStackScreenProps<AppStackParamList, 'Stock'>;
 
 type AdjustModalState = AdjustStockModalState & {
@@ -56,6 +55,7 @@ export default function StockListScreen({ navigation }: Props) {
     quantity: '',
     note: '',
     totalCost: '',
+    unitPrice: undefined,
   });
   const [isSubmittingAdjustment, setIsSubmittingAdjustment] = useState(false);
   const [createState, setCreateState] = useState<CreateStockItemModalState>({
@@ -167,6 +167,7 @@ export default function StockListScreen({ navigation }: Props) {
         quantity: '',
         note: '',
         totalCost: '',
+        unitPrice: undefined,
       });
     },
     [],
@@ -274,8 +275,8 @@ export default function StockListScreen({ navigation }: Props) {
   }, [editMinimumState, update]);
 
   const modalState = useMemo<AdjustStockModalState>(() => {
-    const { visible, type, quantity, note, totalCost } = adjustState;
-    return { visible, type, quantity, note, totalCost };
+    const { visible, type, quantity, note, totalCost, unitPrice } = adjustState;
+    return { visible, type, quantity, note, totalCost, unitPrice };
   }, [adjustState]);
 
   const handleModalChange = useCallback((nextState: AdjustStockModalState) => {
@@ -326,7 +327,26 @@ export default function StockListScreen({ navigation }: Props) {
     const quantityValue = Number(adjustState.quantity.replace(',', '.'));
     const shouldCaptureCost =
       adjustState.type === 'increment' || adjustState.type === 'initial';
-    const totalCostValue = Number(adjustState.totalCost.replace(',', '.'));
+
+    // Parse provided total cost and optional unit price (R$ / kg or R$ / L)
+    const rawTotalCost = adjustState.totalCost
+      ? adjustState.totalCost.replace(',', '.')
+      : '';
+    let totalCostValue = rawTotalCost ? Number(rawTotalCost) : NaN;
+
+    const unitPriceRaw = adjustState.unitPrice
+      ? adjustState.unitPrice.replace(',', '.')
+      : '';
+    const unitPriceValue = unitPriceRaw ? Number(unitPriceRaw) : NaN;
+
+    // If total cost not provided but unit price was, compute totalCost = unitPrice * (qty / 1000)
+    if (
+      (Number.isNaN(totalCostValue) || totalCostValue <= 0) &&
+      !Number.isNaN(unitPriceValue) &&
+      unitPriceValue > 0
+    ) {
+      totalCostValue = unitPriceValue * (quantityValue / 1000);
+    }
 
     if (Number.isNaN(quantityValue) || quantityValue <= 0) {
       Alert.alert(
@@ -346,9 +366,13 @@ export default function StockListScreen({ navigation }: Props) {
       }
     }
 
+    const formattedQuantity = Number(quantityValue).toLocaleString('pt-BR', {
+      maximumFractionDigits: 2,
+    });
+
     Alert.alert(
       'Confirmar ajuste',
-      `Deseja registrar ${movementTypeLabels[adjustState.type].toLowerCase()} de ${quantityValue}g?`,
+      `Deseja registrar ${movementTypeLabels[adjustState.type].toLowerCase()} de ${formattedQuantity} g?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -471,12 +495,32 @@ export default function StockListScreen({ navigation }: Props) {
           : styles.alertBadgeWarning;
       const hasAlert = Boolean(alert);
 
+      // compute price string for display (weight/volume products only)
+      const rawPrice = item.averageUnitCostInBRL ?? item.highestUnitCostInBRL ?? null;
+      let priceDisplay: string | null = null;
+      if (
+        rawPrice != null &&
+        product?.unitOfMeasure &&
+        product.unitOfMeasure !== 'UNITS'
+      ) {
+        const raw = Number(rawPrice);
+        const unitLabel =
+          product.unitOfMeasure === 'LITERS' || product.unitOfMeasure === 'MILLILITERS'
+            ? 'L'
+            : 'kg';
+        priceDisplay = `R$ ${raw.toFixed(2)} / ${unitLabel}`;
+      }
+
       return (
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View>
               <View style={styles.productTitleRow}>
                 <Text style={styles.productName}>{product?.name ?? item.productId}</Text>
+                {/* Show price per kg/L for weight/volume products when available */}
+                {priceDisplay ? (
+                  <Text style={styles.pricePerUnitText}>{priceDisplay}</Text>
+                ) : null}
                 {product?.unitOfMeasure ? (
                   <View style={styles.unitBadge}>
                     <Text style={styles.unitBadgeText}>
@@ -875,6 +919,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#1A1B1E',
+  },
+  pricePerUnitText: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginLeft: 8,
+    fontWeight: '600',
   },
   unitBadge: {
     backgroundColor: '#E5E7EB',

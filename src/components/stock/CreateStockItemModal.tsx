@@ -3,10 +3,12 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  Platform,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
@@ -74,7 +76,11 @@ export function CreateStockItemModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.containerContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.header}>
             <Text style={styles.title}>Novo item de estoque</Text>
             <Pressable
@@ -150,7 +156,7 @@ export function CreateStockItemModal({
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.label}>Quantidade mínima (kg/L)</Text>
+            <Text style={styles.label}>Quantidade mínima</Text>
             <TextInput
               value={state.minimumQuantity}
               onChangeText={value => onChange({ ...state, minimumQuantity: value })}
@@ -160,12 +166,13 @@ export function CreateStockItemModal({
               editable={!disabled}
             />
             <Text style={styles.hintTextSmall}>
-              Informe a quantidade mínima em quilogramas ou litros. Ex: 0,5 = 500 g/ml
+              Informe a quantidade mínima na mesma unidade cadastrada no produto (ex.: 5 =
+              5 kg).
             </Text>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.label}>Quantidade inicial (kg/L)</Text>
+            <Text style={styles.label}>Quantidade inicial</Text>
             <TextInput
               value={state.initialQuantity}
               onChangeText={value => onChange({ ...state, initialQuantity: value })}
@@ -175,8 +182,8 @@ export function CreateStockItemModal({
               editable={!disabled}
             />
             <Text style={styles.hintTextSmall}>
-              Informe a quantidade inicial em quilogramas ou litros. Será convertida para
-              gramas internamente.
+              Informe a quantidade inicial na mesma unidade do produto. Valores serão
+              convertidos internamente quando aplicável.
             </Text>
           </View>
 
@@ -194,7 +201,7 @@ export function CreateStockItemModal({
               <Text style={styles.primaryButtonText}>Adicionar ao estoque</Text>
             )}
           </Pressable>
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -210,9 +217,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    padding: 0,
+    gap: 16,
+    maxHeight: '90%',
+  },
+  containerContent: {
     padding: 24,
     gap: 16,
-    maxHeight: '80%',
+    paddingBottom: 32,
   },
   header: {
     flexDirection: 'row',
@@ -309,6 +321,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+    marginBottom: Platform.select({ ios: 12, android: 8, default: 10 }),
   },
   primaryButtonPressed: {
     opacity: 0.9,

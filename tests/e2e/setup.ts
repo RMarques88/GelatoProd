@@ -51,7 +51,8 @@ export const auth = getAuth(app);
 // multiple E2E suites run in the same project. This appends a run-specific
 // suffix to every collection name used by tests (only affects the `db` exported
 // from this module, not the application runtime).
-const TEST_RUN_ID = process.env.E2E_RUN_ID || `e2e_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+const TEST_RUN_ID =
+  process.env.E2E_RUN_ID || `e2e_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 // Preserve original collection method
 const __origCollection = (db as any).collection.bind(db);
 (db as any).collection = function (colName: string) {
@@ -63,7 +64,9 @@ const __origCollection = (db as any).collection.bind(db);
   return __origCollection(namespaced);
 };
 
-console.log(`🧪 E2E test run id: ${TEST_RUN_ID} — test collections will be namespaced with this id`);
+console.log(
+  `🧪 E2E test run id: ${TEST_RUN_ID} — test collections will be namespaced with this id`,
+);
 
 // If visual E2E mode is enabled, instrument a lightweight operations recorder
 // so tests can report exactly what was written/read. This is best-effort and

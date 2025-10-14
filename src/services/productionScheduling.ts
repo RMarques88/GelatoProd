@@ -156,7 +156,12 @@ async function resolveAvailabilityItems(options: {
     let averageUnitCostInBRL: number | null = null;
 
     if (aggregatedCost.totalQuantity > 0 && aggregatedCost.totalCost > 0) {
-      averageUnitCostInBRL = aggregatedCost.totalCost / aggregatedCost.totalQuantity;
+      // aggregatedCost.totalCost is computed using per-gram unit costs, so the
+      // division below produces a value in BRL per gram. The rest of the
+      // application expects `averageUnitCostInBRL` to be normalized as BRL per
+      // kilogram (the canonical storage), therefore multiply by 1000.
+      averageUnitCostInBRL =
+        (aggregatedCost.totalCost / aggregatedCost.totalQuantity) * 1000;
     } else {
       const fallbackItem = stockItems[0];
       averageUnitCostInBRL =
@@ -169,6 +174,17 @@ async function resolveAvailabilityItems(options: {
           averageUnitCostInBRL,
         } as unknown as FinancialStockItemLike) * requiredQuantity
       : null;
+
+    // Debug: if costs look suspiciously small, log details to help trace unit conversion issues
+    if (estimatedCostInBRL && estimatedCostInBRL > 0 && estimatedCostInBRL < 1) {
+      console.debug('[Disponibilidade][DEBUG] Pequeno custo estimado detectado', {
+        productId,
+        requiredQuantity,
+        averageUnitCostInBRL,
+        estimatedCostInBRL,
+        aggregatedCost,
+      });
+    }
 
     totalRequiredInGrams += requiredQuantity;
     totalAvailableInGrams += availableQuantity;

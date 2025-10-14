@@ -248,8 +248,12 @@ export function ProductionIngredientSummaryScreen() {
             let averageUnitCostInBRL: number | null = null;
 
             if (aggregatedCost.totalQuantity > 0 && aggregatedCost.totalCost > 0) {
+              // aggregatedCost.totalCost was computed using per-gram unit costs
+              // (unitCostPerGram). Dividing totalCost/totalQuantity yields BRL per
+              // gram. The rest of the UI expects averageUnitCostInBRL to be
+              // normalized as BRL per kilogram, so multiply by 1000 here.
               averageUnitCostInBRL =
-                aggregatedCost.totalCost / aggregatedCost.totalQuantity;
+                (aggregatedCost.totalCost / aggregatedCost.totalQuantity) * 1000;
             } else if (stockItems[0]) {
               averageUnitCostInBRL =
                 stockItems[0].averageUnitCostInBRL ??

@@ -234,11 +234,11 @@ describe('E2E: Accessories Overrides -> Margem Financeira', () => {
 
     await waitForRevert();
 
-  // Debug: read back pricing settings to ensure items are present after revert
-  const afterRevertSnap = await pricingRef.get();
-  console.log('DEBUG pricing after revert:', JSON.stringify(afterRevertSnap.data()));
+    // Debug: read back pricing settings to ensure items are present after revert
+    const afterRevertSnap = await pricingRef.get();
+    console.log('DEBUG pricing after revert:', JSON.stringify(afterRevertSnap.data()));
 
-  const marginReverted = await computeMargin();
-  expect(marginReverted).toBeCloseTo(94, 2);
+    const marginReverted = await computeMargin();
+    expect(marginReverted).toBeCloseTo(94, 2);
   }, 30000);
 });

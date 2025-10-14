@@ -25,6 +25,7 @@ export type AdjustStockModalState = {
   quantity: string;
   note: string;
   totalCost: string;
+  unitPrice?: string;
 };
 
 export type AdjustStockModalProps = {
@@ -128,6 +129,19 @@ export function AdjustStockModal({
                   editable={!disabled}
                   showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
                 />
+
+                <Text style={[styles.modalLabel, styles.modalLabelSpacing]}>
+                  Preço unitário (opcional) (R$ / kg ou R$ / L)
+                </Text>
+                <TextInput
+                  value={state.unitPrice ?? ''}
+                  onChangeText={value => onChange({ ...state, unitPrice: value })}
+                  placeholder="4,50"
+                  style={styles.modalInput}
+                  keyboardType="numeric"
+                  editable={!disabled}
+                  showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
+                />
               </View>
             ) : null}
 
@@ -209,6 +223,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#1F2937',
+  },
+  modalLabelSpacing: {
+    marginTop: 8,
+  },
+  modalLabelGroup: {
+    gap: 4,
+  },
+  modalSmallHint: {
+    fontSize: 12,
+    color: '#6B7280',
   },
   modalFieldGroup: {
     gap: 8,

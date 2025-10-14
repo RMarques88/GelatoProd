@@ -2726,7 +2726,7 @@ export default HomeScreen;
 
 type MetricCardProps = {
   label: string;
-  value?: number;
+  value?: number | string;
   isLoading?: boolean;
   highlight?: boolean;
   iconName: keyof typeof Ionicons.glyphMap;
@@ -2834,6 +2834,10 @@ function HomeFinancialSummary() {
       to,
     );
   }, [plans, products, stockItems, settings]);
+  const currency = useMemo(
+    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }),
+    [],
+  );
 
   return (
     <View style={styles.metricsRow}>
@@ -2842,7 +2846,7 @@ function HomeFinancialSummary() {
         iconName="cash-outline"
         iconBackground="#DCFCE7"
         iconColor="#047857"
-        value={Math.round(revenue)}
+        value={currency.format(revenue)}
         isLoading={isLoadingPlans}
       />
       <MetricCard
@@ -2850,7 +2854,7 @@ function HomeFinancialSummary() {
         iconName="pricetag-outline"
         iconBackground="#E0E7FF"
         iconColor="#3730A3"
-        value={Math.round(cost)}
+        value={currency.format(cost)}
         isLoading={isLoadingPlans}
       />
       <MetricCard
@@ -2858,7 +2862,7 @@ function HomeFinancialSummary() {
         iconName="trending-up-outline"
         iconBackground="#DBEAFE"
         iconColor="#1D4ED8"
-        value={Math.round(margin)}
+        value={currency.format(margin)}
         isLoading={isLoadingPlans}
       />
     </View>

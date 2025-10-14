@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   ActivityIndicator,
@@ -15,6 +15,9 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
+// Type-only imports first
+
+// Value imports
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
   useProductionPlan,
@@ -24,6 +27,7 @@ import {
 } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import { getUserProfile } from '@/services/firestore/usersService';
 import {
   completeProductionPlanWithConsumption,
   startProductionPlanExecution,
@@ -40,7 +44,6 @@ import type {
 import type { AppStackParamList } from '@/navigation';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-// type imports already declared above
 
 function StageCard({
   stage,
@@ -535,6 +538,7 @@ export function ProductionExecutionScreen() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const completionRequestedRef = useRef(false);
   const [isSubmittingStage, setIsSubmittingStage] = useState(false);
   const [stageModalState, setStageModalState] = useState<StageModalState | null>(null);
   const [lastCompletionSummary, setLastCompletionSummary] =
@@ -721,6 +725,14 @@ export function ProductionExecutionScreen() {
       canAdvance: authorization.canAdvanceProduction,
     });
 
+    // Prevent re-entrancy: if a completion flow was already requested, ignore.
+    if (completionRequestedRef.current) {
+      console.log(
+        '🔒 [ProductionExecution] Conclusão já solicitada — ignorando clique adicional',
+      );
+      return;
+    }
+
     if (!authorization.canAdvanceProduction) {
       console.log('❌ [ProductionExecution] Sem permissão para concluir');
       Alert.alert('Sem permissão', 'Você não pode concluir produções.');
@@ -740,12 +752,18 @@ export function ProductionExecutionScreen() {
 
     console.log('📝 [ProductionExecution] Mostrando confirmação para o usuário');
 
+    // Mark that a completion flow has been requested to avoid showing multiple alerts
+    completionRequestedRef.current = true;
+
     Alert.alert('Concluir produção', confirmMessage, [
       {
         text: 'Cancelar',
         style: 'cancel',
-        onPress: () =>
-          console.log('🚫 [ProductionExecution] Usuário cancelou a conclusão'),
+        onPress: () => {
+          console.log('🚫 [ProductionExecution] Usuário cancelou a conclusão');
+          // Reset request guard when user cancels
+          completionRequestedRef.current = false;
+        },
       },
       {
         text: 'Concluir',
@@ -754,6 +772,32 @@ export function ProductionExecutionScreen() {
           console.log('✅ [ProductionExecution] Usuário confirmou - iniciando conclusão');
           setIsCompleting(true);
           try {
+            // Double-check the user's authoritative profile in Firestore before
+            // attempting writes controlled by security rules. This prevents
+            // confusing "missing permissions" errors when the local auth
+            // state is out-of-sync with the Firestore users collection.
+            const profile = await getUserProfile(user.id).catch(() => null);
+            const allowedRoles = new Set([
+              'admin',
+              'manager',
+              'gelatie',
+              'Gelatie',
+              'GELATIE',
+              'produtor',
+              'Produtor',
+              'PRODUTOR',
+            ]);
+            if (!profile || !allowedRoles.has(profile.role)) {
+              console.log('[ProductionExecution] Permissão Firestore insuficiente', {
+                profile,
+              });
+              Alert.alert(
+                'Sem permissão',
+                'Seu perfil no servidor não tem permissão para concluir produções. Peça a um administrador para atribuir o papel apropriado (ex.: produtor).',
+              );
+              setIsCompleting(false);
+              return;
+            }
             console.log(
               '🚀 [ProductionExecution] Chamando completeProductionPlanWithConsumption',
               {
@@ -801,6 +845,8 @@ export function ProductionExecutionScreen() {
           } finally {
             console.log('🏁 [ProductionExecution] Finalizando (setIsCompleting false)');
             setIsCompleting(false);
+            // Allow future completion attempts
+            completionRequestedRef.current = false;
           }
         },
       },

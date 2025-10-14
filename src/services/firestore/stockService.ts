@@ -524,13 +524,23 @@ export async function adjustStockLevel(options: {
 
     // Agora podemos fazer as escritas (updates e sets)
     console.log(
-      `💾 Atualizando estoque: ${previous}g → ${resulting}g (${options.type} ${options.quantityInGrams}g)`,
+      `💾 Atualizando estoque: ${Number(previous).toLocaleString('pt-BR', {
+        maximumFractionDigits: 2,
+      })}g → ${Number(resulting).toLocaleString('pt-BR', {
+        maximumFractionDigits: 2,
+      })}g (${options.type} ${Number(options.quantityInGrams).toLocaleString('pt-BR', {
+        maximumFractionDigits: 2,
+      })}g)`,
     );
 
     transaction.update(itemRef, itemUpdatePayload);
 
     console.log(
-      `📝 Criando movimentação: tipo=${options.type}, qty=${options.quantityInGrams}g, custo=R$${movementTotalCost?.toFixed(2) || '0'}`,
+      `📝 Criando movimentação: tipo=${options.type}, qty=${Number(
+        options.quantityInGrams,
+      ).toLocaleString('pt-BR', {
+        maximumFractionDigits: 2,
+      })}g, custo=R$${movementTotalCost?.toFixed(2) || '0'}`,
     );
 
     transaction.set(movementRef, {
@@ -583,7 +593,11 @@ export async function adjustStockLevel(options: {
 
         notificationPayload = {
           title: severity === 'critical' ? 'Estoque crítico' : 'Alerta de estoque',
-          message: `O item ${productDisplayName} está com ${resulting}g (mínimo ${minimum}g).`,
+          message: `O item ${productDisplayName} está com ${Number(
+            resulting,
+          ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}g (mínimo ${Number(
+            minimum,
+          ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}g).`,
           category: 'stock',
           type: severity === 'critical' ? 'stock-critical' : 'stock-warning',
           referenceId: options.stockItemId,
@@ -617,7 +631,11 @@ export async function adjustStockLevel(options: {
         if (shouldNotify) {
           notificationPayload = {
             title: severity === 'critical' ? 'Estoque crítico' : 'Alerta de estoque',
-            message: `O item ${productDisplayName} está com ${resulting}g (mínimo ${minimum}g).`,
+            message: `O item ${productDisplayName} está com ${Number(
+              resulting,
+            ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}g (mínimo ${Number(
+              minimum,
+            ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}g).`,
             category: 'stock',
             type: severity === 'critical' ? 'stock-critical' : 'stock-warning',
             referenceId: options.stockItemId,
