@@ -538,9 +538,7 @@ exports[`ReportingAnalyticsPanel renders analytics data snapshot 1`] = `
               }
             }
           >
-            3.200
-
-            g
+            3.200 g
           </Text>
           <Text
             style={
