@@ -9,6 +9,10 @@ import {
   View,
 } from 'react-native';
 
+import type { StockAlertStatus, StockMovement, StockMovementType } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
   AdjustStockModal,
@@ -28,9 +32,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { formatRelativeDate } from '@/utils/date';
 import { logError } from '@/utils/logger';
-import type { StockAlertStatus, StockMovement, StockMovementType } from '@/domain';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 type Props = NativeStackScreenProps<AppStackParamList, 'StockItem'>;
 
 type AdjustState = AdjustStockModalState & { stockItemId: string | null };
@@ -163,8 +164,7 @@ export default function StockItemScreen({ navigation, route }: Props) {
       : '';
     const unitPriceValue = unitPriceRaw ? Number(unitPriceRaw) : NaN;
 
-    // If user didn't provide total cost but provided a unit price, compute
-    // totalCost = unitPrice * (qty / 1000)
+    // If total cost not provided but unit price was, compute totalCost = unitPrice * (qty / 1000)
     if (
       (Number.isNaN(totalCostValue) || totalCostValue <= 0) &&
       !Number.isNaN(unitPriceValue) &&
@@ -174,7 +174,10 @@ export default function StockItemScreen({ navigation, route }: Props) {
     }
 
     if (Number.isNaN(quantityValue) || quantityValue <= 0) {
-      Alert.alert('Quantidade inválida', 'Informe um valor maior que zero.');
+      Alert.alert(
+        'Quantidade inválida',
+        'Informe um valor maior que zero para o ajuste.',
+      );
       return;
     }
 

@@ -12,6 +12,10 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import type { StockAlertStatus, StockMovementType } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
@@ -32,9 +36,6 @@ import {
 } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
-import type { StockAlertStatus, StockMovementType } from '@/domain';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 type Props = NativeStackScreenProps<AppStackParamList, 'Stock'>;
 
 type AdjustModalState = AdjustStockModalState & {
@@ -529,6 +530,17 @@ export default function StockListScreen({ navigation }: Props) {
         priceDisplay = `R$ ${raw.toFixed(2)} / ${unitLabel}`;
       }
 
+      let unitText: string | null = null;
+      if (product?.unitOfMeasure) {
+        if (product.unitOfMeasure === 'MILLILITERS') {
+          unitText = 'ml';
+        } else if (product.unitOfMeasure === 'LITERS') {
+          unitText = 'L';
+        } else {
+          unitText = 'un';
+        }
+      }
+
       return (
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -539,20 +551,8 @@ export default function StockListScreen({ navigation }: Props) {
                 {priceDisplay ? (
                   <Text style={styles.pricePerUnitText}>{priceDisplay}</Text>
                 ) : null}
-                {product?.unitOfMeasure ? (
-                  <View style={styles.unitBadge}>
-                    <Text style={styles.unitBadgeText}>
-                      {product.unitOfMeasure === 'GRAMS'
-                        ? 'g'
-                        : product.unitOfMeasure === 'KILOGRAMS'
-                          ? 'kg'
-                          : product.unitOfMeasure === 'MILLILITERS'
-                            ? 'ml'
-                            : product.unitOfMeasure === 'LITERS'
-                              ? 'L'
-                              : 'un'}
-                    </Text>
-                  </View>
+                {unitText ? (
+                  <Text style={styles.pricePerUnitText}>{unitText}</Text>
                 ) : null}
               </View>
               <Text style={styles.productMeta}>ID produto: {item.productId}</Text>
