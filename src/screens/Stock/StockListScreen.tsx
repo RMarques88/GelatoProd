@@ -383,6 +383,16 @@ export default function StockListScreen({ navigation }: Props) {
             }
             try {
               setIsSubmittingAdjustment(true);
+              // Debug: log payload sent to adjustStockLevel
+              console.debug('[StockListScreen] adjust payload', {
+                stockItemId: item.id,
+                quantityInGrams: quantityValue,
+                type: adjustState.type,
+                performedBy: user.id,
+                totalCostInBRL: shouldCaptureCost ? totalCostValue : undefined,
+                unitPriceProvided: adjustState.unitPrice,
+              });
+
               await adjust({
                 stockItemId: item.id,
                 quantityInGrams: quantityValue,
@@ -448,6 +458,14 @@ export default function StockListScreen({ navigation }: Props) {
 
     try {
       setIsCreatingItem(true);
+      // Debug: log payload for createStockItem (quantities converted to grams)
+      console.debug('[StockListScreen] createStockItem payload', {
+        productId: createState.productId,
+        minimumQuantityInGrams: minimumQuantityValue,
+        currentQuantityInGrams: 0,
+        initialQuantityProvidedKg: initialQuantityKg,
+      });
+
       const created = await create({
         productId: createState.productId,
         minimumQuantityInGrams: minimumQuantityValue,

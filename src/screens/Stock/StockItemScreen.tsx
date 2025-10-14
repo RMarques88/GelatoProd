@@ -205,6 +205,16 @@ export default function StockItemScreen({ navigation, route }: Props) {
             }
             try {
               setIsSubmitting(true);
+              // Debug: log payload being sent to adjustStockLevel
+              console.debug('[StockItemScreen] adjust payload', {
+                stockItemId: adjustState.stockItemId,
+                quantityInGrams: quantityValue,
+                type: adjustState.type,
+                performedBy: user.id,
+                totalCostInBRL: shouldCaptureCost ? totalCostValue : undefined,
+                unitPriceProvided: adjustState.unitPrice,
+              });
+
               await adjust({
                 stockItemId: adjustState.stockItemId!,
                 quantityInGrams: quantityValue,

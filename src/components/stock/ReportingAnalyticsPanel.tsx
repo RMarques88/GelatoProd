@@ -125,19 +125,19 @@ function ReportingAnalyticsPanelComponent({
                   </View>
                   <View style={styles.metricItem}>
                     <Text style={styles.metricValue}>
-                      {latestRecipeSummary.totals.totalPlannedQuantityInUnits.toLocaleString(
+                      {`${latestRecipeSummary.totals.totalPlannedQuantityInUnits.toLocaleString(
                         'pt-BR',
                         { maximumFractionDigits: 0 },
-                      )}
+                      )}`}
                     </Text>
                     <Text style={styles.metricLabel}>Qtd planejada</Text>
                   </View>
                   <View style={styles.metricItem}>
                     <Text style={styles.metricValue}>
-                      {latestRecipeSummary.totals.totalActualQuantityInUnits.toLocaleString(
+                      {`${latestRecipeSummary.totals.totalActualQuantityInUnits.toLocaleString(
                         'pt-BR',
                         { maximumFractionDigits: 0 },
-                      )}
+                      )}`}
                     </Text>
                     <Text style={styles.metricLabel}>Qtd real</Text>
                   </View>
@@ -217,10 +217,9 @@ function ReportingAnalyticsPanelComponent({
                   </View>
                   <View style={styles.metricItem}>
                     <Text style={styles.metricValue}>
-                      {Number(
+                      {`${Number(
                         latestIngredientSummary.totals.totalConsumedInGrams,
-                      ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}{' '}
-                      g
+                      ).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} g`}
                     </Text>
                     <Text style={styles.metricLabel}>Consumo total</Text>
                   </View>
