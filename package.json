@@ -21,6 +21,7 @@
     "db:seed:users": "node ./scripts/seed-users.js",
     "db:wipe": "node ./scripts/wipe-firestore.js"
     ,"test:e2e:chain":"pwsh ./scripts/run-e2e-chain.ps1"
+    ,"android:icons": "node ./scripts/sync-android-icons.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.3",
@@ -40,6 +41,9 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-keyboard-aware-scroll-view": "^0.9.5"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.32.0"
   },
   "devDependencies": {
     "@react-native-community/eslint-config": "^3.2.0",
