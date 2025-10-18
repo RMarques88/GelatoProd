@@ -45,6 +45,17 @@ function SummaryCard({
   );
 }
 
+function startOfDay(date: Date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function endOfDay(date: Date) {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 export default function FinancialReportScreen() {
   const { width, height } = useWindowDimensions();
   const orientation = height >= width ? 'portrait' : 'landscape';
@@ -87,7 +98,7 @@ export default function FinancialReportScreen() {
     let any = false;
     const overrides = settings?.accessories?.overridesByRecipeId;
     if (overrides) {
-      for (const p of plans) {
+      for (const p of completedPlans) {
         if (!p.recipeId) continue;
         if (overrides[p.recipeId] && overrides[p.recipeId]!.length > 0) {
           const ref = p.completedAt ?? p.scheduledFor;
@@ -107,12 +118,15 @@ export default function FinancialReportScreen() {
   // next 15 days. If there are no scheduled plans, projection will be zeros.
   const projection = useMemo(() => {
     const now = new Date();
-    const end = new Date();
-    end.setDate(now.getDate() + 15);
+    const start = startOfDay(now);
+    const end = endOfDay(new Date(now.getTime()));
+    end.setDate(end.getDate() + 15);
 
     const upcoming = (scheduledPlans ?? []).filter(p => {
       const ref = p.scheduledFor;
-      return ref && ref >= now && ref <= end;
+      if (!ref) return false;
+      const t = ref.getTime ? ref.getTime() : new Date(ref).getTime();
+      return t >= start.getTime() && t <= end.getTime();
     });
 
     if (!upcoming.length) return { revenue: 0, cost: 0, margin: 0 };
