@@ -454,6 +454,74 @@ Configurações principais ficam em `app/app.json`:
 
 Após substituir as imagens em `app/assets/`, gere uma nova build para ver o ícone atualizado no dispositivo.
 
+### Sincronizar ícones para builds Android locais
+
+Se você deseja que o build Gradle local use os ícones definidos em `app/assets/` (o que é útil para builds de produção locais com `gradlew`), há um script que gera os recursos nativos automaticamente:
+
+1. Gere os ícones nas pastas nativas (`mipmap-*`):
+
+```powershell
+cd 'C:\Dev\Gelateria V2\app'
+npm run android:icons
+```
+
+O script `scripts/sync-android-icons.js` gera `ic_launcher.webp`, `ic_launcher_round.webp`, `ic_launcher_foreground.webp` nas pastas `android/app/src/main/res/mipmap-*` e cria um `ic_launcher.xml` em `mipmap-anydpi-v26` que referencia `@color/iconBackground`.
+
+Observações:
+- O script usa `sharp` (já listado como `optionalDependencies`). Se o comando falhar por falta do `sharp`, instale com `npm install sharp`.
+- O script sobrescreve os arquivos existentes nas pastas `res`.
+
+### Gerar APK de produção localmente (Gradle)
+
+Se você precisa de um APK assinado localmente (sideload, testes em campo), use o Gradle wrapper para montar um release APK:
+
+1. Verifique que as propriedades de assinatura estão definidas em `android/gradle.properties` (não commite segredos):
+
+```properties
+# Exemplo (geralmente já presente neste projeto):
+MYAPP_UPLOAD_STORE_FILE=gelato-prod.keystore
+MYAPP_UPLOAD_KEY_ALIAS=gelato_key
+MYAPP_UPLOAD_STORE_PASSWORD=***
+MYAPP_UPLOAD_KEY_PASSWORD=***
+```
+
+2. Execute (PowerShell):
+
+```powershell
+Set-Location -LiteralPath 'C:\Dev\Gelateria V2\app\android'
+.\gradlew.bat assembleRelease
+```
+
+Resultado: o APK assinado será gerado em:
+
+```
+app\android\app\build\outputs\apk\release\app-release.apk
+```
+
+Se você preferir automatizar a sincronização de ícones antes do build, rode `npm run android:icons` previamente ou integre o script como task Gradle (ex.: `preBuild`).
+
+### Verificar assinatura do APK
+
+Para confirmar que o APK foi assinado corretamente, use `apksigner` (parte do Android SDK build-tools). Exemplos (PowerShell):
+
+1. Localize `apksigner.bat` (normalmente em `%LOCALAPPDATA%\Android\Sdk\build-tools\<version>\apksigner.bat`).
+
+2. Verifique e imprima certificados:
+
+```powershell
+& 'C:\Users\<seu_user>\AppData\Local\Android\Sdk\build-tools\36.1.0\apksigner.bat' verify --print-certs 'C:\Dev\Gelateria V2\app\android\app\build\outputs\apk\release\app-release.apk'
+```
+
+Saída esperada: informações do certificado do signer (DN, SHA-256, SHA-1), confirmando que o APK está assinado.
+
+Fallback: se `apksigner` não estiver disponível, `jarsigner -verify -verbose -certs <apk>` pode dar indicações, mas `apksigner` é a ferramenta recomendada para APKs modernos.
+
+### Notas sobre Keystore e Segurança
+
+- O arquivo de keystore (`gelato-prod.keystore`) e senhas não devem ser versionados. As propriedades de assinatura devem ser definidas localmente em `android/gradle.properties` ou injetadas via CI seguro.
+- Para builds na nuvem com EAS, prefira usar `npx eas build` e deixar o EAS gerenciar credenciais ou exportá-las com `npx eas credentials`.
+
+
 ## 🚀 Distribuição e Builds
 
 ### 1. Pré-requisitos e autenticação no Expo
