@@ -9,10 +9,6 @@ import {
   View,
 } from 'react-native';
 
-import type { StockAlertStatus, StockMovement, StockMovementType } from '@/domain';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
   AdjustStockModal,
@@ -32,6 +28,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { formatRelativeDate } from '@/utils/date';
 import { logError } from '@/utils/logger';
+import type { StockAlertStatus, StockMovement, StockMovementType } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 type Props = NativeStackScreenProps<AppStackParamList, 'StockItem'>;
 
 type AdjustState = AdjustStockModalState & { stockItemId: string | null };

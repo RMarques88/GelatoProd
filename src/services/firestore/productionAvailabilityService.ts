@@ -72,6 +72,16 @@ type ProductionPlanAvailabilitySnapshot =
   | DocumentSnapshot<ProductionPlanAvailabilityRecordDocument>
   | QueryDocumentSnapshot<ProductionPlanAvailabilityRecordDocument>;
 
+type SanitizedShortage = {
+  productId: string;
+  requiredQuantityInGrams: number;
+  availableQuantityInGrams: number;
+  shortageInGrams: number;
+  minimumQuantityInGrams?: number;
+  averageUnitCostInBRL: number | null;
+  estimatedCostInBRL: number | null;
+};
+
 function mapProductionPlanAvailabilityRecord(
   snapshot: ProductionPlanAvailabilitySnapshot,
 ): ProductionPlanAvailabilityRecord {
@@ -121,8 +131,27 @@ export async function createProductionPlanAvailabilityRecord(
   );
 
   const now = serverTimestamp();
+  // Sanitize shortages: Firestore rejects `undefined` anywhere in the object tree.
+  const sanitizedShortages: SanitizedShortage[] = (input.shortages ?? []).map(s => {
+    const base: SanitizedShortage = {
+      productId: s.productId,
+      requiredQuantityInGrams: s.requiredQuantityInGrams ?? 0,
+      availableQuantityInGrams: s.availableQuantityInGrams ?? 0,
+      shortageInGrams: s.shortageInGrams ?? 0,
+      averageUnitCostInBRL: s.averageUnitCostInBRL ?? null,
+      estimatedCostInBRL: s.estimatedCostInBRL ?? null,
+    };
 
-  const docRef = await addDoc(colRef, {
+    if (s.minimumQuantityInGrams !== undefined && s.minimumQuantityInGrams !== null) {
+      base.minimumQuantityInGrams = s.minimumQuantityInGrams;
+    }
+
+    return base;
+  });
+
+  // Build payload and remove any `undefined` values recursively. Firestore
+  // rejects `undefined` anywhere in the document tree.
+  const payload = {
     planId: input.planId,
     planCode: input.planCode,
     recipeId: input.recipeId,
@@ -133,10 +162,10 @@ export async function createProductionPlanAvailabilityRecord(
     status: input.status,
     confirmedBy: input.confirmedBy ?? null,
     confirmedAt: serializeDateOrNull(input.confirmedAt),
-    shortages: input.shortages,
-    totalRequiredInGrams: input.totalRequiredInGrams,
-    totalAvailableInGrams: input.totalAvailableInGrams,
-    totalShortageInGrams: input.totalShortageInGrams,
+    shortages: sanitizedShortages,
+    totalRequiredInGrams: input.totalRequiredInGrams ?? 0,
+    totalAvailableInGrams: input.totalAvailableInGrams ?? 0,
+    totalShortageInGrams: input.totalShortageInGrams ?? 0,
     notes: input.notes ?? null,
     executionStartedAt: serializeDateOrNull(input.executionStartedAt),
     executionCompletedAt: serializeDateOrNull(input.executionCompletedAt),
@@ -146,9 +175,40 @@ export async function createProductionPlanAvailabilityRecord(
     actualCostInBRL: input.actualCostInBRL ?? null,
     createdAt: now,
     updatedAt: now,
-  });
+  } as Record<string, unknown>;
 
-  const snapshot = await getDoc(docRef);
+  type UnknownRecord = Record<string, unknown>;
+
+  function removeUndefined<T>(value: T): T {
+    if (value === undefined) return value;
+    if (value === null) return value;
+    if (Array.isArray(value)) {
+      return value.map(v => removeUndefined(v)) as unknown as T;
+    }
+    if (typeof value === 'object') {
+      // Preserve non-plain objects such as Firestore Timestamp and FieldValue
+      const ctor = (value as UnknownRecord)?.constructor as unknown;
+      if (ctor && ctor !== Object) {
+        return value;
+      }
+
+      const out: UnknownRecord = {};
+      for (const [k, v] of Object.entries(value as UnknownRecord)) {
+        if (v === undefined) continue;
+        out[k] = removeUndefined(v as unknown) as unknown;
+      }
+      return out as unknown as T;
+    }
+
+    return value;
+  }
+
+  const cleanedPayload = removeUndefined(payload);
+  console.debug('[productionAvailability] creating record payload:', cleanedPayload);
+
+  const docRef = await addDoc(colRef, cleanedPayload);
+
+  const snapshot = (await getDoc(docRef)) as ProductionPlanAvailabilitySnapshot;
   return mapProductionPlanAvailabilityRecord(snapshot);
 }
 

@@ -20,6 +20,7 @@ import {
   listProductionStages,
   updateProductionStage,
 } from '@/services/firestore/productionStagesService';
+import { listProducts } from '@/services/firestore/productsService';
 import { getRecipeById } from '@/services/firestore/recipesService';
 import { adjustStockLevel, listStockItems } from '@/services/firestore/stockService';
 import {
@@ -111,6 +112,15 @@ export async function completeProductionPlanWithConsumption(options: {
   console.log('═'.repeat(80));
 
   const plan = await getProductionPlanById(planId);
+  // Idempotency guard: if the plan is already completed, bail out to avoid
+  // duplicate stock movements and divergences when the completion flow is
+  // triggered multiple times due to client retries or race conditions.
+  if (plan.status === 'completed') {
+    console.warn(
+      `Production ${planId} is already completed — skipping duplicate completion.`,
+    );
+    return { plan, adjustments: [], divergences: [] };
+  }
   console.log(
     `✅ Plano: ${plan.code} - ${plan.recipeName} (${formatGrams(plan.quantityInUnits)})`,
   );
@@ -139,6 +149,18 @@ export async function completeProductionPlanWithConsumption(options: {
   const adjustments: StockMovement[] = [];
   const divergences: ProductionDivergence[] = [];
   const notificationTasks: Array<Promise<unknown>> = [];
+
+  // Build product name lookup to show human-friendly names in notifications
+  // and divergence descriptions. Include inactive products so names remain
+  // available for legacy/archived items.
+  let productNamesMap = new Map<string, string>();
+  try {
+    const allProducts = await listProducts({ includeInactive: true }).catch(() => []);
+    productNamesMap = new Map(allProducts.map(p => [p.id, p.name]));
+  } catch {
+    // If product lookups fail, we'll fallback to productId later.
+    productNamesMap = new Map();
+  }
 
   let worstMissingRatio = 0;
   let totalConsumedInGrams = 0;
@@ -226,6 +248,11 @@ export async function completeProductionPlanWithConsumption(options: {
         maximumFractionDigits: 2,
       });
 
+      // Resolve product name via a cached map (built once per completion) to
+      // avoid many Firestore reads. fallback to id if not found.
+      // (productNamesMap is built below before the loop)
+      const productName = productNamesMap.get(productId) ?? productId;
+
       const divergence = await createProductionDivergence({
         planId: plan.id,
         stageId: undefined,
@@ -233,16 +260,16 @@ export async function completeProductionPlanWithConsumption(options: {
         severity,
         type: 'ingredient_shortage',
         description: stockItem
-          ? `Consumo parcial do produto ${productId}. Requerido: ${formattedRequired}g, consumido: ${formattedConsumed}g, faltante: ${formattedMissing}g.${shortageNote}`
-          : `Sem estoque cadastrado para o produto ${productId}. Requerido: ${formattedRequired}g.${shortageNote}`,
+          ? `Consumo parcial do produto ${productName}. Requerido: ${formattedRequired}g, consumido: ${formattedConsumed}g, faltante: ${formattedMissing}g.${shortageNote}`
+          : `Sem estoque cadastrado para o produto ${productName}. Requerido: ${formattedRequired}g.${shortageNote}`,
         expectedQuantityInUnits: requiredQuantity,
         actualQuantityInUnits: consumed,
       });
       divergences.push(divergence);
 
       const notificationMessageBase = stockItem
-        ? `Consumo parcial do produto ${productId} na produção ${plan.recipeName}.`
-        : `Sem estoque para o produto ${productId} na produção ${plan.recipeName}.`;
+        ? `Consumo parcial do produto ${productName} na produção ${plan.recipeName}.`
+        : `Sem estoque para o produto ${productName} na produção ${plan.recipeName}.`;
 
       const notificationMessage = predictedShortage
         ? `${notificationMessageBase} (falta prevista e aprovada na checagem de disponibilidade)`
