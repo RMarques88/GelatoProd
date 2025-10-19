@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
 
 type GlobalLockContextType = {
   isLocked: boolean;
@@ -13,21 +13,51 @@ export const GlobalLockProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [isLocked, setLocked] = useState(false);
+  // A ref to synchronously check and set lock state to avoid races where
+  // multiple callers call runWithLock at the same time.
+  const isLockedRef = useRef(false);
 
   const lock = useCallback(() => setLocked(true), []);
   const unlock = useCallback(() => setLocked(false), []);
 
+  const lockSync = useCallback(() => {
+    isLockedRef.current = true;
+    setLocked(true);
+  }, []);
+
+  const unlockSync = useCallback(() => {
+    isLockedRef.current = false;
+    setLocked(false);
+  }, []);
+
+  // Diagnostics
+  const debugLock = useCallback(() => {
+    console.debug('[GlobalLock] lock -> true');
+    lockSync();
+  }, [lockSync]);
+
+  const debugUnlock = useCallback(() => {
+    console.debug('[GlobalLock] lock -> false');
+    unlockSync();
+  }, [unlockSync]);
+
   const runWithLock = useCallback(
     async <T,>(work: Promise<T> | (() => Promise<T>)) => {
-      lock();
+      // Prevent concurrent runs: do a synchronous check using the ref.
+      if (isLockedRef.current) {
+        throw new Error('Global lock already acquired');
+      }
+
+      debugLock();
       try {
-        const result = typeof work === 'function' ? await (work as any)() : await work;
+        const result =
+          typeof work === 'function' ? await (work as () => Promise<T>)() : await work;
         return result as T;
       } finally {
-        unlock();
+        debugUnlock();
       }
     },
-    [lock, unlock],
+    [debugLock, debugUnlock],
   );
 
   return (
