@@ -19,6 +19,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 
 // Value imports
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
+import { useGlobalLock } from '@/contexts/GlobalLockContext';
 import {
   useProductionPlan,
   useProductionStages,
@@ -504,6 +505,7 @@ export function ProductionExecutionScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { user } = useAuth();
   const authorization = useAuthorization(user);
+  const { runWithLock } = useGlobalLock();
 
   const {
     plan,
@@ -768,90 +770,117 @@ export function ProductionExecutionScreen() {
       {
         text: 'Concluir',
         style: 'destructive',
-        onPress: async () => {
-          console.log('✅ [ProductionExecution] Usuário confirmou - iniciando conclusão');
-          setIsCompleting(true);
-          try {
-            // Double-check the user's authoritative profile in Firestore before
-            // attempting writes controlled by security rules. This prevents
-            // confusing "missing permissions" errors when the local auth
-            // state is out-of-sync with the Firestore users collection.
-            const profile = await getUserProfile(user.id).catch(() => null);
-            const allowedRoles = new Set([
-              'admin',
-              'manager',
-              'gelatie',
-              'Gelatie',
-              'GELATIE',
-              'produtor',
-              'Produtor',
-              'PRODUTOR',
-            ]);
-            if (!profile || !allowedRoles.has(profile.role)) {
-              console.log('[ProductionExecution] Permissão Firestore insuficiente', {
-                profile,
-              });
-              Alert.alert(
-                'Sem permissão',
-                'Seu perfil no servidor não tem permissão para concluir produções. Peça a um administrador para atribuir o papel apropriado (ex.: produtor).',
-              );
-              setIsCompleting(false);
-              return;
-            }
+        onPress: () => {
+          // Use global lock to block the entire UI while the DB-heavy
+          // completion runs. This prevents accidental additional clicks.
+          const run = async () => {
             console.log(
-              '🚀 [ProductionExecution] Chamando completeProductionPlanWithConsumption',
-              {
+              '✅ [ProductionExecution] Usuário confirmou - iniciando conclusão',
+            );
+            try {
+              // Double-check the user's authoritative profile in Firestore before
+              // attempting writes controlled by security rules. This prevents
+              // confusing "missing permissions" errors when the local auth
+              // state is out-of-sync with the Firestore users collection.
+              const profile = await getUserProfile(user.id).catch(() => null);
+              const allowedRoles = new Set([
+                'admin',
+                'manager',
+                'gelatie',
+                'Gelatie',
+                'GELATIE',
+                'produtor',
+                'Produtor',
+                'PRODUTOR',
+              ]);
+              if (!profile || !allowedRoles.has(profile.role)) {
+                console.log('[ProductionExecution] Permissão Firestore insuficiente', {
+                  profile,
+                });
+                Alert.alert(
+                  'Sem permissão',
+                  'Seu perfil no servidor não tem permissão para concluir produções. Peça a um administrador para atribuir o papel apropriado (ex.: produtor).',
+                );
+                return;
+              }
+
+              console.log(
+                '🚀 [ProductionExecution] Chamando completeProductionPlanWithConsumption',
+                {
+                  planId,
+                  performedBy: user.id,
+                },
+              );
+              const result = await completeProductionPlanWithConsumption({
                 planId,
                 performedBy: user.id,
-              },
-            );
-            const result = await completeProductionPlanWithConsumption({
-              planId,
-              performedBy: user.id,
-            });
-            console.log('🎉 [ProductionExecution] Produção concluída com sucesso!', {
-              adjustmentsCount: result.adjustments.length,
-              divergencesCount: result.divergences.length,
-              actualCost: result.plan.actualProductionCostInBRL,
-            });
+              });
+              console.log('🎉 [ProductionExecution] Produção concluída com sucesso!', {
+                adjustmentsCount: result.adjustments.length,
+                divergencesCount: result.divergences.length,
+                actualCost: result.plan.actualProductionCostInBRL,
+              });
 
-            setLastCompletionSummary({
-              timestamp: result.plan.completedAt ?? new Date(),
-              adjustments: result.adjustments,
-              divergences: result.divergences,
-            });
+              setLastCompletionSummary({
+                timestamp: result.plan.completedAt ?? new Date(),
+                adjustments: result.adjustments,
+                divergences: result.divergences,
+              });
 
-            if (result.divergences.length > 0) {
-              Alert.alert(
-                'Produção concluída com divergências',
-                `${result.divergences.length} divergências foram registradas automaticamente.`,
+              if (result.divergences.length > 0) {
+                Alert.alert(
+                  'Produção concluída com divergências',
+                  `${result.divergences.length} divergências foram registradas automaticamente.`,
+                );
+              } else {
+                Alert.alert('Produção concluída', 'Estoque atualizado com sucesso.');
+              }
+            } catch (completeError) {
+              console.error(
+                '💥 [ProductionExecution] ERRO ao concluir produção:',
+                completeError,
               );
-            } else {
-              Alert.alert('Produção concluída', 'Estoque atualizado com sucesso.');
+              console.error(
+                '💥 [ProductionExecution] Stack trace:',
+                completeError instanceof Error ? completeError.stack : 'sem stack',
+              );
+              logAndAlertError(
+                completeError,
+                'Erro ao concluir a produção. Confira o estoque.',
+              );
+            } finally {
+              // Allow future completion attempts
+              completionRequestedRef.current = false;
             }
-          } catch (completeError) {
-            console.error(
-              '💥 [ProductionExecution] ERRO ao concluir produção:',
-              completeError,
-            );
-            console.error(
-              '💥 [ProductionExecution] Stack trace:',
-              completeError instanceof Error ? completeError.stack : 'sem stack',
-            );
-            logAndAlertError(
-              completeError,
-              'Erro ao concluir a produção. Confira o estoque.',
-            );
-          } finally {
-            console.log('🏁 [ProductionExecution] Finalizando (setIsCompleting false)');
-            setIsCompleting(false);
-            // Allow future completion attempts
-            completionRequestedRef.current = false;
-          }
+          };
+
+          // Execute with local and global lock
+          (async () => {
+            setIsCompleting(true);
+            try {
+              await runWithLock(run);
+            } catch (err) {
+              console.error('Erro ao usar global lock:', err);
+              // fallback: run without global lock
+              try {
+                await run();
+              } catch (e) {
+                console.error('Erro ao executar fallback run:', e);
+              }
+            } finally {
+              setIsCompleting(false);
+            }
+          })();
         },
       },
     ]);
-  }, [authorization.canAdvanceProduction, availabilityRecord?.status, planId, user?.id]);
+  }, [
+    authorization.canAdvanceProduction,
+    availabilityRecord?.status,
+    planId,
+    user?.id,
+    runWithLock,
+  ]);
 
   const handleRegisterDivergence = useCallback(async () => {
     if (!authorization.canAdvanceProduction) {
