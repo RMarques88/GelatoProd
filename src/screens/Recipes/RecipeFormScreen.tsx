@@ -80,16 +80,13 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
       return sum + (Number.isFinite(qty) ? qty : 0);
     }, 0);
   }, [ingredients]);
-  const yieldHeuristicWarning = useMemo(() => {
-    const yieldValue = Number(yieldInGrams.replace(',', '.'));
-    if (!Number.isFinite(yieldValue) || yieldValue <= 0) return null;
-    if (totalIngredientsInGrams <= 0) return null;
-    const diff = Math.abs(yieldValue - totalIngredientsInGrams);
-    const tolerance = Math.max(100, totalIngredientsInGrams * 0.05); // 5% or 100g
-    if (diff > tolerance) {
-      return 'Atenção: O rendimento em gramas difere significativamente da soma dos ingredientes (heurística 1L≈1Kg). Revise as quantidades.';
-    }
-    return null;
+  // Computed yield is the sum of ingredient quantities when available.
+  // Keep the original `yieldInGrams` state as a fallback for older recipes that may not
+  // have ingredients filled. Prefer the computed sum when it's > 0.
+  const computedYield = useMemo(() => {
+    if (totalIngredientsInGrams > 0) return totalIngredientsInGrams;
+    const parsed = Number(yieldInGrams.replace(',', '.'));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }, [totalIngredientsInGrams, yieldInGrams]);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -286,15 +283,17 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
     }
 
     const trimmedName = name.trim();
-    const yieldValue = Number(yieldInGrams.replace(',', '.'));
+    const yieldValue = computedYield;
 
     if (!trimmedName) {
       setFormError('Informe o nome da receita.');
       return;
     }
 
-    if (Number.isNaN(yieldValue) || yieldValue <= 0) {
-      setFormError('Informe o rendimento em gramas da receita.');
+    if (!Number.isFinite(yieldValue) || yieldValue <= 0) {
+      setFormError(
+        'Informe o rendimento em gramas da receita (calculado a partir dos ingredientes).',
+      );
       return;
     }
 
@@ -331,6 +330,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
         await update(recipeId, {
           name: trimmedName,
           description: description.trim() || undefined,
+          // send the computed yield (server also recomputes for safety)
           yieldInGrams: yieldValue,
           instructions: instructions.trim() || undefined,
           ingredients: parsedIngredients,
@@ -346,6 +346,7 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
         await create({
           name: trimmedName,
           description: description.trim() || undefined,
+          // send the computed yield (server recomputes from ingredients as authoritative)
           yieldInGrams: yieldValue,
           instructions: instructions.trim() || undefined,
           ingredients: parsedIngredients,
@@ -547,17 +548,20 @@ export default function RecipeFormScreen({ navigation, route }: Props) {
 
           <View style={[styles.formGroup, styles.inlineRow]}>
             <View style={[styles.inlineHalf, styles.inlineHalfSpacing]}>
-              <Text style={styles.label}>Rendimento (g) *</Text>
+              <Text style={styles.label}>Rendimento (g)</Text>
               <TextInput
-                value={yieldInGrams}
-                onChangeText={setYieldInGrams}
+                value={String(computedYield)}
+                editable={false}
                 placeholder="2500"
-                style={styles.input}
-                keyboardType="numeric"
-                editable={canManage}
+                style={[styles.input, styles.readonlyInput]}
               />
-              {yieldHeuristicWarning ? (
-                <Text style={styles.hintText}>{yieldHeuristicWarning}</Text>
+              {totalIngredientsInGrams > 0 &&
+              Math.abs(computedYield - totalIngredientsInGrams) >
+                Math.max(100, totalIngredientsInGrams * 0.05) ? (
+                <Text style={styles.hintText}>
+                  Atenção: O rendimento em gramas difere significativamente da soma dos
+                  ingredientes (heurística 1L≈1Kg). Revise as quantidades.
+                </Text>
               ) : null}
             </View>
             <View style={[styles.inlineHalf, styles.switchContainer]}>
@@ -1632,5 +1636,8 @@ const styles = StyleSheet.create({
   debugText: {
     fontSize: 11,
     color: '#92400E',
+  },
+  readonlyInput: {
+    backgroundColor: '#F3F4F6',
   },
 });

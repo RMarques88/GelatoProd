@@ -12,10 +12,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import type { StockAlertStatus, StockMovementType } from '@/domain';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-
 import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import {
@@ -36,6 +32,9 @@ import {
 } from '@/hooks/data';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import type { StockAlertStatus, StockMovementType } from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 type Props = NativeStackScreenProps<AppStackParamList, 'Stock'>;
 
 type AdjustModalState = AdjustStockModalState & {
@@ -596,14 +595,14 @@ export default function StockListScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>
-                Mínimo: {`${formatGrams(item.minimumQuantityInGrams)} g`}
-              </Text>
-              <Text style={styles.metaLabel}>
-                {movement
-                  ? `Última mov.: ${movementTypeLabels[movement.type]} (${formatGrams(movement.quantityInGrams)} g)`
-                  : 'Sem movimentações'}
-              </Text>
+            <Text style={styles.metaLabel}>
+              Mínimo: {`${formatGrams(item.minimumQuantityInGrams)} g`}
+            </Text>
+            <Text style={styles.metaLabel}>
+              {movement
+                ? `Última mov.: ${movementTypeLabels[movement.type]} (${formatGrams(movement.quantityInGrams)} g)`
+                : 'Sem movimentações'}
+            </Text>
           </View>
 
           {hasAlert ? (

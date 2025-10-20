@@ -100,10 +100,22 @@ export async function createRecipe(input: RecipeCreateInput): Promise<Recipe> {
   const colRef = getCollection<RecipeDocument>(db, COLLECTION_NAME);
 
   const now = serverTimestamp();
+  // Compute yield automatically as the sum of top-level ingredient quantities
+  // This ensures users don't need to manually enter the yield and avoids
+  // mismatches between ingredients and declared yield.
+  const ingredients = input.ingredients ?? [];
+  const computedYield = ingredients.reduce((sum, ing) => {
+    const q = Number(ing.quantityInGrams) || 0;
+    return sum + q;
+  }, 0);
+
   const payload: WithFieldValue<RecipeDocument> = {
     name: input.name,
-    yieldInGrams: input.yieldInGrams,
-    ingredients: input.ingredients ?? [],
+    yieldInGrams:
+      Number.isFinite(computedYield) && computedYield > 0
+        ? computedYield
+        : (input.yieldInGrams ?? 0),
+    ingredients,
     isActive: input.isActive ?? true,
     archivedAt: serializeDateOrNull(input.archivedAt) ?? null,
     ...(input.description !== undefined ? { description: input.description } : {}),
@@ -151,6 +163,18 @@ export async function updateRecipe(
     if (value !== undefined) {
       updateData[key] = value;
     }
+  }
+
+  // If ingredients are provided in the update, compute and set the yield
+  // automatically so it always matches the sum of ingredient quantities.
+  if (rest.ingredients !== undefined && Array.isArray(rest.ingredients)) {
+    const computedYield = rest.ingredients.reduce((sum, ing) => {
+      const q = Number(ing.quantityInGrams) || 0;
+      return sum + q;
+    }, 0);
+
+    updateData.yieldInGrams =
+      Number.isFinite(computedYield) && computedYield > 0 ? computedYield : 0;
   }
 
   if (archivedAt !== undefined) {

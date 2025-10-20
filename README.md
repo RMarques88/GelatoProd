@@ -468,6 +468,7 @@ npm run android:icons
 O script `scripts/sync-android-icons.js` gera `ic_launcher.webp`, `ic_launcher_round.webp`, `ic_launcher_foreground.webp` nas pastas `android/app/src/main/res/mipmap-*` e cria um `ic_launcher.xml` em `mipmap-anydpi-v26` que referencia `@color/iconBackground`.
 
 Observações:
+
 - O script usa `sharp` (já listado como `optionalDependencies`). Se o comando falhar por falta do `sharp`, instale com `npm install sharp`.
 - O script sobrescreve os arquivos existentes nas pastas `res`.
 
@@ -520,7 +521,6 @@ Fallback: se `apksigner` não estiver disponível, `jarsigner -verify -verbose -
 
 - O arquivo de keystore (`gelato-prod.keystore`) e senhas não devem ser versionados. As propriedades de assinatura devem ser definidas localmente em `android/gradle.properties` ou injetadas via CI seguro.
 - Para builds na nuvem com EAS, prefira usar `npx eas build` e deixar o EAS gerenciar credenciais ou exportá-las com `npx eas credentials`.
-
 
 ## 🚀 Distribuição e Builds
 
