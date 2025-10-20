@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
+
 import {
   ActivityIndicator,
   Alert,
@@ -15,24 +16,7 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
-// Type-only imports first
-
-// Value imports
-import { ScreenContainer } from '@/components/layout/ScreenContainer';
-import {
-  useProductionPlan,
-  useProductionStages,
-  useProductionDivergences,
-  useProductionPlanAvailability,
-} from '@/hooks/data';
-import { useAuth } from '@/hooks/useAuth';
-import { useAuthorization } from '@/hooks/useAuthorization';
-import { getUserProfile } from '@/services/firestore/usersService';
-import {
-  completeProductionPlanWithConsumption,
-  startProductionPlanExecution,
-} from '@/services/productionExecution';
-import { formatRelativeDate } from '@/utils/date';
+// Type-only imports (place before value imports to satisfy import/order)
 import type {
   IngredientAvailability,
   ProductionDivergence,
@@ -44,6 +28,24 @@ import type {
 import type { AppStackParamList } from '@/navigation';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import { ScreenContainer } from '@/components/layout/ScreenContainer';
+import { useGlobalLock } from '@/contexts/GlobalLockContext';
+import {
+  useProductionPlan,
+  useProductionStages,
+  useProductionDivergences,
+  useProductionPlanAvailability,
+  useProducts,
+} from '@/hooks/data';
+import { useAuth } from '@/hooks/useAuth';
+import { useAuthorization } from '@/hooks/useAuthorization';
+import { getUserProfile } from '@/services/firestore/usersService';
+import {
+  completeProductionPlanWithConsumption,
+  startProductionPlanExecution,
+} from '@/services/productionExecution';
+import { formatRelativeDate } from '@/utils/date';
 
 function StageCard({
   stage,
@@ -198,8 +200,10 @@ const availabilityStatusCopy: Record<
 
 function AvailabilityInsightsCard({
   record,
+  getProductName,
 }: {
   record: ProductionPlanAvailabilityRecord;
+  getProductName?: (productId: string) => string;
 }) {
   const copy =
     availabilityStatusCopy[record.status] ?? availabilityStatusCopy.insufficient;
@@ -299,11 +303,14 @@ function AvailabilityInsightsCard({
 
       {topShortages.length > 0 ? (
         <View style={styles.availabilityShortageList}>
-          {topShortages.map((item: IngredientAvailability) => (
-            <Text key={item.productId} style={styles.availabilityShortageItem}>
-              • {item.productId} · Falta de {formatGrams(item.shortageInGrams)}
-            </Text>
-          ))}
+          {topShortages.map((item: IngredientAvailability) => {
+            const name = getProductName ? getProductName(item.productId) : item.productId;
+            return (
+              <Text key={item.productId} style={styles.availabilityShortageItem}>
+                • {name} · Falta de {formatGrams(item.shortageInGrams)}
+              </Text>
+            );
+          })}
           {remainingShortages > 0 ? (
             <Text style={styles.availabilityShortageMore}>
               +{remainingShortages} insumo(s) adicional(is) com falta
@@ -504,6 +511,7 @@ export function ProductionExecutionScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { user } = useAuth();
   const authorization = useAuthorization(user);
+  const { runWithLock, isLocked } = useGlobalLock();
 
   const {
     plan,
@@ -536,13 +544,30 @@ export function ProductionExecutionScreen() {
     retry: retryAvailability,
   } = useProductionPlanAvailability(planId);
 
+  // Load products so we can display human-friendly names instead of IDs
+  const { products } = useProducts({ includeInactive: true });
+  const productsById = useMemo(() => {
+    const map = new Map<string, (typeof products)[number]>();
+    products.forEach(p => map.set(p.id, p));
+    return map;
+  }, [products]);
+
+  const getProductName = useCallback(
+    (productId: string) => productsById.get(productId)?.name ?? productId,
+    [productsById],
+  );
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const completionRequestedRef = useRef(false);
+  const completionInFlightRef = useRef(false);
+  const [isCompletionRequested, setIsCompletionRequested] = useState(false);
+  const confirmHandlerInvokedRef = useRef(false);
   const [isSubmittingStage, setIsSubmittingStage] = useState(false);
   const [stageModalState, setStageModalState] = useState<StageModalState | null>(null);
   const [lastCompletionSummary, setLastCompletionSummary] =
     useState<CompletionSummary | null>(null);
+  const [isBlockingModal, setIsBlockingModal] = useState(false);
 
   useEffect(() => {
     setLastCompletionSummary(null);
@@ -725,13 +750,19 @@ export function ProductionExecutionScreen() {
       canAdvance: authorization.canAdvanceProduction,
     });
 
-    // Prevent re-entrancy: if a completion flow was already requested, ignore.
-    if (completionRequestedRef.current) {
+    // Prevent re-entrancy: if a completion flow is already in flight, ignore.
+    if (completionInFlightRef.current) {
       console.log(
-        '🔒 [ProductionExecution] Conclusão já solicitada — ignorando clique adicional',
+        '🔒 [ProductionExecution] Conclusão já em andamento — ignorando clique adicional',
       );
       return;
     }
+
+    // Mark that a completion flow is in-flight synchronously to block duplicate starts.
+    completionInFlightRef.current = true;
+    // Also set the UI guard so the button immediately shows disabled state.
+    completionRequestedRef.current = true;
+    setIsCompletionRequested(true);
 
     if (!authorization.canAdvanceProduction) {
       console.log('❌ [ProductionExecution] Sem permissão para concluir');
@@ -752,8 +783,8 @@ export function ProductionExecutionScreen() {
 
     console.log('📝 [ProductionExecution] Mostrando confirmação para o usuário');
 
-    // Mark that a completion flow has been requested to avoid showing multiple alerts
-    completionRequestedRef.current = true;
+    // NOTE: completionRequestedRef and completionInFlightRef were set above to
+    // ensure immediate UI feedback and avoid races between multiple quick taps.
 
     Alert.alert('Concluir produção', confirmMessage, [
       {
@@ -763,95 +794,149 @@ export function ProductionExecutionScreen() {
           console.log('🚫 [ProductionExecution] Usuário cancelou a conclusão');
           // Reset request guard when user cancels
           completionRequestedRef.current = false;
+          completionInFlightRef.current = false;
+          setIsCompletionRequested(false);
         },
       },
       {
         text: 'Concluir',
         style: 'destructive',
-        onPress: async () => {
-          console.log('✅ [ProductionExecution] Usuário confirmou - iniciando conclusão');
-          setIsCompleting(true);
-          try {
-            // Double-check the user's authoritative profile in Firestore before
-            // attempting writes controlled by security rules. This prevents
-            // confusing "missing permissions" errors when the local auth
-            // state is out-of-sync with the Firestore users collection.
-            const profile = await getUserProfile(user.id).catch(() => null);
-            const allowedRoles = new Set([
-              'admin',
-              'manager',
-              'gelatie',
-              'Gelatie',
-              'GELATIE',
-              'produtor',
-              'Produtor',
-              'PRODUTOR',
-            ]);
-            if (!profile || !allowedRoles.has(profile.role)) {
-              console.log('[ProductionExecution] Permissão Firestore insuficiente', {
-                profile,
-              });
-              Alert.alert(
-                'Sem permissão',
-                'Seu perfil no servidor não tem permissão para concluir produções. Peça a um administrador para atribuir o papel apropriado (ex.: produtor).',
-              );
-              setIsCompleting(false);
-              return;
-            }
+        onPress: () => {
+          // Prevent the Alert confirm handler from being invoked multiple
+          // times due to rapid taps. This is defensive in addition to the
+          // global completionRequestedRef guard.
+          if (confirmHandlerInvokedRef.current) return;
+          confirmHandlerInvokedRef.current = true;
+          // Use global lock to block the entire UI while the DB-heavy
+          // completion runs. This prevents accidental additional clicks.
+          const run = async () => {
             console.log(
-              '🚀 [ProductionExecution] Chamando completeProductionPlanWithConsumption',
-              {
+              '✅ [ProductionExecution] Usuário confirmou - iniciando conclusão',
+            );
+            try {
+              // Double-check the user's authoritative profile in Firestore before
+              // attempting writes controlled by security rules. This prevents
+              // confusing "missing permissions" errors when the local auth
+              // state is out-of-sync with the Firestore users collection.
+              const profile = await getUserProfile(user.id).catch(() => null);
+              const allowedRoles = new Set([
+                'admin',
+                'manager',
+                'gelatie',
+                'Gelatie',
+                'GELATIE',
+                'produtor',
+                'Produtor',
+                'PRODUTOR',
+              ]);
+              if (!profile || !allowedRoles.has(profile.role)) {
+                console.log('[ProductionExecution] Permissão Firestore insuficiente', {
+                  profile,
+                });
+                Alert.alert(
+                  'Sem permissão',
+                  'Seu perfil no servidor não tem permissão para concluir produções. Peça a um administrador para atribuir o papel apropriado (ex.: produtor).',
+                );
+                return;
+              }
+
+              console.log(
+                '🚀 [ProductionExecution] Chamando completeProductionPlanWithConsumption',
+                {
+                  planId,
+                  performedBy: user.id,
+                },
+              );
+              const result = await completeProductionPlanWithConsumption({
                 planId,
                 performedBy: user.id,
-              },
-            );
-            const result = await completeProductionPlanWithConsumption({
-              planId,
-              performedBy: user.id,
-            });
-            console.log('🎉 [ProductionExecution] Produção concluída com sucesso!', {
-              adjustmentsCount: result.adjustments.length,
-              divergencesCount: result.divergences.length,
-              actualCost: result.plan.actualProductionCostInBRL,
-            });
+              });
+              console.log('🎉 [ProductionExecution] Produção concluída com sucesso!', {
+                adjustmentsCount: result.adjustments.length,
+                divergencesCount: result.divergences.length,
+                actualCost: result.plan.actualProductionCostInBRL,
+              });
 
-            setLastCompletionSummary({
-              timestamp: result.plan.completedAt ?? new Date(),
-              adjustments: result.adjustments,
-              divergences: result.divergences,
-            });
+              setLastCompletionSummary({
+                timestamp: result.plan.completedAt ?? new Date(),
+                adjustments: result.adjustments,
+                divergences: result.divergences,
+              });
 
-            if (result.divergences.length > 0) {
-              Alert.alert(
-                'Produção concluída com divergências',
-                `${result.divergences.length} divergências foram registradas automaticamente.`,
+              if (result.divergences.length > 0) {
+                Alert.alert(
+                  'Produção concluída com divergências',
+                  `${result.divergences.length} divergências foram registradas automaticamente.`,
+                );
+              } else {
+                Alert.alert('Produção concluída', 'Estoque atualizado com sucesso.');
+              }
+            } catch (completeError) {
+              console.error(
+                '💥 [ProductionExecution] ERRO ao concluir produção:',
+                completeError,
               );
-            } else {
-              Alert.alert('Produção concluída', 'Estoque atualizado com sucesso.');
+              console.error(
+                '💥 [ProductionExecution] Stack trace:',
+                completeError instanceof Error ? completeError.stack : 'sem stack',
+              );
+              logAndAlertError(
+                completeError,
+                'Erro ao concluir a produção. Confira o estoque.',
+              );
+            } finally {
+              // Allow future completion attempts
+              completionRequestedRef.current = false;
             }
-          } catch (completeError) {
-            console.error(
-              '💥 [ProductionExecution] ERRO ao concluir produção:',
-              completeError,
-            );
-            console.error(
-              '💥 [ProductionExecution] Stack trace:',
-              completeError instanceof Error ? completeError.stack : 'sem stack',
-            );
-            logAndAlertError(
-              completeError,
-              'Erro ao concluir a produção. Confira o estoque.',
-            );
-          } finally {
-            console.log('🏁 [ProductionExecution] Finalizando (setIsCompleting false)');
-            setIsCompleting(false);
-            // Allow future completion attempts
-            completionRequestedRef.current = false;
-          }
+          };
+
+          // Execute with local and global lock
+          (async () => {
+            setIsCompleting(true);
+            try {
+              console.debug(
+                '[ProductionExecution] requesting global lock and running completion',
+              );
+              await runWithLock(run);
+            } catch (err: unknown) {
+              console.error('Erro ao usar global lock:', err);
+              // If the lock is already acquired, inform the user and bail.
+              if (typeof err === 'object' && err !== null && 'message' in err) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const msg = (err as any).message as string;
+                if (msg === 'Global lock already acquired') {
+                  Alert.alert(
+                    'Processo em andamento',
+                    'Outra operação já está em execução. Aguarde a conclusão antes de tentar novamente.',
+                  );
+                } else {
+                  logAndAlertError(
+                    err,
+                    'Erro ao obter bloqueio global. Tente novamente.',
+                  );
+                }
+              } else {
+                logAndAlertError(err, 'Erro ao obter bloqueio global. Tente novamente.');
+              }
+            } finally {
+              setIsCompleting(false);
+              // Allow future attempts
+              completionRequestedRef.current = false;
+              completionInFlightRef.current = false;
+              confirmHandlerInvokedRef.current = false;
+              setIsCompletionRequested(false);
+            }
+          })();
         },
       },
     ]);
-  }, [authorization.canAdvanceProduction, availabilityRecord?.status, planId, user?.id]);
+  }, [
+    authorization.canAdvanceProduction,
+    availabilityRecord?.status,
+    planId,
+    user?.id,
+    runWithLock,
+  ]);
 
   const handleRegisterDivergence = useCallback(async () => {
     if (!authorization.canAdvanceProduction) {
@@ -894,6 +979,11 @@ export function ProductionExecutionScreen() {
   }, [completedStages, totalStages, progressRatio]);
 
   const hasError = planError || stagesError || divergencesError || availabilityError;
+
+  // Derived flags used by multiple controls to keep JSX small and avoid
+  // formatting/lint issues with long inline expressions.
+  const isDisabledVisual =
+    isCompleting || isProcessing || isLocked || isCompletionRequested;
 
   return (
     <>
@@ -993,7 +1083,10 @@ export function ProductionExecutionScreen() {
                   </Text>
                 </View>
               ) : availabilityRecord ? (
-                <AvailabilityInsightsCard record={availabilityRecord} />
+                <AvailabilityInsightsCard
+                  record={availabilityRecord}
+                  getProductName={getProductName}
+                />
               ) : null}
               <View style={styles.progressBarContainer}>
                 <View style={[styles.progressBarFill, { flex: progressRatio }]} />
@@ -1018,7 +1111,7 @@ export function ProductionExecutionScreen() {
                 {plan.status !== 'in_progress' && plan.status !== 'completed' ? (
                   <Pressable
                     onPress={handleStartPlan}
-                    disabled={isProcessing || isCompleting}
+                    disabled={isProcessing || isCompleting || isLocked}
                     style={({ pressed }) => [
                       styles.actionButton,
                       styles.actionButtonPrimary,
@@ -1031,13 +1124,29 @@ export function ProductionExecutionScreen() {
                 ) : null}
                 {plan.status !== 'completed' ? (
                   <Pressable
-                    onPress={handleCompletePlan}
-                    disabled={isCompleting || isProcessing}
+                    onPress={() => {
+                      // Immediately show a blocking modal to intercept native touches
+                      // while the confirmation dialog and completion flow are prepared.
+                      if (completionInFlightRef.current) return;
+                      setIsBlockingModal(true);
+                      completionInFlightRef.current = true;
+                      completionRequestedRef.current = true;
+                      setIsCompletionRequested(true);
+                      handleCompletePlan()
+                        .catch(() => undefined)
+                        .finally(() => {
+                          // In case the handler returns synchronously with an error,
+                          // ensure we don't leave the blocking modal stuck.
+                          setIsBlockingModal(false);
+                        });
+                    }}
+                    disabled={
+                      isCompleting || isProcessing || isLocked || isCompletionRequested
+                    }
                     style={({ pressed }) => [
                       styles.actionButton,
                       styles.actionButtonDanger,
-                      (pressed || isCompleting || isProcessing) &&
-                        styles.actionButtonPressed,
+                      (pressed || isDisabledVisual) && styles.actionButtonPressed,
                     ]}
                   >
                     <Text style={styles.actionButtonDangerText}>
@@ -1056,7 +1165,7 @@ export function ProductionExecutionScreen() {
               {canManageStages ? (
                 <Pressable
                   onPress={handleOpenCreateStage}
-                  disabled={isProcessing || isCompleting || isSubmittingStage}
+                  disabled={isProcessing || isCompleting || isSubmittingStage || isLocked}
                   style={({ pressed }) => [
                     styles.sectionActionButton,
                     (pressed || isProcessing || isCompleting || isSubmittingStage) &&
@@ -1096,11 +1205,11 @@ export function ProductionExecutionScreen() {
             <Text style={styles.sectionTitle}>Divergências</Text>
             <Pressable
               onPress={handleRegisterDivergence}
-              disabled={isProcessing}
+              disabled={isProcessing || isLocked}
               style={({ pressed }) => [
                 styles.linkButton,
                 pressed && styles.linkButtonPressed,
-                isProcessing && styles.linkButtonDisabled,
+                (isProcessing || isLocked) && styles.linkButtonDisabled,
               ]}
             >
               <Text style={styles.linkButtonText}>Registrar divergência</Text>
@@ -1168,7 +1277,7 @@ export function ProductionExecutionScreen() {
                   {lastCompletionSummary.adjustments.map(adjustment => (
                     <View key={adjustment.id} style={styles.adjustmentCard}>
                       <Text style={styles.adjustmentProduct}>
-                        Produto {adjustment.productId}
+                        {`Produto ${getProductName ? getProductName(adjustment.productId) : adjustment.productId}`}
                       </Text>
                       <Text style={styles.adjustmentQuantity}>
                         -{`${formatGrams(adjustment.quantityInGrams)} g`} · Restante{' '}
@@ -1200,6 +1309,15 @@ export function ProductionExecutionScreen() {
         onClose={closeStageModal}
         onSubmit={handleSubmitStageForm}
         isSubmitting={isSubmittingStage}
+      />
+      {/* Native-level blocking modal to intercept touches while completing */}
+      <Modal transparent visible={isBlockingModal} animationType="none">
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => {}} />
+      </Modal>
+      {/* JS-level overlay (works on web/native) to ensure touches are blocked */}
+      <View
+        pointerEvents={isBlockingModal ? 'auto' : 'none'}
+        style={isBlockingModal ? [StyleSheet.absoluteFill, { zIndex: 9999 }] : undefined}
       />
     </>
   );
