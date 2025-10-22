@@ -584,11 +584,12 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'center',
     gap: 12,
     flexWrap: 'wrap',
     marginBottom: 16,
     width: '100%',
+    zIndex: 2,
   },
   filterScannerField: {
     flex: 1,

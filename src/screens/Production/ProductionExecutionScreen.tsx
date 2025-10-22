@@ -17,17 +17,6 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 // Type-only imports (place before value imports to satisfy import/order)
-import type {
-  IngredientAvailability,
-  ProductionDivergence,
-  ProductionPlan,
-  ProductionPlanAvailabilityRecord,
-  ProductionStage,
-  StockMovement,
-} from '@/domain';
-import type { AppStackParamList } from '@/navigation';
-import type { RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { useGlobalLock } from '@/contexts/GlobalLockContext';
@@ -46,6 +35,17 @@ import {
   startProductionPlanExecution,
 } from '@/services/productionExecution';
 import { formatRelativeDate } from '@/utils/date';
+import type {
+  IngredientAvailability,
+  ProductionDivergence,
+  ProductionPlan,
+  ProductionPlanAvailabilityRecord,
+  ProductionStage,
+  StockMovement,
+} from '@/domain';
+import type { AppStackParamList } from '@/navigation';
+import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 function StageCard({
   stage,

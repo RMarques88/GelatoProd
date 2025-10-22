@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+// Ionicons import removed (not used in this file)
 import {
   Alert,
   FlatList,
@@ -543,13 +543,12 @@ export default function StockListScreen({ navigation }: Props) {
       }
 
       let unitText: string | null = null;
+      // Only show a small unit label for volume products. Do not show 'un' for unit-count products.
       if (product?.unitOfMeasure) {
         if (product.unitOfMeasure === 'MILLILITERS') {
           unitText = 'ml';
         } else if (product.unitOfMeasure === 'LITERS') {
           unitText = 'L';
-        } else {
-          unitText = 'un';
         }
       }
 
@@ -567,7 +566,7 @@ export default function StockListScreen({ navigation }: Props) {
                   <Text style={styles.pricePerUnitText}>{unitText}</Text>
                 ) : null}
               </View>
-              <Text style={styles.productMeta}>ID produto: {item.productId}</Text>
+              {/* Product ID intentionally hidden in list view */}
             </View>
             <View style={styles.cardHeaderRight}>
               <View style={styles.quantityBadge}>
@@ -576,21 +575,7 @@ export default function StockListScreen({ navigation }: Props) {
                 >{`${formatGrams(item.currentQuantityInGrams)} g`}</Text>
                 <Text style={styles.quantitySubtext}>Atual</Text>
               </View>
-              {authorization.canManageStock ? (
-                <Pressable
-                  onPress={() => openEditMinimumModal(item.id, product?.name)}
-                  style={({ pressed }) => [
-                    styles.editMinimumButton,
-                    pressed && styles.editMinimumButtonPressed,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Editar quantidade mínima"
-                  accessibilityHint="Abre um modal para atualizar o limite mínimo desse item"
-                >
-                  <Ionicons name="pencil" size={16} color="#1F2937" />
-                  <Text style={styles.editMinimumButtonText}>Editar mínimo</Text>
-                </Pressable>
-              ) : null}
+              {/* edit minimum button moved to actions row for consistent sizing */}
             </View>
           </View>
 
@@ -633,6 +618,21 @@ export default function StockListScreen({ navigation }: Props) {
                 ]}
               >
                 <Text style={styles.secondaryButtonText}>Registrar saída</Text>
+              </Pressable>
+            ) : null}
+            {authorization.canManageStock ? (
+              <Pressable
+                onPress={() => openEditMinimumModal(item.id, product?.name)}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  isCompactLayout && styles.fullWidthButton,
+                  pressed && styles.secondaryButtonPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Editar quantidade mínima"
+                accessibilityHint="Abre um modal para atualizar o limite mínimo desse item"
+              >
+                <Text style={styles.secondaryButtonText}>Editar mínimo</Text>
               </Pressable>
             ) : null}
             {authorization.canAdjustStock ? (
@@ -842,11 +842,13 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'center',
     gap: 12,
     flexWrap: 'wrap',
     marginBottom: 16,
     width: '100%',
+    // ensure the filter row is on top of subsequent elements and its children are laid out
+    zIndex: 2,
   },
   filterRowCompact: {
     flexDirection: 'column',
@@ -880,6 +882,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D1D5DB',
     alignSelf: 'center',
+    flexShrink: 0,
+    // ensure the clear button never steals layout or overlaps other elements
+    marginVertical: 4,
   },
   clearFilterButtonFullWidth: {
     alignSelf: 'stretch',
@@ -919,6 +924,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 16,
+    // keep a small separation from the row above to avoid accidental overlap on narrow heights
+    marginTop: 6,
   },
   toggleLabel: {
     fontSize: 15,

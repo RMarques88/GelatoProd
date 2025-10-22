@@ -229,6 +229,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
+    // ensure button is above siblings visually but doesn't expand its touch area
+    zIndex: 3,
   },
   scanButtonLarge: {
     width: 40,

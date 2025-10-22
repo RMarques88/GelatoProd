@@ -32,7 +32,7 @@ import {
   useRecipes,
 } from '@/hooks/data';
 import { formatRelativeDate } from '@/utils/date';
-import { computeFinancialSummary } from '@/utils/financial';
+import { computeFinancialSummary, unitCostPerGram } from '@/utils/financial';
 import { logError } from '@/utils/logger';
 import { completeProductionPlanWithConsumption } from '@/services/productionExecution';
 import {
@@ -46,6 +46,7 @@ import type {
   ProductionPlanCreateInput,
   ProductionStatus,
   Recipe,
+  RecipeIngredient,
   StockAlertStatus,
   UnitOfMeasure,
   UserRole,
@@ -53,10 +54,6 @@ import type {
 import type { AppStackParamList } from '@/navigation';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StyleProp, ViewStyle } from 'react-native';
-
-type ProductionStatusActionMap = Partial<
-  Record<ProductionStatus, { label: string; next: ProductionStatus }>
->;
 
 const productionStatusLabels: Record<ProductionStatus, string> = {
   draft: 'Rascunho',
@@ -66,19 +63,12 @@ const productionStatusLabels: Record<ProductionStatus, string> = {
   cancelled: 'Cancelado',
 };
 
-const productionStatusActions: ProductionStatusActionMap = {
-  draft: {
-    label: 'Agendar produção',
-    next: 'scheduled',
-  },
-  scheduled: {
-    label: 'Iniciar produção',
-    next: 'in_progress',
-  },
-  in_progress: {
-    label: 'Concluir produção',
-    next: 'completed',
-  },
+const productionStatusActions: Partial<
+  Record<ProductionStatus, { label: string; next: ProductionStatus }>
+> = {
+  draft: { label: 'Agendar produção', next: 'scheduled' },
+  scheduled: { label: 'Iniciar produção', next: 'in_progress' },
+  in_progress: { label: 'Concluir produção', next: 'completed' },
 };
 
 const roleLabels: Record<UserRole, string> = {
@@ -179,7 +169,7 @@ export function HomeScreen() {
     recipes,
     isLoading: isLoadingRecipes,
     error: recipesError,
-  } = useRecipes({ enabled: canViewRecipes });
+  } = useRecipes({ enabled: canViewRecipes, includeInactive: true });
   const {
     stockItems,
     isLoading: isLoadingStock,
@@ -239,6 +229,7 @@ export function HomeScreen() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [isRecipeDetailVisible, setIsRecipeDetailVisible] = useState(false);
   const [isRecipePickerVisible, setIsRecipePickerVisible] = useState(false);
   const [recipeSearchTerm, setRecipeSearchTerm] = useState('');
   const [newPlanDate, setNewPlanDate] = useState<Date>(new Date());
@@ -332,6 +323,64 @@ export function HomeScreen() {
     [recipes, selectedRecipeId],
   );
 
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }),
+    [],
+  );
+
+  const closeRecipeDetail = useCallback(() => {
+    setIsRecipeDetailVisible(false);
+    setSelectedRecipeId(null);
+  }, []);
+
+  const computeIngredientCost = useCallback(
+    (ingredient: RecipeIngredient, visited = new Set<string>()): number => {
+      // Product cost
+      if (ingredient.type === 'product') {
+        const prod = products.find(p => p.id === ingredient.referenceId);
+        const stockItem = stockItems.find(si => si.productId === ingredient.referenceId);
+        const perGram = unitCostPerGram(stockItem ?? null);
+        if (prod && prod.unitOfMeasure === 'UNITS') {
+          const raw =
+            stockItem?.averageUnitCostInBRL ?? stockItem?.highestUnitCostInBRL ?? 0;
+          return ingredient.quantityInGrams * raw;
+        }
+        return ingredient.quantityInGrams * perGram;
+      }
+
+      // Recipe composition: sum costs of its ingredients proportionally
+      if (ingredient.type === 'recipe') {
+        const sub = recipes.find(r => r.id === ingredient.referenceId);
+        if (!sub) return 0;
+        // prevent cycles
+        if (visited.has(sub.id)) return 0;
+        visited.add(sub.id);
+
+        const factor =
+          sub.yieldInGrams > 0 ? ingredient.quantityInGrams / sub.yieldInGrams : 1;
+        let total = 0;
+        for (const inner of sub.ingredients) {
+          const scaledInner: RecipeIngredient = {
+            ...inner,
+            quantityInGrams: inner.quantityInGrams * factor,
+          };
+          total += computeIngredientCost(scaledInner, visited);
+        }
+        return total;
+      }
+
+      return 0;
+    },
+    [products, stockItems, recipes],
+  );
+
+  const selectedRecipeTotalCost = useMemo(() => {
+    if (!selectedRecipe) return 0;
+    return selectedRecipe.ingredients.reduce((sum, ing) => {
+      return sum + computeIngredientCost(ing, new Set<string>());
+    }, 0);
+  }, [selectedRecipe, computeIngredientCost]);
+
   const parsedPlanQuantity = useMemo(() => {
     if (!newPlanQuantity.trim()) {
       return NaN;
@@ -394,31 +443,7 @@ export function HomeScreen() {
     setIsRecipePickerVisible(false);
   }, []);
 
-  const renderRecipeItem = useCallback(
-    ({ item }: { item: Recipe }) => {
-      const isSelected = item.id === selectedRecipeId;
-
-      return (
-        <Pressable
-          onPress={() => handleSelectRecipe(item.id)}
-          style={({ pressed }) => [
-            styles.recipeItem,
-            isSelected && styles.recipeItemSelected,
-            pressed && styles.recipeItemPressed,
-          ]}
-        >
-          <View style={styles.recipeItemTitleRow}>
-            <Text style={styles.recipeName}>{item.name}</Text>
-            {isSelected ? <Ionicons name="checkmark" size={18} color="#2563EB" /> : null}
-          </View>
-          <Text style={styles.recipeMeta}>
-            {`Rendimento ${formatGrams(item.yieldInGrams)} g · ${item.ingredients.length} ingredientes`}
-          </Text>
-        </Pressable>
-      );
-    },
-    [handleSelectRecipe, selectedRecipeId, formatGrams],
-  );
+  // renderRecipeItem is declared after formatters below to avoid use-before-declaration
 
   const handleCreateProduct = async () => {
     if (!authorization.canManageProducts) {
@@ -563,6 +588,32 @@ export function HomeScreen() {
   const formatGrams = useCallback(
     (value: number) => gramsFormatter.format(value),
     [gramsFormatter],
+  );
+
+  const renderRecipeItem = useCallback(
+    ({ item }: { item: Recipe }) => {
+      const isSelected = item.id === selectedRecipeId;
+
+      return (
+        <Pressable
+          onPress={() => handleSelectRecipe(item.id)}
+          style={({ pressed }) => [
+            styles.recipeItem,
+            isSelected && styles.recipeItemSelected,
+            pressed && styles.recipeItemPressed,
+          ]}
+        >
+          <View style={styles.recipeItemTitleRow}>
+            <Text style={styles.recipeName}>{item.name}</Text>
+            {isSelected ? <Ionicons name="checkmark" size={18} color="#2563EB" /> : null}
+          </View>
+          <Text style={styles.recipeMeta}>
+            {`Rendimento ${formatGrams(item.yieldInGrams)} g · ${item.ingredients.length} ingredientes`}
+          </Text>
+        </Pressable>
+      );
+    },
+    [handleSelectRecipe, selectedRecipeId, formatGrams],
   );
 
   const handleConfirmAvailabilityOverride = useCallback(async () => {
@@ -816,6 +867,8 @@ export function HomeScreen() {
                   ) : null}
                 </View>
               </View>
+
+              {/* header actions cluster */}
             </View>
             <Pressable
               style={({ pressed }) => [
@@ -1520,15 +1573,28 @@ export function HomeScreen() {
               error={recipesError?.message}
               action={
                 authorization.hasRole('produtor') ? (
-                  <Pressable
-                    onPress={handleNavigateToRecipes}
-                    style={({ pressed }) => [
-                      styles.linkButton,
-                      pressed && styles.linkButtonDisabled,
-                    ]}
-                  >
-                    <Text style={styles.linkButtonText}>Ver receitas</Text>
-                  </Pressable>
+                  <View style={styles.sectionActionGroup}>
+                    <Pressable
+                      onPress={() =>
+                        navigation.navigate('RecipeUpsert', { recipeId: undefined })
+                      }
+                      style={({ pressed }) => [
+                        styles.linkButton,
+                        pressed && styles.linkButtonDisabled,
+                      ]}
+                    >
+                      <Text style={styles.linkButtonText}>Nova receita</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={handleNavigateToRecipes}
+                      style={({ pressed }) => [
+                        styles.linkButton,
+                        pressed && styles.linkButtonDisabled,
+                      ]}
+                    >
+                      <Text style={styles.linkButtonText}>Ver receitas</Text>
+                    </Pressable>
+                  </View>
                 ) : null
               }
             >
@@ -1537,16 +1603,38 @@ export function HomeScreen() {
               ) : recipes.length === 0 ? (
                 <Text style={styles.emptyText}>Nenhuma receita registrada ainda.</Text>
               ) : (
-                recipes.slice(0, 5).map((recipe: (typeof recipes)[number]) => (
-                  <View key={recipe.id} style={styles.listItem}>
-                    <View>
-                      <Text style={styles.listItemTitle}>{recipe.name}</Text>
-                      <Text style={styles.listItemSubtitle}>
-                        {`Rendimento: ${formatGrams(recipe.yieldInGrams)} g • ${recipe.ingredients.length} ingredientes`}
-                      </Text>
-                    </View>
-                  </View>
-                ))
+                <>
+                  <TextInput
+                    placeholder="Filtrar receitas"
+                    value={recipeSearchTerm}
+                    onChangeText={setRecipeSearchTerm}
+                    style={[styles.input, styles.recipeFilterInput]}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  {filteredRecipes
+                    .slice(0, 10)
+                    .map((recipe: (typeof recipes)[number]) => (
+                      <Pressable
+                        key={recipe.id}
+                        onPress={() => {
+                          setSelectedRecipeId(recipe.id);
+                          setIsRecipeDetailVisible(true);
+                        }}
+                        style={({ pressed }) => [
+                          styles.listItem,
+                          styles.listItemInteractive,
+                          pressed && styles.listItemPressed,
+                        ]}
+                      >
+                        <View>
+                          <Text style={styles.listItemTitle}>{recipe.name}</Text>
+                          <Text style={styles.listItemSubtitle}>
+                            {`Rendimento: ${formatGrams(recipe.yieldInGrams)} g • ${recipe.ingredients.length} ingredientes`}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ))}
+                </>
               )}
             </Section>
           </>
@@ -1644,6 +1732,180 @@ export function HomeScreen() {
           </Section>
         )}
       </ScrollView>
+
+      <Modal
+        visible={isRecipeDetailVisible}
+        animationType="slide"
+        onRequestClose={closeRecipeDetail}
+      >
+        <ScreenContainer>
+          <View style={styles.modalHeaderRow}>
+            <Pressable onPress={closeRecipeDetail} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>Voltar</Text>
+            </Pressable>
+            <Text style={styles.modalTitle}>Detalhes da receita</Text>
+            <View />
+          </View>
+
+          {selectedRecipe ? (
+            <View>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>{selectedRecipe.name}</Text>
+                <Text
+                  style={styles.modalDescription}
+                >{`Rendimento: ${formatGrams(selectedRecipe.yieldInGrams)} g`}</Text>
+              </View>
+
+              <Text style={styles.sectionSubtitle}>Ingredientes</Text>
+              <View style={styles.modalCard}>
+                {selectedRecipe.ingredients.map((ing: RecipeIngredient) => {
+                  if (ing.type === 'product') {
+                    const product = products.find(p => p.id === ing.referenceId);
+                    const cost = computeIngredientCost(ing);
+                    return (
+                      <View
+                        key={`${ing.referenceId}-${ing.quantityInGrams}`}
+                        style={styles.ingredientRow}
+                      >
+                        <View>
+                          <Text style={styles.listItemTitle}>
+                            {product?.name ?? ing.referenceId}
+                          </Text>
+                          <Text style={styles.listItemSubtitle}>
+                            {`${formatGrams(ing.quantityInGrams)} g`}
+                          </Text>
+                        </View>
+                        <View style={styles.ingredientRight}>
+                          <Text style={styles.listItemTitle}>
+                            {currencyFormatter.format(cost)}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  }
+
+                  // recipe composition
+                  if (ing.type === 'recipe') {
+                    const sub = recipes.find(r => r.id === ing.referenceId);
+                    if (!sub) {
+                      const cost = computeIngredientCost(ing);
+                      return (
+                        <View
+                          key={`${ing.referenceId}-${ing.quantityInGrams}`}
+                          style={styles.ingredientRow}
+                        >
+                          <View>
+                            <Text style={styles.listItemTitle}>{ing.referenceId}</Text>
+                            <Text
+                              style={styles.listItemSubtitle}
+                            >{`${formatGrams(ing.quantityInGrams)} g`}</Text>
+                          </View>
+                          <View style={styles.ingredientRight}>
+                            <Text style={styles.listItemTitle}>
+                              {currencyFormatter.format(cost)}
+                            </Text>
+                          </View>
+                        </View>
+                      );
+                    }
+
+                    const factor =
+                      sub.yieldInGrams > 0 ? ing.quantityInGrams / sub.yieldInGrams : 1;
+
+                    // subtotal for this nested recipe (scaled)
+                    const subTotal = sub.ingredients.reduce((acc, inner) => {
+                      const scaledInner: RecipeIngredient = {
+                        ...inner,
+                        quantityInGrams: inner.quantityInGrams * factor,
+                      };
+                      return acc + computeIngredientCost(scaledInner, new Set<string>());
+                    }, 0);
+
+                    return (
+                      <View
+                        key={`${ing.referenceId}-${ing.quantityInGrams}`}
+                        style={styles.recipeDetailCard}
+                      >
+                        <View style={styles.recipeItemTitleRow}>
+                          <View style={styles.recipeTitleLeft}>
+                            <Text style={styles.recipeName}>{sub.name}</Text>
+                            <Text
+                              style={styles.recipeMeta}
+                            >{`Rendimento base: ${formatGrams(
+                              sub.yieldInGrams,
+                            )} g`}</Text>
+                          </View>
+                          <View style={styles.recipeTitleRight}>
+                            <Text style={styles.recipeRightCost}>
+                              {currencyFormatter.format(subTotal)}
+                            </Text>
+                            <View style={styles.statusBadge}>
+                              <Text
+                                style={styles.statusBadgeText}
+                              >{`x${factor.toFixed(2)}`}</Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        <Text
+                          style={styles.listItemSubtitle}
+                        >{`Quantidade solicitada: ${formatGrams(
+                          ing.quantityInGrams,
+                        )} g`}</Text>
+
+                        <View style={[styles.modalCard, styles.modalCardNested]}>
+                          {sub.ingredients.map(inner => {
+                            const scaled: RecipeIngredient = {
+                              ...inner,
+                              quantityInGrams: inner.quantityInGrams * factor,
+                            };
+                            const innerProd = products.find(
+                              p => p.id === inner.referenceId,
+                            );
+                            const innerCost = computeIngredientCost(scaled);
+                            return (
+                              <View
+                                key={`${inner.referenceId}-${scaled.quantityInGrams}`}
+                                style={styles.ingredientRow}
+                              >
+                                <View>
+                                  <Text style={styles.listItemTitle}>
+                                    {innerProd?.name ?? inner.referenceId}
+                                  </Text>
+                                  <Text style={styles.listItemSubtitle}>
+                                    {`${formatGrams(scaled.quantityInGrams)} g`}
+                                  </Text>
+                                </View>
+                                <View style={styles.ingredientRight}>
+                                  <Text style={styles.listItemTitle}>
+                                    {currencyFormatter.format(innerCost)}
+                                  </Text>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  }
+
+                  return null;
+                })}
+              </View>
+              <View style={[styles.modalCard, styles.totalCard]}>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Custo total estimado</Text>
+                  <Text style={styles.totalValue}>
+                    {currencyFormatter.format(selectedRecipeTotalCost)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>Receita não encontrada.</Text>
+          )}
+        </ScreenContainer>
+      </Modal>
 
       <Modal
         visible={isAvailabilityModalVisible}
@@ -2274,6 +2536,44 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#111827',
   },
+  recipeFilterInput: {
+    marginBottom: 12,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  recipeDetailCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+  },
+  recipeDescription: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 6,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginBottom: 8,
+  },
+  ingredientRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  ingredientRight: {
+    alignItems: 'flex-end',
+  },
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
@@ -2432,6 +2732,12 @@ const styles = StyleSheet.create({
     gap: 16,
     maxHeight: '80%',
   },
+  modalCardNested: {
+    marginTop: 8,
+    backgroundColor: '#FAFAFB',
+    padding: 12,
+    borderRadius: 12,
+  },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2574,14 +2880,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 6,
   },
-  recipeName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
+  recipeTitleRight: {
+    alignItems: 'flex-end',
+    marginLeft: 12,
+  },
+  recipeRightCost: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
   },
   recipeMeta: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  recipeTitleLeft: {
+    flex: 1,
+  },
+  recipeName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
   },
   modalEmptyText: {
     fontSize: 14,
@@ -2718,6 +3036,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     backgroundColor: 'transparent',
     borderWidth: 0,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    marginTop: 12,
+  },
+  totalLabel: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  totalValue: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  totalCard: {
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
 });
 
