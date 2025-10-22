@@ -133,7 +133,6 @@ export interface StockMovement {
   quantityInGrams: number;
   previousQuantityInGrams: number;
   resultingQuantityInGrams: number;
-  totalCostInBRL?: number;
   unitCostInBRL?: number;
   note?: string;
   performedBy: DocumentId;
@@ -147,7 +146,6 @@ export type StockMovementCreateInput = {
   quantityInGrams: number;
   previousQuantityInGrams: number;
   resultingQuantityInGrams: number;
-  totalCostInBRL?: number;
   unitCostInBRL?: number;
   note?: string;
   performedBy: DocumentId;

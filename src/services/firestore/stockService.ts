@@ -67,7 +67,6 @@ type StockMovementDocument = DocumentData & {
   quantityInGrams: number;
   previousQuantityInGrams: number;
   resultingQuantityInGrams: number;
-  totalCostInBRL?: number | null;
   unitCostInBRL?: number | null;
   note?: string | null;
   performedBy: string;
@@ -118,7 +117,6 @@ function mapStockMovement(snapshot: StockMovementSnapshot): StockMovement {
     quantityInGrams: data.quantityInGrams,
     previousQuantityInGrams: data.previousQuantityInGrams,
     resultingQuantityInGrams: data.resultingQuantityInGrams,
-    totalCostInBRL: data.totalCostInBRL ?? undefined,
     unitCostInBRL: data.unitCostInBRL ?? undefined,
     note: data.note ?? undefined,
     performedBy: data.performedBy,
@@ -343,11 +341,10 @@ export async function recordStockMovement(
   const db = getDb();
   const colRef = getCollection<StockMovementDocument>(db, STOCK_MOVEMENTS_COLLECTION);
 
-  const { performedAt, totalCostInBRL, unitCostInBRL, ...rest } = input;
+  const { performedAt, unitCostInBRL, ...rest } = input;
 
   const docRef = await addDoc(colRef, {
     ...rest,
-    totalCostInBRL: totalCostInBRL ?? null,
     unitCostInBRL: unitCostInBRL ?? null,
     performedAt: performedAt ? Timestamp.fromDate(performedAt) : serverTimestamp(),
   });
@@ -363,13 +360,13 @@ export async function adjustStockLevel(options: {
   type: StockMovementType;
   performedBy: string;
   note?: string;
-  totalCostInBRL?: number;
+  unitCostInBRL?: number; // R$ per kg
 }): Promise<StockMovement> {
   console.log('🔄 [StockService] adjustStockLevel chamado:', {
     stockItemId: options.stockItemId,
     quantityInGrams: options.quantityInGrams,
     type: options.type,
-    totalCostInBRL: options.totalCostInBRL,
+    unitCostInBRL: options.unitCostInBRL,
     note: options.note,
   });
 
@@ -389,8 +386,8 @@ export async function adjustStockLevel(options: {
   const shouldTrackCost = options.type === 'increment' || options.type === 'initial';
 
   if (shouldTrackCost) {
-    if (!options.totalCostInBRL || options.totalCostInBRL <= 0) {
-      throw new Error('Informe o valor total da compra para registrar a entrada.');
+    if (!options.unitCostInBRL || options.unitCostInBRL <= 0) {
+      throw new Error('Informe o custo unitário (R$ por kg) para registrar a entrada.');
     }
 
     if (options.quantityInGrams <= 0) {
@@ -445,17 +442,15 @@ export async function adjustStockLevel(options: {
     };
 
     let movementTotalCost: number | null = null;
-    let movementUnitCost: number | null = null;
+    let movementUnitCost: number | null = null; // stored as R$ / kg
 
     if (options.type === 'increment' || options.type === 'initial') {
       if (shouldTrackCost) {
-        movementTotalCost = options.totalCostInBRL ?? null;
-        // movementUnitCost is computed from totalCost / qty (this is R$ per gram)
-        // convert to R$ per kilogram for storage by multiplying by 1000.
-        const unitCostPerGram = movementTotalCost
-          ? Number(movementTotalCost / options.quantityInGrams)
+        // options.unitCostInBRL is already R$ / kg
+        movementUnitCost = options.unitCostInBRL ?? null;
+        movementTotalCost = movementUnitCost
+          ? (movementUnitCost / 1000) * options.quantityInGrams
           : null;
-        movementUnitCost = unitCostPerGram ? unitCostPerGram * 1000 : null; // R$ / kg
       }
 
       if (movementUnitCost && Number.isFinite(movementUnitCost)) {
@@ -502,11 +497,9 @@ export async function adjustStockLevel(options: {
         nextAverage = 0;
       }
     } else if (options.type === 'adjustment') {
-      if (options.totalCostInBRL && options.quantityInGrams > 0) {
-        movementTotalCost = options.totalCostInBRL;
-        // convert per-gram to per-kg for storage
-        const unitCostPerGram = Number(movementTotalCost / options.quantityInGrams);
-        movementUnitCost = unitCostPerGram * 1000; // R$ / kg
+      if (options.unitCostInBRL && options.quantityInGrams > 0) {
+        movementUnitCost = options.unitCostInBRL;
+        movementTotalCost = (movementUnitCost / 1000) * options.quantityInGrams;
         const previousHighest = itemData.highestUnitCostInBRL ?? 0;
         if (movementUnitCost && Number.isFinite(movementUnitCost)) {
           itemUpdatePayload.highestUnitCostInBRL = Math.max(
@@ -550,7 +543,6 @@ export async function adjustStockLevel(options: {
       quantityInGrams: options.quantityInGrams,
       previousQuantityInGrams: previous,
       resultingQuantityInGrams: resulting,
-      totalCostInBRL: movementTotalCost,
       unitCostInBRL: movementUnitCost,
       note: options.note ?? null,
       performedBy: options.performedBy,
@@ -719,9 +711,6 @@ export async function setManualPrice(options: {
       quantityInGrams: 0,
       previousQuantityInGrams: previous,
       resultingQuantityInGrams: previous,
-      // options.unitCostInBRL is stored as R$ / kg. When computing total cost for a
-      // quantity in grams, convert to per-gram first.
-      totalCostInBRL: previous > 0 ? (options.unitCostInBRL / 1000) * previous : null,
       unitCostInBRL: options.unitCostInBRL,
       note: options.note ?? 'Registro manual de preço',
       performedBy: options.performedBy,
