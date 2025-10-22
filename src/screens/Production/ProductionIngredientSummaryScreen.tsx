@@ -370,7 +370,7 @@ export function ProductionIngredientSummaryScreen() {
 
                 if (child.kind === 'product') {
                   const productMeta = productLookup.get(child.productId);
-                  const label = productMeta?.name ?? `Produto ${child.productId}`;
+                  const label = productMeta?.name ?? 'Produto sem cadastro';
 
                   return (
                     <View key={key} style={styles.recipeIngredientRow}>
@@ -390,9 +390,60 @@ export function ProductionIngredientSummaryScreen() {
                   );
                 }
 
+                // child is a nested recipe node — render it inline inside parent card
+                const recipeNode = child;
                 return (
-                  <View key={key} style={styles.recipeNestedWrapper}>
-                    {renderRecipeNodeCard(child, depth + 1)}
+                  <View key={key} style={styles.recipeIngredientRow}>
+                    <View style={styles.recipeIngredientBullet} />
+                    <View style={styles.recipeIngredientContent}>
+                      <Text style={styles.recipeIngredientName}>
+                        {recipeNode.recipeName}
+                      </Text>
+                      <Text style={styles.recipeIngredientMeta}>
+                        Quantidade: {formatGrams(recipeNode.requestedQuantityInGrams)}
+                      </Text>
+                      <Text style={styles.recipeIngredientMeta}>
+                        Rendimento base: {formatGrams(recipeNode.yieldInGrams)}
+                      </Text>
+
+                      {recipeNode.ingredients.length > 0 ? (
+                        <View style={styles.recipeCardNested}>
+                          {recipeNode.ingredients.map((inner, innerIndex) => {
+                            if (inner.kind === 'product') {
+                              const innerMeta = productLookup.get(inner.productId);
+                              const innerLabel =
+                                innerMeta?.name ?? 'Produto sem cadastro';
+                              return (
+                                <View
+                                  key={`${inner.productId}-${innerIndex}`}
+                                  style={styles.recipeIngredientRow}
+                                >
+                                  <View style={styles.recipeIngredientBullet} />
+                                  <View style={styles.recipeIngredientContent}>
+                                    <Text style={styles.recipeIngredientName}>
+                                      {innerLabel}
+                                    </Text>
+                                    <Text style={styles.recipeIngredientMeta}>
+                                      Quantidade: {formatGrams(inner.quantityInGrams)}
+                                    </Text>
+                                  </View>
+                                </View>
+                              );
+                            }
+
+                            // deeper nested recipe — render recursively as full node
+                            return (
+                              <View
+                                key={`r-${inner.recipeId}-${innerIndex}`}
+                                style={styles.recipeNestedWrapper}
+                              >
+                                {renderRecipeNodeCard(inner, depth + 2)}
+                              </View>
+                            );
+                          })}
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                 );
               })
@@ -527,7 +578,6 @@ export function ProductionIngredientSummaryScreen() {
                   >
                     <View style={styles.ingredientInfo}>
                       <Text style={styles.ingredientName}>{item.productName}</Text>
-                      <Text style={styles.ingredientMeta}>ID: {item.productId}</Text>
                       {item.barcode ? (
                         <Text style={styles.ingredientMeta}>
                           Código de barras: {item.barcode}
