@@ -54,7 +54,6 @@ export default function StockListScreen({ navigation }: Props) {
     type: 'increment',
     quantity: '',
     note: '',
-    totalCost: '',
     unitPrice: undefined,
   });
   const [isSubmittingAdjustment, setIsSubmittingAdjustment] = useState(false);
@@ -179,7 +178,6 @@ export default function StockListScreen({ navigation }: Props) {
         type,
         quantity: '',
         note: '',
-        totalCost: '',
         unitPrice: undefined,
       });
     },
@@ -288,8 +286,8 @@ export default function StockListScreen({ navigation }: Props) {
   }, [editMinimumState, update]);
 
   const modalState = useMemo<AdjustStockModalState>(() => {
-    const { visible, type, quantity, note, totalCost, unitPrice } = adjustState;
-    return { visible, type, quantity, note, totalCost, unitPrice };
+    const { visible, type, quantity, note, unitPrice } = adjustState;
+    return { visible, type, quantity, note, unitPrice };
   }, [adjustState]);
 
   const handleModalChange = useCallback((nextState: AdjustStockModalState) => {
@@ -341,25 +339,11 @@ export default function StockListScreen({ navigation }: Props) {
     const shouldCaptureCost =
       adjustState.type === 'increment' || adjustState.type === 'initial';
 
-    // Parse provided total cost and optional unit price (R$ / kg or R$ / L)
-    const rawTotalCost = adjustState.totalCost
-      ? adjustState.totalCost.replace(',', '.')
-      : '';
-    let totalCostValue = rawTotalCost ? Number(rawTotalCost) : NaN;
-
+    // Parse optional unit price (R$ / kg or R$ / L)
     const unitPriceRaw = adjustState.unitPrice
       ? adjustState.unitPrice.replace(',', '.')
       : '';
     const unitPriceValue = unitPriceRaw ? Number(unitPriceRaw) : NaN;
-
-    // If total cost not provided but unit price was, compute totalCost = unitPrice * (qty / 1000)
-    if (
-      (Number.isNaN(totalCostValue) || totalCostValue <= 0) &&
-      !Number.isNaN(unitPriceValue) &&
-      unitPriceValue > 0
-    ) {
-      totalCostValue = unitPriceValue * (quantityValue / 1000);
-    }
 
     if (Number.isNaN(quantityValue) || quantityValue <= 0) {
       Alert.alert(
@@ -370,10 +354,11 @@ export default function StockListScreen({ navigation }: Props) {
     }
 
     if (shouldCaptureCost) {
-      if (Number.isNaN(totalCostValue) || totalCostValue <= 0) {
+      // Require a valid unit price (R$ / kg) for entries
+      if (Number.isNaN(unitPriceValue) || unitPriceValue <= 0) {
         Alert.alert(
           'Valor inválido',
-          'Informe o valor total do lote para registrar uma entrada de estoque.',
+          'Informe o preço unitário (R$ / kg) para registrar uma entrada de estoque.',
         );
         return;
       }
@@ -402,8 +387,7 @@ export default function StockListScreen({ navigation }: Props) {
                 quantityInGrams: quantityValue,
                 type: adjustState.type,
                 performedBy: user.id,
-                totalCostInBRL: shouldCaptureCost ? totalCostValue : undefined,
-                unitPriceProvided: adjustState.unitPrice,
+                unitCostInBRL: shouldCaptureCost ? unitPriceValue : undefined,
               });
 
               await adjust({
@@ -412,7 +396,7 @@ export default function StockListScreen({ navigation }: Props) {
                 type: adjustState.type,
                 note: adjustState.note.trim() || undefined,
                 performedBy: user.id,
-                totalCostInBRL: shouldCaptureCost ? totalCostValue : undefined,
+                unitCostInBRL: shouldCaptureCost ? unitPriceValue : undefined,
               });
               Alert.alert('Ajuste registrado', 'Movimentação adicionada com sucesso.');
               closeAdjustModal();

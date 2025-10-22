@@ -24,7 +24,6 @@ export type AdjustStockModalState = {
   type: StockMovementType;
   quantity: string;
   note: string;
-  totalCost: string;
   unitPrice?: string;
 };
 
@@ -119,19 +118,8 @@ export function AdjustStockModal({
 
             {shouldCaptureCost ? (
               <View style={styles.modalFieldGroup}>
-                <Text style={styles.modalLabel}>Valor total da compra (R$)</Text>
-                <TextInput
-                  value={state.totalCost}
-                  onChangeText={value => onChange({ ...state, totalCost: value })}
-                  placeholder="150,00"
-                  style={styles.modalInput}
-                  keyboardType="numeric"
-                  editable={!disabled}
-                  showSoftInputOnFocus={Platform.OS === 'android' ? true : undefined}
-                />
-
                 <Text style={[styles.modalLabel, styles.modalLabelSpacing]}>
-                  Preço unitário (opcional) (R$ / kg ou R$ / L)
+                  Preço unitário (R$ / kg ou R$ / L)
                 </Text>
                 <TextInput
                   value={state.unitPrice ?? ''}

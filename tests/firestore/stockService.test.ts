@@ -471,7 +471,7 @@ describe('stockService', () => {
         type: 'increment',
         performedBy: 'tester',
       }),
-    ).rejects.toThrow('Informe o valor total da compra para registrar a entrada.');
+    ).rejects.toThrow('Informe o custo unitário (R$ por kg) para registrar a entrada.');
   });
 
   it('logs when notification creation fails', async () => {
