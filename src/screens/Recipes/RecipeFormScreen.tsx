@@ -15,7 +15,10 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
-import { BarcodeScannerField } from '@/components/inputs/BarcodeScannerField';
+// BarcodeScannerField intentionally not used in this modal to keep
+// modal search inputs visually consistent with other pickers.
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProductPickerModal } from '@/components/inputs/ProductPickerModal';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Product, Recipe, RecipeIngredient } from '@/domain';
@@ -24,9 +27,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { unitCostPerGram } from '@/utils/financial';
 import { logError } from '@/utils/logger';
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-
 type IngredientFormValue = {
   type: RecipeIngredient['type'];
   referenceId: string;
@@ -1109,13 +1109,16 @@ function IngredientPickerModal({
             </Pressable>
           </View>
           {type === 'product' ? (
-            <BarcodeScannerField
+            // Use a plain TextInput here (instead of BarcodeScannerField) to
+            // avoid nested bordered boxes inside the modal and keep the input
+            // appearance consistent with other pickers.
+            <TextInput
               value={searchTerm}
               onChangeText={setSearchTerm}
               placeholder={searchPlaceholder}
-              placeholderTextColor="#9CA3AF"
-              containerStyle={styles.modalSearchFieldContainer}
-              inputStyle={styles.modalSearchInput}
+              style={[styles.modalSearchInput, styles.modalSearchInputSpacing]}
+              autoCorrect={false}
+              autoCapitalize="none"
               editable={options.length > 0}
             />
           ) : (

@@ -832,7 +832,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     width: '100%',
     // ensure the filter row is on top of subsequent elements and its children are laid out
-    zIndex: 2,
+    zIndex: 20,
+    elevation: 6, // Android: raise the filter row above list items to avoid overlap
   },
   filterRowCompact: {
     flexDirection: 'column',
