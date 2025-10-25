@@ -1731,7 +1731,7 @@ export function HomeScreen() {
             )}
           </Section>
         )}
-      </ScrollView>
+        </ScrollView>
 
       <Modal
         visible={isRecipeDetailVisible}
@@ -1747,47 +1747,24 @@ export function HomeScreen() {
             <View />
           </View>
 
-          {selectedRecipe ? (
-            <View>
-              <View style={styles.modalCard}>
-                <Text style={styles.modalTitle}>{selectedRecipe.name}</Text>
-                <Text
-                  style={styles.modalDescription}
-                >{`Rendimento: ${formatGrams(selectedRecipe.yieldInGrams)} g`}</Text>
-              </View>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.modalScrollContent}
+          >
+            {selectedRecipe ? (
+              <View>
+                <View style={styles.modalCard}>
+                  <Text style={styles.modalTitle}>{selectedRecipe.name}</Text>
+                  <Text
+                    style={styles.modalDescription}
+                  >{`Rendimento: ${formatGrams(selectedRecipe.yieldInGrams)} g`}</Text>
+                </View>
 
-              <Text style={styles.sectionSubtitle}>Ingredientes</Text>
-              <View style={styles.modalCard}>
-                {selectedRecipe.ingredients.map((ing: RecipeIngredient) => {
-                  if (ing.type === 'product') {
-                    const product = products.find(p => p.id === ing.referenceId);
-                    const cost = computeIngredientCost(ing);
-                    return (
-                      <View
-                        key={`${ing.referenceId}-${ing.quantityInGrams}`}
-                        style={styles.ingredientRow}
-                      >
-                        <View>
-                          <Text style={styles.listItemTitle}>
-                            {product?.name ?? ing.referenceId}
-                          </Text>
-                          <Text style={styles.listItemSubtitle}>
-                            {`${formatGrams(ing.quantityInGrams)} g`}
-                          </Text>
-                        </View>
-                        <View style={styles.ingredientRight}>
-                          <Text style={styles.listItemTitle}>
-                            {currencyFormatter.format(cost)}
-                          </Text>
-                        </View>
-                      </View>
-                    );
-                  }
-
-                  // recipe composition
-                  if (ing.type === 'recipe') {
-                    const sub = recipes.find(r => r.id === ing.referenceId);
-                    if (!sub) {
+                <Text style={styles.sectionSubtitle}>Ingredientes</Text>
+                <View style={styles.modalCard}>
+                  {selectedRecipe.ingredients.map((ing: RecipeIngredient) => {
+                    if (ing.type === 'product') {
+                      const product = products.find(p => p.id === ing.referenceId);
                       const cost = computeIngredientCost(ing);
                       return (
                         <View
@@ -1795,10 +1772,12 @@ export function HomeScreen() {
                           style={styles.ingredientRow}
                         >
                           <View>
-                            <Text style={styles.listItemTitle}>{ing.referenceId}</Text>
-                            <Text
-                              style={styles.listItemSubtitle}
-                            >{`${formatGrams(ing.quantityInGrams)} g`}</Text>
+                            <Text style={styles.listItemTitle}>
+                              {product?.name ?? ing.referenceId}
+                            </Text>
+                            <Text style={styles.listItemSubtitle}>
+                              {`${formatGrams(ing.quantityInGrams)} g`}
+                            </Text>
                           </View>
                           <View style={styles.ingredientRight}>
                             <Text style={styles.listItemTitle}>
@@ -1809,101 +1788,129 @@ export function HomeScreen() {
                       );
                     }
 
-                    const factor =
-                      sub.yieldInGrams > 0 ? ing.quantityInGrams / sub.yieldInGrams : 1;
-
-                    // subtotal for this nested recipe (scaled)
-                    const subTotal = sub.ingredients.reduce((acc, inner) => {
-                      const scaledInner: RecipeIngredient = {
-                        ...inner,
-                        quantityInGrams: inner.quantityInGrams * factor,
-                      };
-                      return acc + computeIngredientCost(scaledInner, new Set<string>());
-                    }, 0);
-
-                    return (
-                      <View
-                        key={`${ing.referenceId}-${ing.quantityInGrams}`}
-                        style={styles.recipeDetailCard}
-                      >
-                        <View style={styles.recipeItemTitleRow}>
-                          <View style={styles.recipeTitleLeft}>
-                            <Text style={styles.recipeName}>{sub.name}</Text>
-                            <Text
-                              style={styles.recipeMeta}
-                            >{`Rendimento base: ${formatGrams(
-                              sub.yieldInGrams,
-                            )} g`}</Text>
-                          </View>
-                          <View style={styles.recipeTitleRight}>
-                            <Text style={styles.recipeRightCost}>
-                              {currencyFormatter.format(subTotal)}
-                            </Text>
-                            <View style={styles.statusBadge}>
+                    // recipe composition
+                    if (ing.type === 'recipe') {
+                      const sub = recipes.find(r => r.id === ing.referenceId);
+                      if (!sub) {
+                        const cost = computeIngredientCost(ing);
+                        return (
+                          <View
+                            key={`${ing.referenceId}-${ing.quantityInGrams}`}
+                            style={styles.ingredientRow}
+                          >
+                            <View>
+                              <Text style={styles.listItemTitle}>{ing.referenceId}</Text>
                               <Text
-                                style={styles.statusBadgeText}
-                              >{`x${factor.toFixed(2)}`}</Text>
+                                style={styles.listItemSubtitle}
+                              >{`${formatGrams(ing.quantityInGrams)} g`}</Text>
+                            </View>
+                            <View style={styles.ingredientRight}>
+                              <Text style={styles.listItemTitle}>
+                                {currencyFormatter.format(cost)}
+                              </Text>
                             </View>
                           </View>
-                        </View>
+                        );
+                      }
 
-                        <Text
-                          style={styles.listItemSubtitle}
-                        >{`Quantidade solicitada: ${formatGrams(
-                          ing.quantityInGrams,
-                        )} g`}</Text>
+                      const factor =
+                        sub.yieldInGrams > 0 ? ing.quantityInGrams / sub.yieldInGrams : 1;
 
-                        <View style={[styles.modalCard, styles.modalCardNested]}>
-                          {sub.ingredients.map(inner => {
-                            const scaled: RecipeIngredient = {
-                              ...inner,
-                              quantityInGrams: inner.quantityInGrams * factor,
-                            };
-                            const innerProd = products.find(
-                              p => p.id === inner.referenceId,
-                            );
-                            const innerCost = computeIngredientCost(scaled);
-                            return (
-                              <View
-                                key={`${inner.referenceId}-${scaled.quantityInGrams}`}
-                                style={styles.ingredientRow}
-                              >
-                                <View>
-                                  <Text style={styles.listItemTitle}>
-                                    {innerProd?.name ?? inner.referenceId}
-                                  </Text>
-                                  <Text style={styles.listItemSubtitle}>
-                                    {`${formatGrams(scaled.quantityInGrams)} g`}
-                                  </Text>
-                                </View>
-                                <View style={styles.ingredientRight}>
-                                  <Text style={styles.listItemTitle}>
-                                    {currencyFormatter.format(innerCost)}
-                                  </Text>
-                                </View>
+                      // subtotal for this nested recipe (scaled)
+                      const subTotal = sub.ingredients.reduce((acc, inner) => {
+                        const scaledInner: RecipeIngredient = {
+                          ...inner,
+                          quantityInGrams: inner.quantityInGrams * factor,
+                        };
+                        return (
+                          acc + computeIngredientCost(scaledInner, new Set<string>())
+                        );
+                      }, 0);
+
+                      return (
+                        <View
+                          key={`${ing.referenceId}-${ing.quantityInGrams}`}
+                          style={styles.recipeDetailCard}
+                        >
+                          <View style={styles.recipeItemTitleRow}>
+                            <View style={styles.recipeTitleLeft}>
+                              <Text style={styles.recipeName}>{sub.name}</Text>
+                              <Text
+                                style={styles.recipeMeta}
+                              >{`Rendimento base: ${formatGrams(
+                                sub.yieldInGrams,
+                              )} g`}</Text>
+                            </View>
+                            <View style={styles.recipeTitleRight}>
+                              <Text style={styles.recipeRightCost}>
+                                {currencyFormatter.format(subTotal)}
+                              </Text>
+                              <View style={styles.statusBadge}>
+                                <Text
+                                  style={styles.statusBadgeText}
+                                >{`x${factor.toFixed(2)}`}</Text>
                               </View>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    );
-                  }
+                            </View>
+                          </View>
 
-                  return null;
-                })}
-              </View>
-              <View style={[styles.modalCard, styles.totalCard]}>
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Custo total estimado</Text>
-                  <Text style={styles.totalValue}>
-                    {currencyFormatter.format(selectedRecipeTotalCost)}
-                  </Text>
+                          <Text
+                            style={styles.listItemSubtitle}
+                          >{`Quantidade solicitada: ${formatGrams(
+                            ing.quantityInGrams,
+                          )} g`}</Text>
+
+                          <View style={[styles.modalCard, styles.modalCardNested]}>
+                            {sub.ingredients.map(inner => {
+                              const scaled: RecipeIngredient = {
+                                ...inner,
+                                quantityInGrams: inner.quantityInGrams * factor,
+                              };
+                              const innerProd = products.find(
+                                p => p.id === inner.referenceId,
+                              );
+                              const innerCost = computeIngredientCost(scaled);
+                              return (
+                                <View
+                                  key={`${inner.referenceId}-${scaled.quantityInGrams}`}
+                                  style={styles.ingredientRow}
+                                >
+                                  <View>
+                                    <Text style={styles.listItemTitle}>
+                                      {innerProd?.name ?? inner.referenceId}
+                                    </Text>
+                                    <Text style={styles.listItemSubtitle}>
+                                      {`${formatGrams(scaled.quantityInGrams)} g`}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.ingredientRight}>
+                                    <Text style={styles.listItemTitle}>
+                                      {currencyFormatter.format(innerCost)}
+                                    </Text>
+                                  </View>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      );
+                    }
+
+                    return null;
+                  })}
+                </View>
+                <View style={[styles.modalCard, styles.totalCard]}>
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLabel}>Custo total estimado</Text>
+                    <Text style={styles.totalValue}>
+                      {currencyFormatter.format(selectedRecipeTotalCost)}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ) : (
-            <Text style={styles.emptyText}>Receita não encontrada.</Text>
-          )}
+            ) : (
+              <Text style={styles.emptyText}>Receita não encontrada.</Text>
+            )}
+          </ScrollView>
         </ScreenContainer>
       </Modal>
 
@@ -2045,6 +2052,9 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   scrollContent: {
+    paddingBottom: 32,
+  },
+  modalScrollContent: {
     paddingBottom: 32,
   },
   headerWrapper: {

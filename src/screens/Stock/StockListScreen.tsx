@@ -795,7 +795,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 28,
   },
   headerRowCompact: {
     flexDirection: 'column',
@@ -830,10 +830,14 @@ const styles = StyleSheet.create({
     gap: 12,
     flexWrap: 'wrap',
     marginBottom: 16,
+    marginTop: 4,
     width: '100%',
-    // ensure the filter row is on top of subsequent elements and its children are laid out
-    zIndex: 20,
-    elevation: 6, // Android: raise the filter row above list items to avoid overlap
+    // keep the row transparent; the actual raised card will be the input itself
+    zIndex: 50,
+    elevation: 0,
+    backgroundColor: 'transparent',
+    position: 'relative',
+    paddingVertical: 0,
   },
   filterRowCompact: {
     flexDirection: 'column',
@@ -859,6 +863,7 @@ const styles = StyleSheet.create({
     color: '#1A1B1E',
     paddingVertical: 6,
   },
+  /* note: removed filterInputCard to avoid double-border/padding around BarcodeScannerField */
   clearFilterButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -911,6 +916,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     // keep a small separation from the row above to avoid accidental overlap on narrow heights
     marginTop: 6,
+    zIndex: 40,
+    elevation: 0,
+    backgroundColor: '#FFFFFF',
   },
   toggleLabel: {
     fontSize: 15,

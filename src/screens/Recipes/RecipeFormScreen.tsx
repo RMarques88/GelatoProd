@@ -17,8 +17,6 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 
 // BarcodeScannerField intentionally not used in this modal to keep
 // modal search inputs visually consistent with other pickers.
-import type { AppStackParamList } from '@/navigation';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProductPickerModal } from '@/components/inputs/ProductPickerModal';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Product, Recipe, RecipeIngredient } from '@/domain';
@@ -27,6 +25,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { unitCostPerGram } from '@/utils/financial';
 import { logError } from '@/utils/logger';
+import type { AppStackParamList } from '@/navigation';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 type IngredientFormValue = {
   type: RecipeIngredient['type'];
   referenceId: string;
