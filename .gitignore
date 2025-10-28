@@ -64,3 +64,6 @@ firebase-service-account.json
 *.swo
 *.json
 /tests/e2e/backup/
+
+# PHP Version docs
+/docs
